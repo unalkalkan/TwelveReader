@@ -42,3 +42,9 @@ Thumbs.db
 config/local.yaml
 config/dev.yaml
 !config/dev.example.yaml
+
+# Web Client
+web-client/node_modules/
+web-client/dist/
+web-client/.vite/
+web-client/*.local
