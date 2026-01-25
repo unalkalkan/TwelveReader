@@ -1,0 +1,80 @@
+# TwelveReader Server Configuration - Development Example
+# Copy this file to dev.yaml and customize as needed
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 15    # seconds
+  write_timeout: 15   # seconds
+
+storage:
+  adapter: "local"    # Options: "local", "s3"
+  
+  local:
+    base_path: "/tmp/twelvereader/storage"
+  
+  # s3:
+  #   endpoint: ""                    # Leave empty for AWS S3, set for MinIO/custom
+  #   region: "us-east-1"
+  #   bucket: "twelvereader"
+  #   access_key_id: ""               # Or set via TR_STORAGE_S3_ACCESS_KEY_ID
+  #   secret_access_key: ""           # Or set via TR_STORAGE_S3_SECRET_ACCESS_KEY
+  #   use_ssl: true
+
+providers:
+  llm:
+    - name: "openai"
+      enabled: true
+      endpoint: "https://api.openai.com/v1"
+      api_key: ""                     # Set via TR_LLM_OPENAI_API_KEY env var
+      model: "gpt-4"
+      context_window: 8192
+      concurrency: 5
+      rate_limit_qps: 10.0
+      options:
+        temperature: "0.7"
+    
+    - name: "local-llm"
+      enabled: false
+      endpoint: "http://localhost:11434/v1"
+      api_key: ""
+      model: "llama2"
+      context_window: 4096
+      concurrency: 2
+      rate_limit_qps: 5.0
+
+  tts:
+    - name: "qwen3"
+      enabled: true
+      endpoint: "https://api.example.com/tts/v1"
+      api_key: ""                     # Set via TR_TTS_QWEN3_API_KEY env var
+      max_segment_size: 500           # characters
+      concurrency: 3
+      rate_limit_qps: 5.0
+      timestamp_precision: "word"
+      options:
+        voice: "default"
+    
+    - name: "openai-tts"
+      enabled: false
+      endpoint: "https://api.openai.com/v1"
+      api_key: ""
+      max_segment_size: 4096
+      concurrency: 5
+      rate_limit_qps: 10.0
+      timestamp_precision: "sentence"
+
+  ocr:
+    - name: "tesseract"
+      enabled: true
+      endpoint: "http://localhost:8081/ocr"
+      api_key: ""
+      concurrency: 2
+      options:
+        language: "eng"
+
+pipeline:
+  worker_pool_size: 4
+  max_retries: 3
+  retry_backoff_ms: 1000
+  temp_dir: "/tmp/twelvereader"
