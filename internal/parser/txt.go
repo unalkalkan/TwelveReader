@@ -13,6 +13,11 @@ import (
 // TXTParser parses plain text files
 type TXTParser struct{}
 
+const (
+	// paragraphBreakEmptyLines is the number of consecutive empty lines needed to break a paragraph
+	paragraphBreakEmptyLines = 1
+)
+
 // NewTXTParser creates a new TXT parser
 func NewTXTParser() *TXTParser {
 	return &TXTParser{}
@@ -66,7 +71,7 @@ func (p *TXTParser) Parse(ctx context.Context, data []byte) ([]*types.Chapter, e
 		// Empty line - potential paragraph break
 		if line == "" {
 			emptyLineCount++
-			if currentParagraph.Len() > 0 && emptyLineCount >= 1 {
+			if currentParagraph.Len() > 0 && emptyLineCount >= paragraphBreakEmptyLines {
 				currentChapter.Paragraphs = append(currentChapter.Paragraphs, currentParagraph.String())
 				currentParagraph.Reset()
 			}

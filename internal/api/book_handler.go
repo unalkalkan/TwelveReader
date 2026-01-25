@@ -111,8 +111,16 @@ func (h *BookHandler) UploadBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Start async processing
-	go h.processBook(bookID, data, format)
+	// Start async processing with proper error handling
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("Panic in book processing for %s: %v", bookID, r)
+				h.updateBookError(context.Background(), bookID, fmt.Sprintf("Processing panic: %v", r))
+			}
+		}()
+		h.processBook(bookID, data, format)
+	}()
 
 	// Return success
 	respondJSON(w, newBook, http.StatusCreated)

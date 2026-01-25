@@ -1,6 +1,7 @@
 package book
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -296,17 +297,10 @@ func (r *StorageRepository) GetRawFile(ctx context.Context, bookID string) ([]by
 		}
 		defer reader.Close()
 
-		// Read all data
-		data := make([]byte, 0)
-		buf := make([]byte, 32*1024)
-		for {
-			n, err := reader.Read(buf)
-			if n > 0 {
-				data = append(data, buf[:n]...)
-			}
-			if err != nil {
-				break
-			}
+		// Use io.ReadAll for efficient reading
+		data, err := io.ReadAll(reader)
+		if err != nil {
+			continue
 		}
 
 		return data, format, nil
@@ -315,24 +309,7 @@ func (r *StorageRepository) GetRawFile(ctx context.Context, bookID string) ([]by
 	return nil, "", fmt.Errorf("raw file not found")
 }
 
-// bytesReader wraps a byte slice in a bytes.Reader for storage adapter
-func bytesReader(data []byte) *bytesReaderWrapper {
-	return &bytesReaderWrapper{data: data, pos: 0}
-}
-
-type bytesReaderWrapper struct {
-	data []byte
-	pos  int
-}
-
-func (b *bytesReaderWrapper) Read(p []byte) (n int, err error) {
-	if b.pos >= len(b.data) {
-		return 0, io.EOF
-	}
-	n = copy(p, b.data[b.pos:])
-	b.pos += n
-	if b.pos >= len(b.data) {
-		return n, io.EOF
-	}
-	return n, nil
+// bytesReader wraps a byte slice using standard library bytes.Reader
+func bytesReader(data []byte) io.Reader {
+	return bytes.NewReader(data)
 }
