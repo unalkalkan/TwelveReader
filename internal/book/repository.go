@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"path/filepath"
 
 	"github.com/unalkalkan/TwelveReader/internal/storage"
@@ -326,9 +327,12 @@ type bytesReaderWrapper struct {
 
 func (b *bytesReaderWrapper) Read(p []byte) (n int, err error) {
 	if b.pos >= len(b.data) {
-		return 0, fmt.Errorf("EOF")
+		return 0, io.EOF
 	}
 	n = copy(p, b.data[b.pos:])
 	b.pos += n
+	if b.pos >= len(b.data) {
+		return n, io.EOF
+	}
 	return n, nil
 }
