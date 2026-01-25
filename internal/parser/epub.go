@@ -20,7 +20,7 @@ func NewEPUBParser() *EPUBParser {
 func (p *EPUBParser) Parse(ctx context.Context, data []byte) ([]*types.Chapter, error) {
 	// For now, return a stub chapter indicating ePUB parsing is not yet fully implemented
 	// In a real implementation, we would use a library like go-epub or bmaupin/go-epub
-	
+
 	chapter := &types.Chapter{
 		ID:      "chapter_001",
 		Number:  1,
@@ -32,7 +32,7 @@ func (p *EPUBParser) Parse(ctx context.Context, data []byte) ([]*types.Chapter, 
 			fmt.Sprintf("ePUB file size: %d bytes", len(data)),
 		},
 	}
-	
+
 	return []*types.Chapter{chapter}, nil
 }
 

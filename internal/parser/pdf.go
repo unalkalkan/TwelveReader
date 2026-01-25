@@ -20,7 +20,7 @@ func NewPDFParser() *PDFParser {
 func (p *PDFParser) Parse(ctx context.Context, data []byte) ([]*types.Chapter, error) {
 	// For now, return a stub chapter indicating PDF parsing is not yet fully implemented
 	// In a real implementation, we would use a library like pdfcpu or ledongthuc/pdf
-	
+
 	chapter := &types.Chapter{
 		ID:      "chapter_001",
 		Number:  1,
@@ -32,7 +32,7 @@ func (p *PDFParser) Parse(ctx context.Context, data []byte) ([]*types.Chapter, e
 			fmt.Sprintf("PDF file size: %d bytes", len(data)),
 		},
 	}
-	
+
 	return []*types.Chapter{chapter}, nil
 }
 

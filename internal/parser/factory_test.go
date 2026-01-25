@@ -40,11 +40,11 @@ func TestFactory(t *testing.T) {
 	t.Run("Case insensitive", func(t *testing.T) {
 		parser1, err1 := factory.GetParser("TXT")
 		parser2, err2 := factory.GetParser("txt")
-		
+
 		if err1 != nil || err2 != nil {
 			t.Fatal("Factory should be case insensitive")
 		}
-		
+
 		if parser1 == nil || parser2 == nil {
 			t.Fatal("Got nil parser")
 		}

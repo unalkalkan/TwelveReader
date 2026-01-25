@@ -11,16 +11,16 @@ import (
 
 // Service handles text segmentation using LLM providers
 type Service struct {
-	llmProvider     provider.LLMProvider
-	contextWindow   int // Number of surrounding paragraphs to include
+	llmProvider      provider.LLMProvider
+	contextWindow    int // Number of surrounding paragraphs to include
 	segmenterVersion string
 }
 
 // NewService creates a new segmentation service
 func NewService(llmProvider provider.LLMProvider, contextWindow int) *Service {
 	return &Service{
-		llmProvider:     llmProvider,
-		contextWindow:   contextWindow,
+		llmProvider:      llmProvider,
+		contextWindow:    contextWindow,
 		segmenterVersion: "v1",
 	}
 }
@@ -29,7 +29,7 @@ func NewService(llmProvider provider.LLMProvider, contextWindow int) *Service {
 func (s *Service) SegmentChapters(ctx context.Context, bookID string, chapters []*types.Chapter) ([]*types.Segment, error) {
 	segments := make([]*types.Segment, 0)
 	segmentCounter := 0
-	
+
 	for _, chapter := range chapters {
 		chapterSegments, err := s.segmentChapter(ctx, bookID, chapter, &segmentCounter)
 		if err != nil {
@@ -37,19 +37,19 @@ func (s *Service) SegmentChapters(ctx context.Context, bookID string, chapters [
 		}
 		segments = append(segments, chapterSegments...)
 	}
-	
+
 	return segments, nil
 }
 
 // segmentChapter processes a single chapter
 func (s *Service) segmentChapter(ctx context.Context, bookID string, chapter *types.Chapter, counter *int) ([]*types.Segment, error) {
 	segments := make([]*types.Segment, 0)
-	
+
 	for i, paragraph := range chapter.Paragraphs {
 		// Build context
 		contextBefore := s.getContext(chapter.Paragraphs, i, -1)
 		contextAfter := s.getContext(chapter.Paragraphs, i, 1)
-		
+
 		// Call LLM for segmentation
 		req := provider.SegmentRequest{
 			Text:          paragraph,
@@ -57,7 +57,7 @@ func (s *Service) segmentChapter(ctx context.Context, bookID string, chapter *ty
 			ContextAfter:  contextAfter,
 			Language:      "", // Let LLM detect
 		}
-		
+
 		resp, err := s.llmProvider.Segment(ctx, req)
 		if err != nil {
 			// If LLM fails, create a fallback segment with the full paragraph
@@ -66,7 +66,7 @@ func (s *Service) segmentChapter(ctx context.Context, bookID string, chapter *ty
 			segments = append(segments, segment)
 			continue
 		}
-		
+
 		// Process LLM response segments
 		for _, llmSeg := range resp.Segments {
 			*counter++
@@ -91,7 +91,7 @@ func (s *Service) segmentChapter(ctx context.Context, bookID string, chapter *ty
 			segments = append(segments, segment)
 		}
 	}
-	
+
 	return segments, nil
 }
 
@@ -120,7 +120,7 @@ func (s *Service) createFallbackSegment(bookID string, chapter *types.Chapter, t
 // getContext retrieves context paragraphs around the current index
 func (s *Service) getContext(paragraphs []string, currentIndex, direction int) []string {
 	context := make([]string, 0, s.contextWindow)
-	
+
 	if direction < 0 {
 		// Get previous paragraphs
 		start := currentIndex - s.contextWindow
@@ -140,7 +140,7 @@ func (s *Service) getContext(paragraphs []string, currentIndex, direction int) [
 			context = append(context, paragraphs[i])
 		}
 	}
-	
+
 	return context
 }
 
@@ -156,13 +156,13 @@ func (s *Service) getParagraphID(chapterID string, paragraphIndex int) string {
 func DiscoverPersonas(segments []*types.Segment) []string {
 	personaMap := make(map[string]bool)
 	personas := make([]string, 0)
-	
+
 	for _, segment := range segments {
 		if segment.Person != "" && !personaMap[segment.Person] {
 			personaMap[segment.Person] = true
 			personas = append(personas, segment.Person)
 		}
 	}
-	
+
 	return personas
 }

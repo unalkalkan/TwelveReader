@@ -15,12 +15,12 @@ func NewFactory() Factory {
 	f := &DefaultFactory{
 		parsers: make(map[string]Parser),
 	}
-	
+
 	// Register default parsers
 	f.registerParser(NewTXTParser())
 	f.registerParser(NewPDFParser())
 	f.registerParser(NewEPUBParser())
-	
+
 	return f
 }
 

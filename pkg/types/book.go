@@ -4,16 +4,16 @@ import "time"
 
 // Book represents a book being processed
 type Book struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	Author      string    `json:"author"`
-	Language    string    `json:"language"` // ISO-639-1 code
-	UploadedAt  time.Time `json:"uploaded_at"`
-	Status      string    `json:"status"` // "uploaded", "parsing", "segmenting", "voice_mapping", "ready", "error"
-	OrigFormat  string    `json:"orig_format"` // "pdf", "epub", "txt"
-	Error       string    `json:"error,omitempty"`
-	TotalChapters int     `json:"total_chapters"`
-	TotalSegments int     `json:"total_segments"`
+	ID            string    `json:"id"`
+	Title         string    `json:"title"`
+	Author        string    `json:"author"`
+	Language      string    `json:"language"` // ISO-639-1 code
+	UploadedAt    time.Time `json:"uploaded_at"`
+	Status        string    `json:"status"`      // "uploaded", "parsing", "segmenting", "voice_mapping", "ready", "error"
+	OrigFormat    string    `json:"orig_format"` // "pdf", "epub", "txt"
+	Error         string    `json:"error,omitempty"`
+	TotalChapters int       `json:"total_chapters"`
+	TotalSegments int       `json:"total_segments"`
 }
 
 // Chapter represents a chapter in a book
@@ -70,7 +70,7 @@ type ProcessingInfo struct {
 
 // VoiceMap represents persona-to-voice assignments
 type VoiceMap struct {
-	BookID  string       `json:"book_id"`
+	BookID  string        `json:"book_id"`
 	Persons []PersonVoice `json:"persons"`
 }
 
@@ -84,8 +84,8 @@ type PersonVoice struct {
 type ProcessingStatus struct {
 	BookID         string    `json:"book_id"`
 	Status         string    `json:"status"`
-	Stage          string    `json:"stage"`           // Current processing stage
-	Progress       float64   `json:"progress"`        // 0-100
+	Stage          string    `json:"stage"`    // Current processing stage
+	Progress       float64   `json:"progress"` // 0-100
 	TotalChapters  int       `json:"total_chapters"`
 	ParsedChapters int       `json:"parsed_chapters"`
 	TotalSegments  int       `json:"total_segments"`
