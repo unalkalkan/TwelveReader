@@ -1,7 +1,7 @@
 # TwelveReader Server API Documentation
 
 ## Version
-Current Version: `0.1.0-milestone3`
+Current Version: `0.1.0-milestone4`
 
 ## Base URL
 Default: `http://localhost:8080`
@@ -346,9 +346,89 @@ Get voice mapping for a book.
 
 ---
 
-## Future Endpoints (Milestone 4+)
+## TTS and Packaging Endpoints (Milestone 4)
+
+### GET /api/v1/books/:id/stream
+Stream book segments as NDJSON (newline-delimited JSON) for progressive playback.
+
+**Query Parameters:**
+- `after` (optional): Resume from segment ID - only return segments after this ID
+
+**Response:**
+NDJSON stream where each line is a segment with audio URL:
+```json
+{"id":"seg_00001","book_id":"book_123","text":"First segment.","language":"en","person":"narrator","voice_description":"neutral","timestamps":{"precision":"word","items":[{"word":"First","start":0.0,"end":0.3}]},"audio_url":"/api/v1/books/book_123/audio/seg_00001"}
+{"id":"seg_00002","book_id":"book_123","text":"Second segment.","language":"en","person":"narrator","voice_description":"neutral","timestamps":{"precision":"word","items":[{"word":"Second","start":0.0,"end":0.4}]},"audio_url":"/api/v1/books/book_123/audio/seg_00002"}
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `404 Not Found` - Book not found
+- `500 Internal Server Error` - Server error
+
+---
+
+### GET /api/v1/books/:id/download
+Download a packaged book as a ZIP archive containing audio files and metadata.
+
+The ZIP contains:
+- `manifest.json` - Book metadata and total duration
+- `toc.json` - Table of contents with chapter/segment mapping
+- `voice-map.json` - Voice persona to provider voice mapping
+- `segments/XXX/` - Sharded directories containing audio files and segment metadata
+
+**Response:**
+Binary ZIP file
+
+**Status Codes:**
+- `200 OK` - Success (ZIP download)
+- `404 Not Found` - Book not found
+- `500 Internal Server Error` - Book not synthesized or packaging failed
+
+**Example:**
+```bash
+curl -O http://localhost:8080/api/v1/books/book_123/download
+```
+
+---
+
+### GET /api/v1/books/:id/audio/:segmentId
+Stream audio for a specific segment.
+
+**Response:**
+Binary audio file (format: wav, mp3, ogg, or flac)
+
+**Status Codes:**
+- `200 OK` - Success (audio stream)
+- `404 Not Found` - Audio file not found
+- `500 Internal Server Error` - Server error
+
+**Example:**
+```bash
+curl http://localhost:8080/api/v1/books/book_123/audio/seg_00001 -o segment.wav
+```
+
+---
+
+## Status Values
+
+The book processing pipeline includes these status values:
+
+- `uploaded` - Book uploaded, waiting for processing
+- `parsing` - Extracting text from book
+- `segmenting` - Running LLM segmentation
+- `voice_mapping` - Waiting for voice assignments
+- `ready` - Book is ready for TTS synthesis
+- `synthesizing` - TTS synthesis in progress (Milestone 4)
+- `synthesized` - TTS synthesis completed, book ready for download (Milestone 4)
+- `synthesis_error` - TTS synthesis failed (Milestone 4)
+- `error` - Processing failed
+
+---
+
+## Future Endpoints (Milestone 5+)
 
 The following endpoints are planned for future milestones:
 
-- `GET /api/v1/books/:id/download` - Download packaged book (ZIP)
-- `GET /api/v1/books/:id/stream` - Stream segments (NDJSON)
+- Android client synchronization endpoints
+- Re-voicing workflow endpoints
