@@ -426,9 +426,9 @@ The book processing pipeline includes these status values:
 
 ---
 
-## Future Endpoints (Milestone 5+)
+## Future Endpoints (Milestone 6+)
 
 The following endpoints are planned for future milestones:
 
-- Android client synchronization endpoints
+- Native client (Android) synchronization endpoints
 - Re-voicing workflow endpoints

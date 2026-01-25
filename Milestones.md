@@ -6,6 +6,7 @@
 | 2 | Server Skeleton | Scaffold Golang service with config loading, health checks, provider registry stubs, and storage adapters (local + S3). | Go module, config files, basic REST endpoints, storage abstraction tests. | Completed |
 | 3 | Segmentation Pipeline | Implement ingestion, PDF/ePUB/TXT parsing hooks, LLM segmentation worker, and voice mapping API. | Parsers, queue orchestration, persona discovery endpoints, persisted metadata. | Completed |
 | 4 | TTS + Packaging | Add TTS orchestrator, timestamp ingestion, streaming feed, and ZIP packaging service with voice-map enforcement. | Provider clients, concurrency controls, NDJSON stream, ZIP builder. | Completed |
-| 5 | Android Client MVP | Kotlin app capable of downloading/streaming books, highlighting text via timestamps, and caching offline archives. | Playback UI, sync engine, cache manager, settings for storage/offline mode. | Planned |
+| 5 | Web Client MVP | React + TypeScript web application with Tamagui UI, TanStack Query, and Zod for testing all server functionalities before native client implementation. | Book upload interface, playback UI with text highlighting, streaming/download support, voice mapping interface. Future-ready for Electron/Tauri (desktop) and React Native/Expo (mobile). | Planned |
+| 6 | Android Client MVP | Kotlin app capable of downloading/streaming books, highlighting text via timestamps, and caching offline archives. | Playback UI, sync engine, cache manager, settings for storage/offline mode. | Planned |
 
 Each new agent run should pick the next "Planned" milestone, implement it end-to-end, then update this table to reflect completion status before moving on.
