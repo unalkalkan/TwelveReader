@@ -22,7 +22,7 @@ import (
 	"github.com/unalkalkan/TwelveReader/pkg/types"
 )
 
-const version = "0.1.0-milestone3"
+const version = "0.1.0-milestone4"
 
 func main() {
 	// Parse command-line flags
@@ -101,7 +101,7 @@ func main() {
 	mux.HandleFunc("/api/v1/providers", providersHandler(providerRegistry))
 
 	// Book API endpoints (Milestone 3)
-	bookHandler := api.NewBookHandler(bookRepo, parserFactory, providerRegistry)
+	bookHandler := api.NewBookHandler(bookRepo, parserFactory, providerRegistry, storageAdapter)
 	mux.HandleFunc("/api/v1/books", bookHandler.UploadBook)
 	mux.HandleFunc("/api/v1/books/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -115,6 +115,12 @@ func main() {
 			} else {
 				bookHandler.GetVoiceMap(w, r)
 			}
+		} else if strings.HasSuffix(path, "/stream") {
+			bookHandler.StreamSegments(w, r)
+		} else if strings.HasSuffix(path, "/download") {
+			bookHandler.DownloadBook(w, r)
+		} else if strings.Contains(path, "/audio/") {
+			bookHandler.GetAudio(w, r)
 		} else {
 			bookHandler.GetBook(w, r)
 		}

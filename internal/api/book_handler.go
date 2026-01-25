@@ -12,25 +12,38 @@ import (
 	"time"
 
 	"github.com/unalkalkan/TwelveReader/internal/book"
+	"github.com/unalkalkan/TwelveReader/internal/packaging"
 	"github.com/unalkalkan/TwelveReader/internal/parser"
 	"github.com/unalkalkan/TwelveReader/internal/provider"
 	"github.com/unalkalkan/TwelveReader/internal/segmentation"
+	"github.com/unalkalkan/TwelveReader/internal/storage"
+	"github.com/unalkalkan/TwelveReader/internal/streaming"
+	"github.com/unalkalkan/TwelveReader/internal/tts"
+	"github.com/unalkalkan/TwelveReader/internal/util"
 	"github.com/unalkalkan/TwelveReader/pkg/types"
 )
 
 // BookHandler handles book-related API endpoints
 type BookHandler struct {
-	repo          book.Repository
-	parserFactory parser.Factory
-	providerReg   *provider.Registry
+	repo            book.Repository
+	parserFactory   parser.Factory
+	providerReg     *provider.Registry
+	ttsOrchestrator *tts.Orchestrator
+	packagingService *packaging.Service
+	streamingService *streaming.Service
+	storage         storage.Adapter
 }
 
 // NewBookHandler creates a new book handler
-func NewBookHandler(repo book.Repository, parserFactory parser.Factory, providerReg *provider.Registry) *BookHandler {
+func NewBookHandler(repo book.Repository, parserFactory parser.Factory, providerReg *provider.Registry, storage storage.Adapter) *BookHandler {
 	return &BookHandler{
-		repo:          repo,
-		parserFactory: parserFactory,
-		providerReg:   providerReg,
+		repo:            repo,
+		parserFactory:   parserFactory,
+		providerReg:     providerReg,
+		ttsOrchestrator: tts.NewOrchestrator(providerReg, repo, storage, 3),
+		packagingService: packaging.NewService(repo, storage),
+		streamingService: streaming.NewService(repo),
+		storage:         storage,
 	}
 }
 
@@ -342,11 +355,35 @@ func (h *BookHandler) SetVoiceMap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update book status to ready
+	// Update book status to ready and trigger TTS synthesis
 	book, err := h.repo.GetBook(r.Context(), bookID)
 	if err == nil && book != nil {
 		book.Status = "ready"
 		h.repo.UpdateBook(r.Context(), book)
+		
+		// Start TTS synthesis asynchronously with background context
+		// Note: Using background context because TTS synthesis should complete
+		// even if the HTTP request is cancelled
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("Panic in TTS synthesis for %s: %v", bookID, r)
+				}
+			}()
+			
+			// Create a new context for TTS synthesis to avoid cancellation
+			ctx := context.Background()
+			
+			// Get first available TTS provider
+			ttsProviders := h.providerReg.ListTTS()
+			if len(ttsProviders) > 0 {
+				if err := h.ttsOrchestrator.SynthesizeBook(ctx, bookID, ttsProviders[0]); err != nil {
+					log.Printf("TTS synthesis failed for book %s: %v", bookID, err)
+				}
+			} else {
+				log.Printf("No TTS providers available for book %s", bookID)
+			}
+		}()
 	}
 
 	respondJSON(w, voiceMap, http.StatusOK)
@@ -374,6 +411,155 @@ func (h *BookHandler) GetVoiceMap(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, voiceMap, http.StatusOK)
+}
+
+// StreamSegments handles GET /api/v1/books/:id/stream
+func (h *BookHandler) StreamSegments(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract book ID from path
+	bookID := extractIDFromPath(r.URL.Path, "/api/v1/books/")
+	if bookID == "" {
+		respondError(w, "Book ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Get optional "after" parameter for resumption
+	afterSegmentID := r.URL.Query().Get("after")
+
+	// Get stream items
+	items, err := h.streamingService.StreamSegments(r.Context(), bookID, afterSegmentID)
+	if err != nil {
+		respondError(w, "Failed to stream segments", http.StatusInternalServerError)
+		return
+	}
+
+	// Encode as NDJSON
+	ndjson, err := streaming.EncodeNDJSON(items)
+	if err != nil {
+		respondError(w, "Failed to encode stream", http.StatusInternalServerError)
+		return
+	}
+
+	// Return NDJSON response
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(ndjson))
+}
+
+// DownloadBook handles GET /api/v1/books/:id/download
+func (h *BookHandler) DownloadBook(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract book ID from path
+	bookID := extractIDFromPath(r.URL.Path, "/api/v1/books/")
+	if bookID == "" {
+		respondError(w, "Book ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Get book metadata
+	book, err := h.repo.GetBook(r.Context(), bookID)
+	if err != nil {
+		respondError(w, "Book not found", http.StatusNotFound)
+		return
+	}
+
+	// Package the book
+	zipReader, err := h.packagingService.PackageBook(r.Context(), bookID)
+	if err != nil {
+		respondError(w, fmt.Sprintf("Failed to package book: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Set headers for ZIP download
+	filename := fmt.Sprintf("book-%s.zip", bookID)
+	if book.Title != "" {
+		// Sanitize title for filename
+		safeTitle := strings.ReplaceAll(book.Title, " ", "_")
+		safeTitle = strings.Map(func(r rune) rune {
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+				return r
+			}
+			return -1
+		}, safeTitle)
+		if safeTitle != "" {
+			filename = fmt.Sprintf("%s.zip", safeTitle)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	w.WriteHeader(http.StatusOK)
+
+	// Copy ZIP data to response
+	io.Copy(w, zipReader)
+}
+
+// GetAudio handles GET /api/v1/books/:id/audio/:segmentId
+func (h *BookHandler) GetAudio(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract book ID from path
+	bookID := extractIDFromPath(r.URL.Path, "/api/v1/books/")
+	if bookID == "" {
+		respondError(w, "Book ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Extract segment ID (after /audio/)
+	parts := strings.Split(r.URL.Path, "/audio/")
+	if len(parts) < 2 {
+		respondError(w, "Segment ID required", http.StatusBadRequest)
+		return
+	}
+	segmentID := parts[1]
+
+	// Try different audio formats
+	var audioReader io.ReadCloser
+	var err error
+	var format string
+
+	for _, audioFormat := range util.AudioFormats() {
+		audioPath := util.GetAudioPath(bookID, segmentID, audioFormat)
+		audioReader, err = h.storage.Get(r.Context(), audioPath)
+		if err == nil {
+			format = audioFormat
+			break
+		}
+	}
+
+	if err != nil {
+		respondError(w, "Audio file not found", http.StatusNotFound)
+		return
+	}
+	defer audioReader.Close()
+
+	// Set content type based on format
+	contentType := "audio/wav"
+	switch format {
+	case "mp3":
+		contentType = "audio/mpeg"
+	case "ogg":
+		contentType = "audio/ogg"
+	case "flac":
+		contentType = "audio/flac"
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.WriteHeader(http.StatusOK)
+
+	// Stream audio data
+	io.Copy(w, audioReader)
 }
 
 // Helper functions
