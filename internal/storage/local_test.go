@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"testing"
 )
@@ -110,11 +111,9 @@ func TestLocalAdapterConcurrency(t *testing.T) {
 	done := make(chan bool)
 	for i := 0; i < 10; i++ {
 		go func(idx int) {
-			path := bytes.NewBufferString("test/file")
-			path.WriteString(string(rune('0' + idx)))
-			path.WriteString(".txt")
+			path := fmt.Sprintf("test/file%d.txt", idx)
 			data := []byte("test data")
-			err := adapter.Put(ctx, path.String(), bytes.NewReader(data))
+			err := adapter.Put(ctx, path, bytes.NewReader(data))
 			if err != nil {
 				t.Errorf("Failed to put data: %v", err)
 			}

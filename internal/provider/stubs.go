@@ -64,8 +64,12 @@ func (s *StubTTSProvider) Name() string {
 func (s *StubTTSProvider) Synthesize(ctx context.Context, req TTSRequest) (*TTSResponse, error) {
 	// Stub implementation - returns empty audio data
 	// In a real implementation, this would call the TTS API
+	textPreview := req.Text
+	if len(textPreview) > 10 {
+		textPreview = textPreview[:10]
+	}
 	return &TTSResponse{
-		AudioData: []byte(fmt.Sprintf("STUB_AUDIO_%s", req.Text[:min(10, len(req.Text))])),
+		AudioData: []byte(fmt.Sprintf("STUB_AUDIO_%s", textPreview)),
 		Format:    "wav",
 		Timestamps: []WordTimestamp{
 			{Word: "stub", Start: 0.0, End: 0.5},
@@ -105,11 +109,4 @@ func (s *StubOCRProvider) ExtractText(ctx context.Context, req OCRRequest) (*OCR
 
 func (s *StubOCRProvider) Close() error {
 	return nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

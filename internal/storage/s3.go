@@ -3,14 +3,15 @@ package storage
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 // S3Adapter implements the Adapter interface for S3-compatible storage
@@ -133,8 +134,9 @@ func (s *S3Adapter) Exists(ctx context.Context, path string) (bool, error) {
 	})
 
 	if err != nil {
-		// Check if it's a not found error
-		if strings.Contains(err.Error(), "NotFound") || strings.Contains(err.Error(), "404") {
+		// Use AWS error type checking
+		var notFound *types.NotFound
+		if errors.As(err, &notFound) {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to check existence: %w", err)
