@@ -1,7 +1,7 @@
 # TwelveReader Server API Documentation
 
 ## Version
-Current Version: `0.1.0-milestone2`
+Current Version: `0.1.0-milestone3`
 
 ## Base URL
 Default: `http://localhost:8080`
@@ -176,14 +176,179 @@ Common HTTP status codes:
 
 ---
 
-## Future Endpoints (Milestone 3+)
+## Book Management Endpoints (Milestone 3)
+
+### POST /api/v1/books
+Upload a book for processing. Supports TXT, PDF (stub), and ePUB (stub) formats.
+
+**Request:**
+- Content-Type: `multipart/form-data`
+- Form fields:
+  - `file` (required): Book file
+  - `title` (optional): Book title
+  - `author` (optional): Book author
+  - `language` (optional): ISO-639-1 language code (default: "en")
+
+**Response:**
+```json
+{
+  "id": "book_1234567890",
+  "title": "Sample Book",
+  "author": "John Doe",
+  "language": "en",
+  "uploaded_at": "2026-01-25T10:00:00Z",
+  "status": "uploaded",
+  "orig_format": "txt",
+  "total_chapters": 0,
+  "total_segments": 0
+}
+```
+
+**Status Codes:**
+- `201 Created` - Book uploaded successfully
+- `400 Bad Request` - Invalid request or unsupported format
+- `500 Internal Server Error` - Server error
+
+---
+
+### GET /api/v1/books/:id
+Get book metadata by ID.
+
+**Response:**
+```json
+{
+  "id": "book_1234567890",
+  "title": "Sample Book",
+  "author": "John Doe",
+  "language": "en",
+  "uploaded_at": "2026-01-25T10:00:00Z",
+  "status": "ready",
+  "orig_format": "txt",
+  "total_chapters": 5,
+  "total_segments": 120
+}
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `404 Not Found` - Book not found
+
+---
+
+### GET /api/v1/books/:id/status
+Get processing status for a book.
+
+**Response:**
+```json
+{
+  "book_id": "book_1234567890",
+  "status": "segmenting",
+  "stage": "segmenting",
+  "progress": 60.0,
+  "total_chapters": 5,
+  "parsed_chapters": 5,
+  "total_segments": 45,
+  "updated_at": "2026-01-25T10:05:00Z"
+}
+```
+
+**Status Values:**
+- `uploaded` - Book uploaded, waiting for processing
+- `parsing` - Extracting text from book
+- `segmenting` - Running LLM segmentation
+- `voice_mapping` - Waiting for voice assignments
+- `ready` - Book is ready for TTS synthesis
+- `error` - Processing failed
+
+**Status Codes:**
+- `200 OK` - Success
+- `404 Not Found` - Book not found
+
+---
+
+### GET /api/v1/books/:id/segments
+List all segments for a book.
+
+**Response:**
+```json
+[
+  {
+    "id": "seg_00001",
+    "book_id": "book_1234567890",
+    "chapter": "chapter_001",
+    "toc_path": ["Chapter 1"],
+    "text": "Sample segment text.",
+    "language": "en",
+    "person": "narrator",
+    "voice_description": "neutral",
+    "processing": {
+      "segmenter_version": "v1",
+      "generated_at": "2026-01-25T10:03:00Z"
+    }
+  }
+]
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `404 Not Found` - Book not found
+
+---
+
+### POST /api/v1/books/:id/voice-map
+Set voice mapping for discovered personas.
+
+**Request:**
+```json
+{
+  "persons": [
+    {"id": "narrator", "provider_voice": "voice_1"},
+    {"id": "alice", "provider_voice": "voice_2"}
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "book_id": "book_1234567890",
+  "persons": [
+    {"id": "narrator", "provider_voice": "voice_1"},
+    {"id": "alice", "provider_voice": "voice_2"}
+  ]
+}
+```
+
+**Status Codes:**
+- `200 OK` - Voice map saved successfully
+- `400 Bad Request` - Invalid request
+- `404 Not Found` - Book not found
+
+---
+
+### GET /api/v1/books/:id/voice-map
+Get voice mapping for a book.
+
+**Response:**
+```json
+{
+  "book_id": "book_1234567890",
+  "persons": [
+    {"id": "narrator", "provider_voice": "voice_1"},
+    {"id": "alice", "provider_voice": "voice_2"}
+  ]
+}
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `404 Not Found` - Voice map not found
+
+---
+
+## Future Endpoints (Milestone 4+)
 
 The following endpoints are planned for future milestones:
 
-- `POST /api/v1/books` - Upload a book for processing
-- `GET /api/v1/books/:id` - Get book metadata
-- `GET /api/v1/books/:id/status` - Get processing status
-- `GET /api/v1/books/:id/segments` - List segments
-- `POST /api/v1/books/:id/voice-map` - Set voice mapping
-- `GET /api/v1/books/:id/download` - Download packaged book
+- `GET /api/v1/books/:id/download` - Download packaged book (ZIP)
 - `GET /api/v1/books/:id/stream` - Stream segments (NDJSON)

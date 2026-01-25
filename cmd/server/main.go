@@ -8,17 +8,21 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/unalkalkan/TwelveReader/internal/api"
+	"github.com/unalkalkan/TwelveReader/internal/book"
 	"github.com/unalkalkan/TwelveReader/internal/config"
 	"github.com/unalkalkan/TwelveReader/internal/health"
+	"github.com/unalkalkan/TwelveReader/internal/parser"
 	"github.com/unalkalkan/TwelveReader/internal/provider"
 	"github.com/unalkalkan/TwelveReader/internal/storage"
 	"github.com/unalkalkan/TwelveReader/pkg/types"
 )
 
-const version = "0.1.0-milestone2"
+const version = "0.1.0-milestone3"
 
 func main() {
 	// Parse command-line flags
@@ -54,6 +58,14 @@ func main() {
 	log.Printf("  TTS: %v", providerRegistry.ListTTS())
 	log.Printf("  OCR: %v", providerRegistry.ListOCR())
 
+	// Initialize book repository
+	bookRepo := book.NewRepository(storageAdapter)
+	log.Printf("Book repository initialized")
+
+	// Initialize parser factory
+	parserFactory := parser.NewFactory()
+	log.Printf("Parser factory initialized")
+
 	// Initialize health checks
 	healthHandler := health.NewHandler(version)
 
@@ -87,6 +99,26 @@ func main() {
 	// API endpoints (stubs for now)
 	mux.HandleFunc("/api/v1/info", infoHandler(version, cfg))
 	mux.HandleFunc("/api/v1/providers", providersHandler(providerRegistry))
+
+	// Book API endpoints (Milestone 3)
+	bookHandler := api.NewBookHandler(bookRepo, parserFactory, providerRegistry)
+	mux.HandleFunc("/api/v1/books", bookHandler.UploadBook)
+	mux.HandleFunc("/api/v1/books/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if strings.HasSuffix(path, "/status") {
+			bookHandler.GetBookStatus(w, r)
+		} else if strings.HasSuffix(path, "/segments") {
+			bookHandler.ListSegments(w, r)
+		} else if strings.HasSuffix(path, "/voice-map") {
+			if r.Method == http.MethodPost {
+				bookHandler.SetVoiceMap(w, r)
+			} else {
+				bookHandler.GetVoiceMap(w, r)
+			}
+		} else {
+			bookHandler.GetBook(w, r)
+		}
+	})
 
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
