@@ -11,7 +11,7 @@ Twelve Reader ingests arbitrary books, asks an LLM to enrich the text with speak
 - **TTS Orchestrator**: Streams requests to configured providers (Qwen3-TTS first) with respect to each provider's `max_segment_size`, concurrency, and rate limits.
 - **Storage Adapters**: Local filesystem by default, S3-compatible implementation ready. Responsible for audio binaries and JSON sidecars.
 - **Packaging Service**: Builds offline-ready ZIP bundles with deterministic folder layout for audio, metadata, and table-of-contents data.
-- **Client Delivery API**: Serves streaming endpoints (segment feeds) and download endpoints (ZIP bundles, metadata manifests).
+- **Client Delivery API**: Serves streaming endpoints (segment feeds) and download endpoints (ZIP bundles, metadata manifests). Initially consumed by the Web client (React + TypeScript), with native clients following in later milestones.
 
 ## Processing Pipeline
 ```

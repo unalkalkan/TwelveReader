@@ -214,13 +214,16 @@ When adding new features:
 
 See LICENSE file in repository root.
 
-## Next Steps (Milestone 3)
+## Next Steps (Milestone 5)
 
 The next milestone will implement:
 
-- Book ingestion endpoints
-- PDF/ePUB/TXT parsers
-- LLM segmentation pipeline
-- Voice mapping API
+- Web Client MVP (React + TypeScript)
+- Tamagui UI components
+- TanStack Query for API integration
+- Zod for schema validation
+- Book upload and management interface
+- Playback UI with text highlighting
+- Voice mapping interface
 
 See `Milestones.md` for the complete roadmap.

@@ -1,7 +1,7 @@
 # Twelve Reader
 
 ## Product Overview
-Twelve Reader is a split application: a Golang server orchestrates book ingestion, LLM-driven segmentation, voice assignment, and TTS synthesis, while an Android (Kotlin) client streams or downloads synchronized audio-text experiences. Both sides are designed to swap LLM/TTS/storage providers via configuration so first-party hardware and hosted services can coexist.
+Twelve Reader is a split application: a Golang server orchestrates book ingestion, LLM-driven segmentation, voice assignment, and TTS synthesis, while a Web client (React + TypeScript) provides the interface for testing and using all server functionalities. The Web client streams or downloads synchronized audio-text experiences and will be followed by native clients (Android/Kotlin) in future milestones. Both server and client are designed to swap LLM/TTS/storage providers via configuration so first-party hardware and hosted services can coexist.
 
 ## System Architecture
 ```
@@ -24,11 +24,13 @@ User Upload -> Ingestion Service -> LLM Segmentation -> Voice Mapping UI -> TTS 
 - Offer streaming endpoints that push segments as soon as their audio becomes available as well as batch endpoints that deliver final ZIPs.
 - Support pluggable OCR and text parsers to cover PDF, ePUB, TXT, and Markdown inputs while preserving table-of-contents structure.
 
-## Client Responsibilities (Android/Kotlin)
+## Client Responsibilities (Web/React, then Android/Kotlin)
 - Display synchronized text with highlighting driven by word/sentence timestamps from metadata.
 - Handle both streaming playback (progressively fetch segments) and fully downloaded ZIP archives for offline listening.
+- Provide interfaces for book upload, voice mapping, and playback control.
 - Cache packaged books locally with integrity checks so re-voicing workflows can re-use existing metadata.
 - Surface voice mapping summaries to users (read-only in v1) and allow preference toggles (e.g., narrator vs dialogue balance) for future releases.
+- Web client (Milestone 5) serves as the initial implementation for testing all functionalities before native mobile clients (Milestone 6+).
 
 ## Technology Constraints
 - LLM and TTS clients must speak the OpenAI-compatible protocol to simplify provider integration.
