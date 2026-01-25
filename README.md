@@ -37,4 +37,34 @@ User Upload -> Ingestion Service -> LLM Segmentation -> Voice Mapping UI -> TTS 
 - Configuration files define provider-specific limits (max segment size, concurrency, latency tolerance) without code edits.
 - Word-level timestamps are preferred; the system gracefully degrades to sentence-level when TTS engines cannot supply finer detail.
 
+## Getting Started
+
+### Server Setup
+See [SERVER.md](SERVER.md) for detailed server setup instructions.
+
+### Web Client Setup (Milestone 5)
+The Web Client MVP is located in the `web-client/` directory.
+
+**Prerequisites:**
+- Node.js 18+ and npm
+- Running TwelveReader server on port 8080
+
+**Quick Start:**
+```bash
+cd web-client
+npm install
+npm run dev
+```
+
+The web client will be available at `http://localhost:3000`.
+
+See [web-client/README.md](web-client/README.md) for detailed documentation.
+
+**Features:**
+- Book upload with metadata (title, author, language)
+- Real-time processing status monitoring
+- Audio playback with synchronized text display
+- Built with React + TypeScript + Tamagui + TanStack Query + Zod
+- Future-ready for desktop (Electron/Tauri) and mobile (React Native/Expo) ports
+
 

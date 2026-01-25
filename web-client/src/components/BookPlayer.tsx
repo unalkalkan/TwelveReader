@@ -101,6 +101,7 @@ export function BookPlayer({ bookId }: { bookId: string }) {
         ref={audioRef}
         onEnded={handleEnded}
         onError={() => setIsPlaying(false)}
+        aria-label="Book segment audio player"
       />
 
       <Text fontSize={20} fontWeight="bold">

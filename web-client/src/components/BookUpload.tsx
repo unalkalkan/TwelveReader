@@ -128,6 +128,7 @@ export function BookUpload({ onSuccess }: { onSuccess?: (bookId: string) => void
               accept=".txt,.pdf,.epub"
               onChange={handleFileChange}
               style={{ display: 'none' }}
+              aria-label="Choose book file to upload (TXT, PDF, or ePUB)"
             />
             {file ? file.name : 'Choose a file (TXT, PDF, or ePUB)'}
           </label>
