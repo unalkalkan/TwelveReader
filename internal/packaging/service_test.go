@@ -17,8 +17,8 @@ import (
 func TestService_PackageBook(t *testing.T) {
 	ctx := context.Background()
 
-	// Setup test storage
-	storageAdapter, err := storage.NewLocalAdapter("/tmp/test-packaging")
+	// Setup test storage with temporary directory
+	storageAdapter, err := storage.NewLocalAdapter(t.TempDir())
 	if err != nil {
 		t.Fatalf("Failed to create storage adapter: %v", err)
 	}
@@ -216,8 +216,8 @@ func TestService_PackageBook(t *testing.T) {
 func TestService_PackageBook_NotSynthesized(t *testing.T) {
 	ctx := context.Background()
 
-	// Setup test storage
-	storageAdapter, err := storage.NewLocalAdapter("/tmp/test-packaging-not-synth")
+	// Setup test storage with temporary directory
+	storageAdapter, err := storage.NewLocalAdapter(t.TempDir())
 	if err != nil {
 		t.Fatalf("Failed to create storage adapter: %v", err)
 	}

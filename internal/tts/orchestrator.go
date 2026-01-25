@@ -5,13 +5,13 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/unalkalkan/TwelveReader/internal/book"
 	"github.com/unalkalkan/TwelveReader/internal/provider"
 	"github.com/unalkalkan/TwelveReader/internal/storage"
+	"github.com/unalkalkan/TwelveReader/internal/util"
 	"github.com/unalkalkan/TwelveReader/pkg/types"
 )
 
@@ -168,7 +168,7 @@ func (o *Orchestrator) synthesizeSegment(ctx context.Context, segment *types.Seg
 	}
 
 	// Store audio file
-	audioPath := filepath.Join("books", segment.BookID, "audio", fmt.Sprintf("%s.%s", segment.ID, resp.Format))
+	audioPath := util.GetAudioPath(segment.BookID, segment.ID, resp.Format)
 	if err := o.storage.Put(ctx, audioPath, bytes.NewReader(resp.AudioData)); err != nil {
 		return fmt.Errorf("failed to store audio: %w", err)
 	}

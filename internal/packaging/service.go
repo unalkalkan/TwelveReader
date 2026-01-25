@@ -12,6 +12,7 @@ import (
 
 	"github.com/unalkalkan/TwelveReader/internal/book"
 	"github.com/unalkalkan/TwelveReader/internal/storage"
+	"github.com/unalkalkan/TwelveReader/internal/util"
 	"github.com/unalkalkan/TwelveReader/pkg/types"
 )
 
@@ -119,16 +120,16 @@ func (s *Service) PackageBook(ctx context.Context, bookID string) (io.Reader, er
 		}
 
 		// Add audio file if it exists
-		audioPath := filepath.Join("books", bookID, "audio", fmt.Sprintf("%s.wav", segment.ID))
-		audioReader, err := s.storage.Get(ctx, audioPath)
-		if err != nil {
-			// Try other formats
-			for _, format := range []string{"mp3", "ogg", "flac"} {
-				audioPath = filepath.Join("books", bookID, "audio", fmt.Sprintf("%s.%s", segment.ID, format))
-				audioReader, err = s.storage.Get(ctx, audioPath)
-				if err == nil {
-					break
-				}
+		var audioPath string
+		var audioReader io.ReadCloser
+		var err error
+		
+		// Try different audio formats
+		for _, format := range util.AudioFormats() {
+			audioPath = util.GetAudioPath(bookID, segment.ID, format)
+			audioReader, err = s.storage.Get(ctx, audioPath)
+			if err == nil {
+				break
 			}
 		}
 

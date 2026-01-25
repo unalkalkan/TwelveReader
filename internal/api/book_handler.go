@@ -19,6 +19,7 @@ import (
 	"github.com/unalkalkan/TwelveReader/internal/storage"
 	"github.com/unalkalkan/TwelveReader/internal/streaming"
 	"github.com/unalkalkan/TwelveReader/internal/tts"
+	"github.com/unalkalkan/TwelveReader/internal/util"
 	"github.com/unalkalkan/TwelveReader/pkg/types"
 )
 
@@ -528,8 +529,8 @@ func (h *BookHandler) GetAudio(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var format string
 
-	for _, audioFormat := range []string{"wav", "mp3", "ogg", "flac"} {
-		audioPath := filepath.Join("books", bookID, "audio", fmt.Sprintf("%s.%s", segmentID, audioFormat))
+	for _, audioFormat := range util.AudioFormats() {
+		audioPath := util.GetAudioPath(bookID, segmentID, audioFormat)
 		audioReader, err = h.storage.Get(r.Context(), audioPath)
 		if err == nil {
 			format = audioFormat

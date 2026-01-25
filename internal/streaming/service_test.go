@@ -15,8 +15,8 @@ import (
 func TestService_StreamSegments(t *testing.T) {
 	ctx := context.Background()
 
-	// Setup test storage
-	storageAdapter, err := storage.NewLocalAdapter("/tmp/test-streaming")
+	// Setup test storage with temporary directory
+	storageAdapter, err := storage.NewLocalAdapter(t.TempDir())
 	if err != nil {
 		t.Fatalf("Failed to create storage adapter: %v", err)
 	}
