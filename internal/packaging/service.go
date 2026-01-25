@@ -133,11 +133,12 @@ func (s *Service) PackageBook(ctx context.Context, bookID string) (io.Reader, er
 		}
 
 		if err == nil {
-			defer audioReader.Close()
 			audioZipPath := filepath.Join(shardDir, filepath.Base(audioPath))
 			if err := s.addFileFromReader(zipWriter, audioZipPath, audioReader); err != nil {
+				audioReader.Close()
 				return nil, fmt.Errorf("failed to add audio %s: %w", segment.ID, err)
 			}
+			audioReader.Close()
 		}
 	}
 

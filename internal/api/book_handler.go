@@ -360,7 +360,9 @@ func (h *BookHandler) SetVoiceMap(w http.ResponseWriter, r *http.Request) {
 		book.Status = "ready"
 		h.repo.UpdateBook(r.Context(), book)
 		
-		// Start TTS synthesis asynchronously
+		// Start TTS synthesis asynchronously with background context
+		// Note: Using background context because TTS synthesis should complete
+		// even if the HTTP request is cancelled
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -368,10 +370,13 @@ func (h *BookHandler) SetVoiceMap(w http.ResponseWriter, r *http.Request) {
 				}
 			}()
 			
+			// Create a new context for TTS synthesis to avoid cancellation
+			ctx := context.Background()
+			
 			// Get first available TTS provider
 			ttsProviders := h.providerReg.ListTTS()
 			if len(ttsProviders) > 0 {
-				if err := h.ttsOrchestrator.SynthesizeBook(context.Background(), bookID, ttsProviders[0]); err != nil {
+				if err := h.ttsOrchestrator.SynthesizeBook(ctx, bookID, ttsProviders[0]); err != nil {
 					log.Printf("TTS synthesis failed for book %s: %v", bookID, err)
 				}
 			} else {

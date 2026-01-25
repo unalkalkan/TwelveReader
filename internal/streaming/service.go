@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 
 	"github.com/unalkalkan/TwelveReader/internal/book"
 	"github.com/unalkalkan/TwelveReader/pkg/types"
@@ -70,8 +69,8 @@ func (s *Service) StreamSegments(ctx context.Context, bookID string, afterSegmen
 // getAudioURL generates the audio URL for a segment
 func (s *Service) getAudioURL(bookID, segmentID string) string {
 	// In production, this would be a signed URL or CDN URL
-	// For now, we return a relative path
-	return filepath.Join("/api/v1/books", bookID, "audio", segmentID)
+	// For now, we return a relative path using forward slashes for URLs
+	return fmt.Sprintf("/api/v1/books/%s/audio/%s", bookID, segmentID)
 }
 
 // EncodeNDJSON encodes stream items as NDJSON
