@@ -103,6 +103,15 @@ type ttsAPIRequest struct {
 	Instructions string `json:"instructions,omitempty"`
 }
 
+// ttsAPIErrorResponse represents an error response from the TTS API
+type ttsAPIErrorResponse struct {
+	Error struct {
+		Message string `json:"message"`
+		Type    string `json:"type"`
+		Code    string `json:"code"`
+	} `json:"error"`
+}
+
 // callTTSAPI calls the OpenAI-compatible TTS endpoint
 func (o *OpenAITTSProvider) callTTSAPI(ctx context.Context, req ttsAPIRequest) ([]byte, error) {
 	// Encode request
@@ -146,7 +155,7 @@ func (o *OpenAITTSProvider) callTTSAPI(ctx context.Context, req ttsAPIRequest) (
 	// Check for errors
 	if resp.StatusCode != http.StatusOK {
 		// Try to parse as error response
-		var errResp apiErrorResponse
+		var errResp ttsAPIErrorResponse
 		if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
 			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, errResp.Error.Message)
 		}

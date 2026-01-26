@@ -230,7 +230,7 @@ func TestOpenAITTSProvider_Synthesize(t *testing.T) {
 		// Create a mock HTTP server that returns an error
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
-			resp := apiErrorResponse{}
+			resp := ttsAPIErrorResponse{}
 			resp.Error.Message = "Invalid API key"
 			resp.Error.Type = "invalid_request_error"
 			json.NewEncoder(w).Encode(resp)
