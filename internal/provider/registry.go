@@ -183,8 +183,18 @@ func (r *Registry) InitializeProviders(cfg types.ProvidersConfig) error {
 		if !llmCfg.Enabled {
 			continue
 		}
-		// Create stub provider for now
-		provider := NewStubLLMProvider(llmCfg)
+		// Create OpenAI-compatible provider if endpoint is configured
+		var provider LLMProvider
+		var err error
+		if llmCfg.Endpoint != "" && llmCfg.Model != "" {
+			provider, err = NewOpenAILLMProvider(llmCfg)
+			if err != nil {
+				return fmt.Errorf("failed to create OpenAI LLM provider %s: %w", llmCfg.Name, err)
+			}
+		} else {
+			// Fallback to stub provider for backward compatibility
+			provider = NewStubLLMProvider(llmCfg)
+		}
 		if err := r.RegisterLLM(provider); err != nil {
 			return err
 		}

@@ -80,6 +80,10 @@ The storage layer is abstracted through the `Adapter` interface, allowing differ
 Providers are registered dynamically from configuration:
 
 - **LLM Providers**: OpenAI-compatible endpoints for segmentation
+  - Supports OpenAI, Azure OpenAI, local LLMs (Ollama, LM Studio, etc.)
+  - Requires `endpoint` and `model` configuration
+  - Optional `api_key` for authenticated endpoints
+  - Falls back to stub provider if endpoint/model not configured
 - **TTS Providers**: Text-to-speech synthesis (e.g., Qwen3-TTS, OpenAI TTS)
 - **OCR Providers**: Optical character recognition for scanned PDFs
 

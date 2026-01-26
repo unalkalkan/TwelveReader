@@ -32,13 +32,13 @@ func NewService(bookRepo book.Repository, storage storage.Adapter) *Service {
 
 // Manifest represents the top-level book manifest
 type Manifest struct {
-	BookID       string    `json:"book_id"`
-	Title        string    `json:"title"`
-	Author       string    `json:"author"`
-	Language     string    `json:"language"`
-	TotalDuration float64  `json:"total_duration_seconds"`
-	CreatedAt    time.Time `json:"created_at"`
-	Version      string    `json:"version"`
+	BookID        string    `json:"book_id"`
+	Title         string    `json:"title"`
+	Author        string    `json:"author"`
+	Language      string    `json:"language"`
+	TotalDuration float64   `json:"total_duration_seconds"`
+	CreatedAt     time.Time `json:"created_at"`
+	Version       string    `json:"version"`
 }
 
 // TOC represents the table of contents
@@ -123,7 +123,7 @@ func (s *Service) PackageBook(ctx context.Context, bookID string) (io.Reader, er
 		var audioPath string
 		var audioReader io.ReadCloser
 		var err error
-		
+
 		// Try different audio formats
 		for _, format := range util.AudioFormats() {
 			audioPath = util.GetAudioPath(bookID, segment.ID, format)
