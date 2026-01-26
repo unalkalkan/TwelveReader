@@ -205,8 +205,23 @@ func (r *Registry) InitializeProviders(cfg types.ProvidersConfig) error {
 		if !ttsCfg.Enabled {
 			continue
 		}
-		// Create stub provider for now
-		provider := NewStubTTSProvider(ttsCfg)
+		// Create OpenAI-compatible provider if endpoint and model are configured
+		var provider TTSProvider
+		var err error
+		if ttsCfg.Endpoint != "" {
+			if model, ok := ttsCfg.Options["model"]; ok && model != "" {
+				provider, err = NewOpenAITTSProvider(ttsCfg)
+				if err != nil {
+					return fmt.Errorf("failed to create OpenAI TTS provider %s: %w", ttsCfg.Name, err)
+				}
+			} else {
+				// Fallback to stub provider if no model specified
+				provider = NewStubTTSProvider(ttsCfg)
+			}
+		} else {
+			// Fallback to stub provider for backward compatibility
+			provider = NewStubTTSProvider(ttsCfg)
+		}
 		if err := r.RegisterTTS(provider); err != nil {
 			return err
 		}
