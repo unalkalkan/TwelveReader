@@ -93,11 +93,11 @@ func TestOrchestrator_SynthesizeBook(t *testing.T) {
 	// Setup provider registry with stub TTS
 	registry := provider.NewRegistry()
 	ttsConfig := types.TTSProviderConfig{
-		Name:             "test-tts",
-		Enabled:          true,
-		MaxSegmentSize:   500,
-		Concurrency:      3,
-		TimestampPrec:    "word",
+		Name:           "test-tts",
+		Enabled:        true,
+		MaxSegmentSize: 500,
+		Concurrency:    3,
+		TimestampPrec:  "word",
 	}
 	registry.RegisterTTS(provider.NewStubTTSProvider(ttsConfig))
 
@@ -179,7 +179,7 @@ func TestOrchestrator_SynthesizeBook_NotReady(t *testing.T) {
 
 // mockTTSProvider is a mock TTS provider for testing
 type mockTTSProvider struct {
-	name      string
+	name       string
 	shouldFail bool
 }
 

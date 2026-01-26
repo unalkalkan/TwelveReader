@@ -25,25 +25,25 @@ import (
 
 // BookHandler handles book-related API endpoints
 type BookHandler struct {
-	repo            book.Repository
-	parserFactory   parser.Factory
-	providerReg     *provider.Registry
-	ttsOrchestrator *tts.Orchestrator
+	repo             book.Repository
+	parserFactory    parser.Factory
+	providerReg      *provider.Registry
+	ttsOrchestrator  *tts.Orchestrator
 	packagingService *packaging.Service
 	streamingService *streaming.Service
-	storage         storage.Adapter
+	storage          storage.Adapter
 }
 
 // NewBookHandler creates a new book handler
 func NewBookHandler(repo book.Repository, parserFactory parser.Factory, providerReg *provider.Registry, storage storage.Adapter) *BookHandler {
 	return &BookHandler{
-		repo:            repo,
-		parserFactory:   parserFactory,
-		providerReg:     providerReg,
-		ttsOrchestrator: tts.NewOrchestrator(providerReg, repo, storage, 3),
+		repo:             repo,
+		parserFactory:    parserFactory,
+		providerReg:      providerReg,
+		ttsOrchestrator:  tts.NewOrchestrator(providerReg, repo, storage, 3),
 		packagingService: packaging.NewService(repo, storage),
 		streamingService: streaming.NewService(repo),
-		storage:         storage,
+		storage:          storage,
 	}
 }
 
@@ -360,7 +360,7 @@ func (h *BookHandler) SetVoiceMap(w http.ResponseWriter, r *http.Request) {
 	if err == nil && book != nil {
 		book.Status = "ready"
 		h.repo.UpdateBook(r.Context(), book)
-		
+
 		// Start TTS synthesis asynchronously with background context
 		// Note: Using background context because TTS synthesis should complete
 		// even if the HTTP request is cancelled
@@ -370,10 +370,10 @@ func (h *BookHandler) SetVoiceMap(w http.ResponseWriter, r *http.Request) {
 					log.Printf("Panic in TTS synthesis for %s: %v", bookID, r)
 				}
 			}()
-			
+
 			// Create a new context for TTS synthesis to avoid cancellation
 			ctx := context.Background()
-			
+
 			// Get first available TTS provider
 			ttsProviders := h.providerReg.ListTTS()
 			if len(ttsProviders) > 0 {
