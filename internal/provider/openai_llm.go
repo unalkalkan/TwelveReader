@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -29,11 +30,20 @@ func NewOpenAILLMProvider(config types.LLMProviderConfig) (*OpenAILLMProvider, e
 		return nil, fmt.Errorf("model is required for OpenAI LLM provider")
 	}
 
+	// Configure timeout from options or use default
+	timeout := 60 * time.Second
+	if timeoutStr, ok := config.Options["timeout"]; ok {
+		var timeoutSec int
+		if _, err := fmt.Sscanf(timeoutStr, "%d", &timeoutSec); err == nil && timeoutSec > 0 {
+			timeout = time.Duration(timeoutSec) * time.Second
+		}
+	}
+
 	return &OpenAILLMProvider{
 		name:   config.Name,
 		config: config,
 		httpClient: &http.Client{
-			Timeout: 60 * time.Second,
+			Timeout: timeout,
 		},
 	}, nil
 }
@@ -152,12 +162,16 @@ type apiErrorResponse struct {
 
 // callChatCompletion calls the OpenAI-compatible chat completion endpoint
 func (o *OpenAILLMProvider) callChatCompletion(ctx context.Context, prompt string) (string, error) {
-	// Prepare request
-	temperature := 0.7
+	// Prepare request - parse temperature with default
+	temperature := 0.0
+	hasTemperature := false
 	if tempStr, ok := o.config.Options["temperature"]; ok {
 		var temp float64
 		if _, err := fmt.Sscanf(tempStr, "%f", &temp); err == nil {
 			temperature = temp
+			hasTemperature = true
+		} else {
+			log.Printf("Warning: Failed to parse temperature value '%s' for provider %s, ignoring", tempStr, o.name)
 		}
 	}
 
@@ -169,7 +183,11 @@ func (o *OpenAILLMProvider) callChatCompletion(ctx context.Context, prompt strin
 				Content: prompt,
 			},
 		},
-		Temperature: temperature,
+	}
+
+	// Only set temperature if explicitly configured
+	if hasTemperature {
+		reqBody.Temperature = temperature
 	}
 
 	// Encode request

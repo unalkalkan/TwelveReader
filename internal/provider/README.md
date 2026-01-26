@@ -29,7 +29,8 @@ providers:
       concurrency: 5                          # Optional: Concurrent requests
       rate_limit_qps: 10.0                    # Optional: Rate limit
       options:
-        temperature: "0.7"                    # Optional: Temperature setting
+        temperature: "0.7"                    # Optional: Temperature (0.0-2.0)
+        timeout: "60"                         # Optional: HTTP timeout in seconds (default: 60)
 ```
 
 #### Examples
