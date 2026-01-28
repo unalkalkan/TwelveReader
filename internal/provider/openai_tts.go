@@ -89,6 +89,84 @@ func (o *OpenAITTSProvider) Synthesize(ctx context.Context, req TTSRequest) (*TT
 	}, nil
 }
 
+// ListVoices returns available voices from the OpenAI TTS provider
+func (o *OpenAITTSProvider) ListVoices(ctx context.Context, model string) ([]Voice, error) {
+	// Build endpoint URL
+	endpoint := o.config.Endpoint
+	if !strings.HasSuffix(endpoint, "/") {
+		endpoint += "/"
+	}
+	endpoint += "models/voices"
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add model query parameter if provided
+	if model != "" {
+		q := httpReq.URL.Query()
+		q.Add("model", model)
+		httpReq.URL.RawQuery = q.Encode()
+	}
+
+	// Set headers
+	if o.config.APIKey != "" {
+		httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", o.config.APIKey))
+	}
+
+	// Execute request
+	resp, err := o.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Check for errors
+	if resp.StatusCode != http.StatusOK {
+		// Try to parse as error response
+		var errResp ttsAPIErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, errResp.Error.Message)
+		}
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse the response
+	var apiResp voicesAPIResponse
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Convert to Voice structs
+	voices := make([]Voice, 0, len(apiResp.Voices))
+	for _, v := range apiResp.Voices {
+		// Parse languages
+		languages := v.Languages
+		if len(languages) == 0 && v.Language != "" {
+			languages = []string{v.Language}
+		}
+
+		voices = append(voices, Voice{
+			ID:          v.ID,
+			Name:        v.Name,
+			Languages:   languages,
+			Gender:      v.Gender,
+			Accent:      v.Accent,
+			Description: v.Description,
+		})
+	}
+
+	return voices, nil
+}
+
 func (o *OpenAITTSProvider) Close() error {
 	// Close HTTP client connections
 	o.httpClient.CloseIdleConnections()
@@ -110,6 +188,22 @@ type ttsAPIErrorResponse struct {
 		Type    string `json:"type"`
 		Code    string `json:"code"`
 	} `json:"error"`
+}
+
+// voicesAPIResponse represents the response from the voices list endpoint
+type voicesAPIResponse struct {
+	Voices []voiceData `json:"voices"`
+}
+
+// voiceData represents voice metadata from the API
+type voiceData struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Language    string   `json:"language"`
+	Languages   []string `json:"languages"`
+	Gender      string   `json:"gender"`
+	Accent      string   `json:"accent"`
+	Description string   `json:"description"`
 }
 
 // callTTSAPI calls the OpenAI-compatible TTS endpoint

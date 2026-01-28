@@ -45,6 +45,10 @@ type TTSProvider interface {
 	// Synthesize converts text to speech
 	Synthesize(ctx context.Context, req TTSRequest) (*TTSResponse, error)
 
+	// ListVoices returns available voices from the provider
+	// model parameter is optional and filters voices by model if provided
+	ListVoices(ctx context.Context, model string) ([]Voice, error)
+
 	// Close cleans up resources
 	Close() error
 }
@@ -69,6 +73,16 @@ type WordTimestamp struct {
 	Word  string  // The word
 	Start float64 // Start time in seconds
 	End   float64 // End time in seconds
+}
+
+// Voice represents a TTS voice with metadata
+type Voice struct {
+	ID          string   // Provider-specific voice ID
+	Name        string   // Human-readable name
+	Languages   []string // Supported language codes (ISO-639-1)
+	Gender      string   // "male", "female", "neutral", or empty
+	Accent      string   // Regional accent (e.g., "british", "american")
+	Description string   // Additional description
 }
 
 // OCRProvider defines the interface for OCR providers

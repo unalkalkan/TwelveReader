@@ -42,6 +42,16 @@ type Segment struct {
 	Processing       *ProcessingInfo `json:"processing"`
 }
 
+// Voice represents a TTS voice with metadata
+type Voice struct {
+	ID          string   `json:"id"`          // Provider-specific voice ID
+	Name        string   `json:"name"`        // Human-readable name
+	Languages   []string `json:"languages"`   // Supported language codes (ISO-639-1)
+	Gender      string   `json:"gender"`      // "male", "female", "neutral", or empty
+	Accent      string   `json:"accent"`      // Regional accent (e.g., "british", "american")
+	Description string   `json:"description"` // Additional description
+}
+
 // TimestampData holds word-level timestamps
 type TimestampData struct {
 	Precision string          `json:"precision"` // "word" or "sentence"

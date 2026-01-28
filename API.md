@@ -100,6 +100,71 @@ Returns information about registered providers.
 
 ---
 
+### GET /api/v1/voices
+Returns available TTS voices from all or a specific provider. Useful for mapping voices to book characters/persons.
+
+**Query Parameters:**
+- `provider` (optional): Filter voices by provider name (e.g., `openai-tts`)
+- `model` (optional): Filter voices by TTS model (e.g., `tts-1`, `tts-1-hd`)
+
+**Response:**
+```json
+{
+  "voices": [
+    {
+      "id": "alloy",
+      "name": "Alloy",
+      "languages": ["en"],
+      "gender": "neutral",
+      "accent": "",
+      "description": "A balanced, clear voice",
+      "provider": "openai-tts"
+    },
+    {
+      "id": "echo",
+      "name": "Echo",
+      "languages": ["en"],
+      "gender": "male",
+      "accent": "american",
+      "description": "A confident, professional voice",
+      "provider": "openai-tts"
+    }
+  ],
+  "count": 2
+}
+```
+
+**Voice Object Fields:**
+- `id` (string): Provider-specific voice identifier
+- `name` (string): Human-readable voice name
+- `languages` (array): Supported language codes (ISO-639-1)
+- `gender` (string): Voice gender (`male`, `female`, `neutral`, or empty)
+- `accent` (string): Regional accent (e.g., `british`, `american`)
+- `description` (string): Additional voice description
+- `provider` (string): Name of the TTS provider
+
+**Status Codes:**
+- `200 OK` - Success
+- `404 Not Found` - Specified provider not found
+- `503 Service Unavailable` - No TTS providers configured
+
+**Example Usage:**
+```bash
+# Get all voices from all providers
+curl http://localhost:8080/api/v1/voices
+
+# Get voices from specific provider
+curl http://localhost:8080/api/v1/voices?provider=openai-tts
+
+# Get voices for specific model
+curl http://localhost:8080/api/v1/voices?model=tts-1-hd
+
+# Get voices from specific provider and model
+curl "http://localhost:8080/api/v1/voices?provider=openai-tts&model=tts-1-hd"
+```
+
+---
+
 ## Configuration
 
 The server is configured via a YAML configuration file. See `config/dev.example.yaml` for a complete example.

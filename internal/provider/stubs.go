@@ -77,6 +77,31 @@ func (s *StubTTSProvider) Synthesize(ctx context.Context, req TTSRequest) (*TTSR
 	}, nil
 }
 
+func (s *StubTTSProvider) ListVoices(ctx context.Context, model string) ([]Voice, error) {
+	// Stub implementation - returns a few test voices
+	// If model is specified, filter voices (simplified logic for stub)
+	voices := []Voice{
+		{
+			ID:          "stub-voice-1",
+			Name:        "Stub Voice 1",
+			Languages:   []string{"en"},
+			Gender:      "neutral",
+			Description: "A stub voice for testing",
+		},
+		{
+			ID:          "stub-voice-2",
+			Name:        "Stub Voice 2",
+			Languages:   []string{"en", "es"},
+			Gender:      "male",
+			Accent:      "american",
+			Description: "Another stub voice",
+		},
+	}
+
+	// For stub, we don't actually filter by model, just return all
+	return voices, nil
+}
+
 func (s *StubTTSProvider) Close() error {
 	return nil
 }
