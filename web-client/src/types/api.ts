@@ -89,6 +89,27 @@ export const VoiceMapSchema = z.object({
 export type PersonVoice = z.infer<typeof PersonVoiceSchema>
 export type VoiceMap = z.infer<typeof VoiceMapSchema>
 
+// Voice (TTS voice from provider)
+export const VoiceSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  languages: z.array(z.string()),
+  gender: z.string().optional(),
+  accent: z.string().optional(),
+  description: z.string().optional(),
+  provider: z.string(),
+})
+
+export type Voice = z.infer<typeof VoiceSchema>
+
+// Voices Response
+export const VoicesResponseSchema = z.object({
+  voices: z.array(VoiceSchema),
+  count: z.number(),
+})
+
+export type VoicesResponse = z.infer<typeof VoicesResponseSchema>
+
 // Server Info
 export const ServerInfoSchema = z.object({
   version: z.string(),

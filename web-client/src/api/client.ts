@@ -3,12 +3,14 @@ import {
   ProcessingStatusSchema,
   SegmentSchema,
   VoiceMapSchema,
+  VoicesResponseSchema,
   ServerInfoSchema,
   ProvidersSchema,
   type BookMetadata,
   type ProcessingStatus,
   type Segment,
   type VoiceMap,
+  type VoicesResponse,
   type ServerInfo,
   type Providers,
 } from '../types/api'
@@ -49,6 +51,18 @@ export async function getServerInfo(): Promise<ServerInfo> {
 // Providers
 export async function getProviders(): Promise<Providers> {
   return apiRequest<Providers>(`${API_BASE}/providers`, {}, ProvidersSchema)
+}
+
+// Voices
+export async function getVoices(provider?: string): Promise<VoicesResponse> {
+  const params = new URLSearchParams()
+  if (provider) params.append('provider', provider)
+  const queryString = params.toString()
+  return apiRequest<VoicesResponse>(
+    `${API_BASE}/voices${queryString ? `?${queryString}` : ''}`,
+    {},
+    VoicesResponseSchema
+  )
 }
 
 // Books

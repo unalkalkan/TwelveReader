@@ -6,7 +6,8 @@ import { Text } from './tamagui.config'
 import { BookUpload } from './components/BookUpload'
 import { BookStatusCard } from './components/BookStatusCard'
 import { BookPlayer } from './components/BookPlayer'
-import { useServerInfo } from './api/hooks'
+import { VoiceMapper } from './components/VoiceMapper'
+import { useServerInfo, useBookStatus } from './api/hooks'
 import './App.css'
 
 const Container = styled(YStack, {
@@ -38,17 +39,27 @@ const Card = styled(YStack, {
   borderColor: '#e0e0e0',
 })
 
-type View = 'upload' | 'status' | 'player'
+type View = 'upload' | 'status' | 'voices' | 'player'
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('upload')
   const [currentBookId, setCurrentBookId] = useState<string | null>(null)
   const { data: serverInfo } = useServerInfo()
+  const { data: bookStatus } = useBookStatus(currentBookId ?? undefined)
 
   const handleUploadSuccess = (bookId: string) => {
     setCurrentBookId(bookId)
     setCurrentView('status')
   }
+
+  const handleVoiceMappingComplete = () => {
+    setCurrentView('status')
+  }
+
+  // Check if book is ready for voice mapping
+  const canMapVoices = bookStatus?.status === 'voice_mapping' || 
+                       bookStatus?.status === 'ready' || 
+                       bookStatus?.status === 'synthesized'
 
   return (
     <Container>
@@ -67,7 +78,7 @@ function App() {
       </Header>
 
       <Content>
-        <XStack gap={12}>
+        <XStack gap={12} flexWrap="wrap">
           <Button
             onPress={() => setCurrentView('upload')}
             backgroundColor={currentView === 'upload' ? '$primary' : '$secondary'}
@@ -82,6 +93,14 @@ function App() {
             color="white"
           >
             View Status
+          </Button>
+          <Button
+            onPress={() => setCurrentView('voices')}
+            disabled={!currentBookId || !canMapVoices}
+            backgroundColor={currentView === 'voices' ? '$primary' : '$secondary'}
+            color="white"
+          >
+            Map Voices
           </Button>
           <Button
             onPress={() => setCurrentView('player')}
@@ -104,6 +123,28 @@ function App() {
                 Book Processing Status
               </Text>
               <BookStatusCard bookId={currentBookId} />
+              {bookStatus?.status === 'voice_mapping' && (
+                <Button
+                  onPress={() => setCurrentView('voices')}
+                  backgroundColor="$primary"
+                  color="white"
+                  marginTop={8}
+                >
+                  → Map Voices to Characters
+                </Button>
+              )}
+            </YStack>
+          )}
+
+          {currentView === 'voices' && currentBookId && (
+            <YStack gap={16}>
+              <Text fontSize={24} fontWeight="bold">
+                Voice Mapping
+              </Text>
+              <VoiceMapper 
+                bookId={currentBookId} 
+                onComplete={handleVoiceMappingComplete} 
+              />
             </YStack>
           )}
 

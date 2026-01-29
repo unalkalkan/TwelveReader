@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getServerInfo,
   getProviders,
+  getVoices,
   uploadBook,
   getBook,
   getBookStatus,
@@ -25,6 +26,14 @@ export function useProviders() {
     queryKey: ['providers'],
     queryFn: getProviders,
     staleTime: Infinity,
+  })
+}
+
+export function useVoices(provider?: string) {
+  return useQuery({
+    queryKey: ['voices', provider],
+    queryFn: () => getVoices(provider),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   })
 }
 
