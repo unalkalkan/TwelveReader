@@ -128,7 +128,7 @@ func (h *BookHandler) UploadBook(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("Panic in book processing for %s: %v", bookID, r)
+				log.Printf("[PANIC] Book processing for %s: %v", bookID, r)
 				h.updateBookError(context.Background(), bookID, fmt.Sprintf("Processing panic: %v", r))
 			}
 		}()
@@ -181,13 +181,14 @@ func (h *BookHandler) processBook(bookID string, data []byte, format string) {
 
 	// Segment chapters using LLM
 	llmProviders := h.providerReg.ListLLM()
+
 	if len(llmProviders) > 0 {
 		llmProvider, err := h.providerReg.GetLLM(llmProviders[0])
 		if err == nil && llmProvider != nil {
 			segService := segmentation.NewService(llmProvider, 2)
 			segments, err := segService.SegmentChapters(ctx, bookID, chapters)
 			if err != nil {
-				log.Printf("Segmentation failed: %v", err)
+				log.Printf("Segmentation failed for book %s: %v", bookID, err)
 			} else {
 				// Save segments
 				for _, segment := range segments {
@@ -367,7 +368,7 @@ func (h *BookHandler) SetVoiceMap(w http.ResponseWriter, r *http.Request) {
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("Panic in TTS synthesis for %s: %v", bookID, r)
+					log.Printf("[PANIC] TTS synthesis for %s: %v", bookID, r)
 				}
 			}()
 

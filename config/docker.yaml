@@ -28,7 +28,7 @@ providers:
       enabled: true
       endpoint: "http://192.168.2.103:4141/v1"
       api_key: ""                       # Set via TR_LLM_OPENAI_API_KEY env var
-      model: "gpt-5.2"
+      model: "gpt-5-mini"
       context_window: 8192
       concurrency: 5
       rate_limit_qps: 10.0

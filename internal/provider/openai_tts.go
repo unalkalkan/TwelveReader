@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -101,6 +102,7 @@ func (o *OpenAITTSProvider) ListVoices(ctx context.Context) ([]Voice, error) {
 	// Create HTTP request
 	httpReq, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
+		log.Printf("[TTS-%s] Failed to create request: %v", o.name, err)
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
@@ -116,24 +118,35 @@ func (o *OpenAITTSProvider) ListVoices(ctx context.Context) ([]Voice, error) {
 		httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", o.config.APIKey))
 	}
 
+	log.Printf("[TTS-%s] Request: GET %s", o.name, httpReq.URL.String())
+
 	// Execute request
+	startTime := time.Now()
 	resp, err := o.httpClient.Do(httpReq)
+	duration := time.Since(startTime)
 	if err != nil {
+		log.Printf("[TTS-%s] Request failed after %v: %v", o.name, duration, err)
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
+	log.Printf("[TTS-%s] Response: %d %s (took %v)", o.name, resp.StatusCode, resp.Status, duration)
+
 	// Read response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Printf("[TTS-%s] Failed to read response body: %v", o.name, err)
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
+
+	log.Printf("[TTS-%s] Response payload: %s", o.name, truncateString(string(body), 500))
 
 	// Check for errors
 	if resp.StatusCode != http.StatusOK {
 		// Try to parse as error response
 		var errResp ttsAPIErrorResponse
 		if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
+			log.Printf("[TTS-%s] API error: %s (type: %s, code: %s)", o.name, errResp.Error.Message, errResp.Error.Type, errResp.Error.Code)
 			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, errResp.Error.Message)
 		}
 		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
@@ -142,6 +155,7 @@ func (o *OpenAITTSProvider) ListVoices(ctx context.Context) ([]Voice, error) {
 	// Parse the response
 	var apiResp voicesAPIResponse
 	if err := json.Unmarshal(body, &apiResp); err != nil {
+		log.Printf("[TTS-%s] Failed to parse response JSON: %v", o.name, err)
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -164,6 +178,7 @@ func (o *OpenAITTSProvider) ListVoices(ctx context.Context) ([]Voice, error) {
 		})
 	}
 
+	log.Printf("[TTS-%s] Parsed %d voices from response", o.name, len(voices))
 	return voices, nil
 }
 
@@ -223,9 +238,14 @@ func (o *OpenAITTSProvider) callTTSAPI(ctx context.Context, req ttsAPIRequest) (
 	}
 	endpoint += "audio/speech"
 
+	log.Printf("[TTS-%s] Request: POST %s", o.name, endpoint)
+	log.Printf("[TTS-%s] Request payload: model=%s, voice=%s, input_length=%d chars", o.name, req.Model, req.Voice, len(req.Input))
+	log.Printf("[TTS-%s] Request input (truncated): %s", o.name, truncateString(req.Input, 200))
+
 	// Create HTTP request
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
+		log.Printf("[TTS-%s] Failed to create request: %v", o.name, err)
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
@@ -236,15 +256,21 @@ func (o *OpenAITTSProvider) callTTSAPI(ctx context.Context, req ttsAPIRequest) (
 	}
 
 	// Execute request
+	startTime := time.Now()
 	resp, err := o.httpClient.Do(httpReq)
+	duration := time.Since(startTime)
 	if err != nil {
+		log.Printf("[TTS-%s] Request failed after %v: %v", o.name, duration, err)
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
+	log.Printf("[TTS-%s] Response: %d %s (took %v)", o.name, resp.StatusCode, resp.Status, duration)
+
 	// Read response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Printf("[TTS-%s] Failed to read response body: %v", o.name, err)
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
@@ -253,10 +279,21 @@ func (o *OpenAITTSProvider) callTTSAPI(ctx context.Context, req ttsAPIRequest) (
 		// Try to parse as error response
 		var errResp ttsAPIErrorResponse
 		if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
+			log.Printf("[TTS-%s] API error: %s (type: %s, code: %s)", o.name, errResp.Error.Message, errResp.Error.Type, errResp.Error.Code)
 			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, errResp.Error.Message)
 		}
+		log.Printf("[TTS-%s] API request failed: %s", o.name, truncateString(string(body), 500))
 		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
+	log.Printf("[TTS-%s] Response payload: audio_size=%d bytes", o.name, len(body))
 	return body, nil
+}
+
+// truncateString truncates a string to the specified length
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "... (truncated)"
 }

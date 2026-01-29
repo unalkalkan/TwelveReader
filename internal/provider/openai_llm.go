@@ -171,7 +171,7 @@ func (o *OpenAILLMProvider) callChatCompletion(ctx context.Context, prompt strin
 			temperature = temp
 			hasTemperature = true
 		} else {
-			log.Printf("Warning: Failed to parse temperature value '%s' for provider %s, ignoring", tempStr, o.name)
+			log.Printf("[LLM-%s] Warning: Failed to parse temperature value '%s', ignoring", o.name, tempStr)
 		}
 	}
 
@@ -203,8 +203,14 @@ func (o *OpenAILLMProvider) callChatCompletion(ctx context.Context, prompt strin
 	}
 	endpoint += "chat/completions"
 
+	// Log request details
+	log.Printf("[LLM-%s] Request: POST %s", o.name, endpoint)
+	log.Printf("[LLM-%s] Request payload: model=%s, temperature=%.2f, prompt_length=%d chars", o.name, o.config.Model, temperature, len(prompt))
+	log.Printf("[LLM-%s] Request prompt (truncated): %s", o.name, truncateForLog(prompt, 500))
+
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
+		log.Printf("[LLM-%s] Failed to create request: %v", o.name, err)
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
@@ -215,15 +221,21 @@ func (o *OpenAILLMProvider) callChatCompletion(ctx context.Context, prompt strin
 	}
 
 	// Execute request
+	startTime := time.Now()
 	resp, err := o.httpClient.Do(httpReq)
+	duration := time.Since(startTime)
 	if err != nil {
+		log.Printf("[LLM-%s] Request failed after %v: %v", o.name, duration, err)
 		return "", fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
+	log.Printf("[LLM-%s] Response: %d %s (took %v)", o.name, resp.StatusCode, resp.Status, duration)
+
 	// Read response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Printf("[LLM-%s] Failed to read response body: %v", o.name, err)
 		return "", fmt.Errorf("failed to read response: %w", err)
 	}
 
@@ -231,22 +243,42 @@ func (o *OpenAILLMProvider) callChatCompletion(ctx context.Context, prompt strin
 	if resp.StatusCode != http.StatusOK {
 		var errResp apiErrorResponse
 		if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
+			log.Printf("[LLM-%s] API error: %s (type: %s, code: %s)", o.name, errResp.Error.Message, errResp.Error.Type, errResp.Error.Code)
 			return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, errResp.Error.Message)
 		}
+		log.Printf("[LLM-%s] API request failed: %s", o.name, truncateForLog(string(body), 500))
 		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	// Parse response
 	var apiResp chatCompletionResponse
 	if err := json.Unmarshal(body, &apiResp); err != nil {
+		log.Printf("[LLM-%s] Failed to parse response JSON: %v", o.name, err)
 		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	if len(apiResp.Choices) == 0 {
+		log.Printf("[LLM-%s] No choices in API response", o.name)
 		return "", fmt.Errorf("no choices in API response")
 	}
 
-	return apiResp.Choices[0].Message.Content, nil
+	content := apiResp.Choices[0].Message.Content
+	log.Printf("[LLM-%s] Response payload: tokens(prompt=%d, completion=%d, total=%d), finish_reason=%s",
+		o.name, apiResp.Usage.PromptTokens, apiResp.Usage.CompletionTokens, apiResp.Usage.TotalTokens, apiResp.Choices[0].FinishReason)
+	log.Printf("[LLM-%s] Response content (truncated): %s", o.name, truncateForLog(content, 500))
+
+	return content, nil
+}
+
+// truncateForLog truncates a string for logging purposes
+func truncateForLog(s string, maxLen int) string {
+	// Remove newlines for cleaner logs
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\r", "")
+	if len(s) > maxLen {
+		return s[:maxLen] + "..."
+	}
+	return s
 }
 
 // parseSegmentationResponse parses the LLM response into segments

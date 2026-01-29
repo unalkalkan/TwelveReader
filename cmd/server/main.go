@@ -132,6 +132,7 @@ func main() {
 
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+
 	server := &http.Server{
 		Addr:         addr,
 		Handler:      mux,
@@ -168,6 +169,7 @@ func main() {
 // infoHandler returns basic server information
 func infoHandler(version string, cfg *types.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("[INFO] GET /api/v1/info - Returning server info (version: %s, storage: %s)", version, cfg.Storage.Adapter)
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"version":"%s","storage_adapter":"%s"}`, version, cfg.Storage.Adapter)
 	}
@@ -176,11 +178,15 @@ func infoHandler(version string, cfg *types.Config) http.HandlerFunc {
 // providersHandler returns information about registered providers
 func providersHandler(registry *provider.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		llm := registry.ListLLM()
+		tts := registry.ListTTS()
+		ocr := registry.ListOCR()
+		log.Printf("[PROVIDERS] GET /api/v1/providers - LLM: %v, TTS: %v, OCR: %v", llm, tts, ocr)
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"llm":%v,"tts":%v,"ocr":%v}`,
-			toJSON(registry.ListLLM()),
-			toJSON(registry.ListTTS()),
-			toJSON(registry.ListOCR()))
+			toJSON(llm),
+			toJSON(tts),
+			toJSON(ocr))
 	}
 }
 
