@@ -80,6 +80,19 @@ export function VoiceMapper({ bookId, onComplete }: VoiceMapperProps) {
     return Array.from(personSet).sort()
   }, [segments])
 
+  // Group voices by provider
+  const voicesByProvider = useMemo(() => {
+    if (!voicesResponse?.voices) return {}
+    const grouped: Record<string, Voice[]> = {}
+    voicesResponse.voices.forEach((voice: Voice) => {
+      if (!grouped[voice.provider]) {
+        grouped[voice.provider] = []
+      }
+      grouped[voice.provider].push(voice)
+    })
+    return grouped
+  }, [voicesResponse?.voices])
+
   // State for voice mappings
   const [mappings, setMappings] = useState<Record<string, string>>({})
 
@@ -148,18 +161,6 @@ export function VoiceMapper({ bookId, onComplete }: VoiceMapperProps) {
       </Container>
     )
   }
-
-  // Group voices by provider
-  const voicesByProvider = useMemo(() => {
-    const grouped: Record<string, Voice[]> = {}
-    voicesResponse.voices.forEach((voice: Voice) => {
-      if (!grouped[voice.provider]) {
-        grouped[voice.provider] = []
-      }
-      grouped[voice.provider].push(voice)
-    })
-    return grouped
-  }, [voicesResponse.voices])
 
   return (
     <Container>
