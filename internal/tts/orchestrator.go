@@ -73,6 +73,7 @@ func (o *Orchestrator) SynthesizeBook(ctx context.Context, bookID string, ttsPro
 
 	// Update book status to synthesizing
 	book.Status = "synthesizing"
+	book.SynthesizedSegments = 0 // Reset progress
 	if err := o.bookRepo.UpdateBook(ctx, book); err != nil {
 		log.Printf("Failed to update book status: %v", err)
 	}
@@ -108,6 +109,8 @@ func (o *Orchestrator) SynthesizeBook(ctx context.Context, bookID string, ttsPro
 
 			mu.Lock()
 			successCount++
+			// Update progress after each successful synthesis
+			o.updateSynthesisProgress(ctx, bookID, successCount)
 			mu.Unlock()
 		}(seg)
 	}
@@ -122,7 +125,12 @@ func (o *Orchestrator) SynthesizeBook(ctx context.Context, bookID string, ttsPro
 		errors = append(errors, err)
 	}
 
-	// Update book status
+	// Update book status - fetch fresh book data
+	book, _ = o.bookRepo.GetBook(ctx, bookID)
+	if book == nil {
+		return fmt.Errorf("book not found after synthesis")
+	}
+
 	if len(errors) > 0 {
 		book.Status = "synthesis_error"
 		book.Error = fmt.Sprintf("%d segments failed synthesis", len(errors))
@@ -202,4 +210,21 @@ func (o *Orchestrator) synthesizeSegment(ctx context.Context, segment *types.Seg
 	}
 
 	return nil
+}
+
+// updateSynthesisProgress updates the book's synthesis progress
+func (o *Orchestrator) updateSynthesisProgress(ctx context.Context, bookID string, synthesizedCount int) {
+	book, err := o.bookRepo.GetBook(ctx, bookID)
+	if err != nil {
+		log.Printf("Failed to get book for progress update: %v", err)
+		return
+	}
+	if book == nil {
+		return
+	}
+
+	book.SynthesizedSegments = synthesizedCount
+	if err := o.bookRepo.UpdateBook(ctx, book); err != nil {
+		log.Printf("Failed to update synthesis progress: %v", err)
+	}
 }

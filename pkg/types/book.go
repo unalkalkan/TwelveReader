@@ -9,11 +9,16 @@ type Book struct {
 	Author        string    `json:"author"`
 	Language      string    `json:"language"` // ISO-639-1 code
 	UploadedAt    time.Time `json:"uploaded_at"`
-	Status        string    `json:"status"`      // "uploaded", "parsing", "segmenting", "voice_mapping", "ready", "error"
+	Status        string    `json:"status"`      // "uploaded", "parsing", "segmenting", "voice_mapping", "ready", "synthesizing", "synthesized", "error"
 	OrigFormat    string    `json:"orig_format"` // "pdf", "epub", "txt"
 	Error         string    `json:"error,omitempty"`
 	TotalChapters int       `json:"total_chapters"`
 	TotalSegments int       `json:"total_segments"`
+
+	// Progress tracking fields
+	TotalParagraphs     int `json:"total_paragraphs"`     // Total paragraphs to segment
+	SegmentedParagraphs int `json:"segmented_paragraphs"` // Paragraphs processed so far
+	SynthesizedSegments int `json:"synthesized_segments"` // Segments with audio generated
 }
 
 // Chapter represents a chapter in a book
@@ -95,10 +100,15 @@ type ProcessingStatus struct {
 	BookID         string    `json:"book_id"`
 	Status         string    `json:"status"`
 	Stage          string    `json:"stage"`    // Current processing stage
-	Progress       float64   `json:"progress"` // 0-100
+	Progress       float64   `json:"progress"` // 0-100 within current stage
 	TotalChapters  int       `json:"total_chapters"`
 	ParsedChapters int       `json:"parsed_chapters"`
 	TotalSegments  int       `json:"total_segments"`
 	Error          string    `json:"error,omitempty"`
 	UpdatedAt      time.Time `json:"updated_at"`
+
+	// Detailed progress tracking
+	TotalParagraphs     int `json:"total_paragraphs"`     // Total paragraphs to segment
+	SegmentedParagraphs int `json:"segmented_paragraphs"` // Paragraphs segmented so far
+	SynthesizedSegments int `json:"synthesized_segments"` // Segments with audio generated
 }

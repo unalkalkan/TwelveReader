@@ -163,30 +163,44 @@ func (h *BookHandler) processBook(bookID string, data []byte, format string) {
 		return
 	}
 
-	// Save chapters
+	// Save chapters and count total paragraphs
+	totalParagraphs := 0
 	for i, chapter := range chapters {
 		chapter.BookID = bookID
 		chapter.Number = i + 1
+		totalParagraphs += len(chapter.Paragraphs)
 		if err := h.repo.SaveChapter(ctx, chapter); err != nil {
 			log.Printf("Failed to save chapter %s: %v", chapter.ID, err)
 		}
 	}
 
-	// Update book with chapter count
+	// Update book with chapter count and total paragraphs
 	if book != nil {
 		book.TotalChapters = len(chapters)
+		book.TotalParagraphs = totalParagraphs
 		book.Status = "segmenting"
 		h.repo.UpdateBook(ctx, book)
 	}
 
-	// Segment chapters using LLM
+	// Segment chapters using LLM with progress tracking
 	llmProviders := h.providerReg.ListLLM()
 
 	if len(llmProviders) > 0 {
 		llmProvider, err := h.providerReg.GetLLM(llmProviders[0])
 		if err == nil && llmProvider != nil {
 			segService := segmentation.NewService(llmProvider, 2)
-			segments, err := segService.SegmentChapters(ctx, bookID, chapters)
+
+			// Create progress callback to update book status
+			progressCallback := func(segmentedParagraphs, totalParagraphs int) {
+				book, err := h.repo.GetBook(ctx, bookID)
+				if err == nil && book != nil {
+					book.SegmentedParagraphs = segmentedParagraphs
+					book.TotalParagraphs = totalParagraphs
+					h.repo.UpdateBook(ctx, book)
+				}
+			}
+
+			segments, err := segService.SegmentChaptersWithProgress(ctx, bookID, chapters, progressCallback)
 			if err != nil {
 				log.Printf("Segmentation failed for book %s: %v", bookID, err)
 			} else {
@@ -198,8 +212,10 @@ func (h *BookHandler) processBook(bookID string, data []byte, format string) {
 				}
 
 				// Update book with segment count
+				book, _ = h.repo.GetBook(ctx, bookID)
 				if book != nil {
 					book.TotalSegments = len(segments)
+					book.SegmentedParagraphs = totalParagraphs // Mark as complete
 					book.Status = "voice_mapping"
 					h.repo.UpdateBook(ctx, book)
 				}
@@ -209,6 +225,7 @@ func (h *BookHandler) processBook(bookID string, data []byte, format string) {
 
 	// If no LLM provider, mark as ready
 	if len(llmProviders) == 0 {
+		book, _ = h.repo.GetBook(ctx, bookID)
 		if book != nil {
 			book.Status = "ready"
 			h.repo.UpdateBook(ctx, book)
@@ -272,30 +289,52 @@ func (h *BookHandler) GetBookStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build status response
+	// Build status response with real progress
 	status := &types.ProcessingStatus{
-		BookID:         book.ID,
-		Status:         book.Status,
-		Stage:          book.Status,
-		TotalChapters:  book.TotalChapters,
-		ParsedChapters: book.TotalChapters,
-		TotalSegments:  book.TotalSegments,
-		Error:          book.Error,
-		UpdatedAt:      time.Now(),
+		BookID:              book.ID,
+		Status:              book.Status,
+		Stage:               book.Status,
+		TotalChapters:       book.TotalChapters,
+		ParsedChapters:      book.TotalChapters,
+		TotalSegments:       book.TotalSegments,
+		TotalParagraphs:     book.TotalParagraphs,
+		SegmentedParagraphs: book.SegmentedParagraphs,
+		SynthesizedSegments: book.SynthesizedSegments,
+		Error:               book.Error,
+		UpdatedAt:           time.Now(),
 	}
 
-	// Calculate progress
+	// Calculate progress based on current stage
 	switch book.Status {
 	case "uploaded":
-		status.Progress = 10
+		status.Progress = 0
 	case "parsing":
-		status.Progress = 30
+		status.Progress = 0 // Progress within parsing not tracked
 	case "segmenting":
-		status.Progress = 60
+		// Calculate actual segmentation progress
+		if book.TotalParagraphs > 0 {
+			status.Progress = float64(book.SegmentedParagraphs) / float64(book.TotalParagraphs) * 100
+		} else {
+			status.Progress = 0
+		}
 	case "voice_mapping":
-		status.Progress = 80
+		status.Progress = 100 // Waiting for user input
 	case "ready":
+		status.Progress = 100 // Ready for synthesis
+	case "synthesizing":
+		// Calculate actual synthesis progress
+		if book.TotalSegments > 0 {
+			status.Progress = float64(book.SynthesizedSegments) / float64(book.TotalSegments) * 100
+		} else {
+			status.Progress = 0
+		}
+	case "synthesized":
 		status.Progress = 100
+	case "synthesis_error":
+		// Show how far we got
+		if book.TotalSegments > 0 {
+			status.Progress = float64(book.SynthesizedSegments) / float64(book.TotalSegments) * 100
+		}
 	case "error":
 		status.Progress = 0
 	}

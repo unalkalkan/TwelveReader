@@ -40,6 +40,10 @@ export const ProcessingStatusSchema = z.object({
   parsed_chapters: z.number(),
   total_segments: z.number(),
   updated_at: z.string(),
+  // Detailed progress tracking
+  total_paragraphs: z.number().optional(),
+  segmented_paragraphs: z.number().optional(),
+  synthesized_segments: z.number().optional(),
 })
 
 export type ProcessingStatus = z.infer<typeof ProcessingStatusSchema>
