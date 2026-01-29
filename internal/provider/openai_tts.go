@@ -96,7 +96,7 @@ func (o *OpenAITTSProvider) ListVoices(ctx context.Context) ([]Voice, error) {
 	if !strings.HasSuffix(endpoint, "/") {
 		endpoint += "/"
 	}
-	endpoint += "models/voices"
+	endpoint += "voices"
 
 	// Create HTTP request
 	httpReq, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
@@ -146,8 +146,8 @@ func (o *OpenAITTSProvider) ListVoices(ctx context.Context) ([]Voice, error) {
 	}
 
 	// Convert to Voice structs
-	voices := make([]Voice, 0, len(apiResp.Voices))
-	for _, v := range apiResp.Voices {
+	voices := make([]Voice, 0, len(apiResp.Data))
+	for _, v := range apiResp.Data {
 		// Parse languages
 		languages := v.Languages
 		if len(languages) == 0 && v.Language != "" {
@@ -192,12 +192,14 @@ type ttsAPIErrorResponse struct {
 
 // voicesAPIResponse represents the response from the voices list endpoint
 type voicesAPIResponse struct {
-	Voices []voiceData `json:"voices"`
+	Object string      `json:"object"`
+	Data   []voiceData `json:"data"`
 }
 
 // voiceData represents voice metadata from the API
 type voiceData struct {
 	ID          string   `json:"id"`
+	Object      string   `json:"object"`
 	Name        string   `json:"name"`
 	Language    string   `json:"language"`
 	Languages   []string `json:"languages"`

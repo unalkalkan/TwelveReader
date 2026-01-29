@@ -93,7 +93,7 @@ export type VoiceMap = z.infer<typeof VoiceMapSchema>
 export const VoiceSchema = z.object({
   id: z.string(),
   name: z.string(),
-  languages: z.array(z.string()),
+  languages: z.array(z.string()).nullable().optional(),
   gender: z.string().optional(),
   accent: z.string().optional(),
   description: z.string().optional(),
