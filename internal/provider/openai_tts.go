@@ -90,7 +90,7 @@ func (o *OpenAITTSProvider) Synthesize(ctx context.Context, req TTSRequest) (*TT
 }
 
 // ListVoices returns available voices from the OpenAI TTS provider
-func (o *OpenAITTSProvider) ListVoices(ctx context.Context, model string) ([]Voice, error) {
+func (o *OpenAITTSProvider) ListVoices(ctx context.Context) ([]Voice, error) {
 	// Build endpoint URL
 	endpoint := o.config.Endpoint
 	if !strings.HasSuffix(endpoint, "/") {
@@ -104,10 +104,10 @@ func (o *OpenAITTSProvider) ListVoices(ctx context.Context, model string) ([]Voi
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Add model query parameter if provided
-	if model != "" {
+	// Add model query parameter from provider config
+	if o.model != "" {
 		q := httpReq.URL.Query()
-		q.Add("model", model)
+		q.Add("model", o.model)
 		httpReq.URL.RawQuery = q.Encode()
 	}
 

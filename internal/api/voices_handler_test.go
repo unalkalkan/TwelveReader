@@ -135,52 +135,6 @@ func TestVoicesHandler_ListVoicesWithProvider(t *testing.T) {
 	}
 }
 
-func TestVoicesHandler_ListVoicesWithModel(t *testing.T) {
-	// Create a provider registry with stub providers
-	registry := provider.NewRegistry()
-
-	stubConfig := types.TTSProviderConfig{
-		Name:    "stub-tts",
-		Enabled: true,
-		Options: map[string]string{},
-	}
-
-	if err := registry.RegisterTTS(provider.NewStubTTSProvider(stubConfig)); err != nil {
-		t.Fatalf("Failed to register stub TTS provider: %v", err)
-	}
-
-	// Create handler
-	handler := NewVoicesHandler(registry)
-
-	// Test GET /api/v1/voices?model=tts-1
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/voices?model=tts-1", nil)
-	w := httptest.NewRecorder()
-
-	handler.ListVoices(w, req)
-
-	// Check response
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
-	}
-
-	// Parse response
-	var response map[string]interface{}
-	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
-
-	// Check voices array exists
-	voicesData, ok := response["voices"].([]interface{})
-	if !ok {
-		t.Fatal("Expected 'voices' array in response")
-	}
-
-	// Should have voices from stub provider (stub doesn't filter by model)
-	if len(voicesData) < 1 {
-		t.Errorf("Expected at least 1 voice, got %d", len(voicesData))
-	}
-}
-
 func TestVoicesHandler_ListVoicesProviderNotFound(t *testing.T) {
 	// Create empty provider registry
 	registry := provider.NewRegistry()
@@ -248,7 +202,7 @@ func (m *MockFailingTTSProvider) Synthesize(ctx context.Context, req provider.TT
 	return nil, nil
 }
 
-func (m *MockFailingTTSProvider) ListVoices(ctx context.Context, model string) ([]provider.Voice, error) {
+func (m *MockFailingTTSProvider) ListVoices(ctx context.Context) ([]provider.Voice, error) {
 	return nil, http.ErrServerClosed
 }
 

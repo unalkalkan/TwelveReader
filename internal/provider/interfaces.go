@@ -46,8 +46,7 @@ type TTSProvider interface {
 	Synthesize(ctx context.Context, req TTSRequest) (*TTSResponse, error)
 
 	// ListVoices returns available voices from the provider
-	// model parameter is optional and filters voices by model if provided
-	ListVoices(ctx context.Context, model string) ([]Voice, error)
+	ListVoices(ctx context.Context) ([]Voice, error)
 
 	// Close cleans up resources
 	Close() error

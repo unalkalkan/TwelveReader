@@ -103,9 +103,10 @@ Returns information about registered providers.
 ### GET /api/v1/voices
 Returns available TTS voices from all or a specific provider. Useful for mapping voices to book characters/persons.
 
+The voices returned are filtered by the model configured for each TTS provider (specified in the provider's configuration).
+
 **Query Parameters:**
 - `provider` (optional): Filter voices by provider name (e.g., `openai-tts`)
-- `model` (optional): Filter voices by TTS model (e.g., `tts-1`, `tts-1-hd`)
 
 **Response:**
 ```json
@@ -155,13 +156,9 @@ curl http://localhost:8080/api/v1/voices
 
 # Get voices from specific provider
 curl http://localhost:8080/api/v1/voices?provider=openai-tts
-
-# Get voices for specific model
-curl http://localhost:8080/api/v1/voices?model=tts-1-hd
-
-# Get voices from specific provider and model
-curl "http://localhost:8080/api/v1/voices?provider=openai-tts&model=tts-1-hd"
 ```
+
+**Note:** The voices returned are specific to the model configured for each TTS provider in the configuration file. Different models may support different sets of voices.
 
 ---
 

@@ -82,7 +82,7 @@ func TestOpenAITTSProvider_ListVoices(t *testing.T) {
 
 	// Call ListVoices
 	ctx := context.Background()
-	voices, err := provider.ListVoices(ctx, "")
+	voices, err := provider.ListVoices(ctx)
 	if err != nil {
 		t.Fatalf("ListVoices failed: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestOpenAITTSProvider_ListVoicesError(t *testing.T) {
 
 	// Call ListVoices
 	ctx := context.Background()
-	_, err = provider.ListVoices(ctx, "")
+	_, err = provider.ListVoices(ctx)
 	if err == nil {
 		t.Fatal("Expected error, got nil")
 	}
@@ -178,7 +178,7 @@ func TestStubTTSProvider_ListVoices(t *testing.T) {
 	defer provider.Close()
 
 	ctx := context.Background()
-	voices, err := provider.ListVoices(ctx, "")
+	voices, err := provider.ListVoices(ctx)
 	if err != nil {
 		t.Fatalf("ListVoices failed: %v", err)
 	}
@@ -200,7 +200,7 @@ func TestStubTTSProvider_ListVoices(t *testing.T) {
 	}
 }
 
-func TestOpenAITTSProvider_ListVoicesWithModel(t *testing.T) {
+func TestOpenAITTSProvider_ListVoicesWithConfigModel(t *testing.T) {
 	// Create a test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify request method
@@ -213,10 +213,10 @@ func TestOpenAITTSProvider_ListVoicesWithModel(t *testing.T) {
 			t.Errorf("Expected /models/voices path, got %s", r.URL.Path)
 		}
 
-		// Verify model query parameter
+		// Verify model query parameter is sent from config
 		model := r.URL.Query().Get("model")
 		if model != "tts-1-hd" {
-			t.Errorf("Expected model=tts-1-hd query parameter, got %s", model)
+			t.Errorf("Expected model=tts-1-hd query parameter from config, got %s", model)
 		}
 
 		// Return mock response with voices for the specified model
@@ -238,13 +238,13 @@ func TestOpenAITTSProvider_ListVoicesWithModel(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// Create provider with test server URL
+	// Create provider with model in config
 	config := types.TTSProviderConfig{
 		Name:     "test-openai",
 		Endpoint: server.URL,
 		APIKey:   "test-api-key",
 		Options: map[string]string{
-			"model": "tts-1",
+			"model": "tts-1-hd", // Model comes from config
 		},
 	}
 
@@ -254,9 +254,9 @@ func TestOpenAITTSProvider_ListVoicesWithModel(t *testing.T) {
 	}
 	defer provider.Close()
 
-	// Call ListVoices with model parameter
+	// Call ListVoices - model comes from provider's config
 	ctx := context.Background()
-	voices, err := provider.ListVoices(ctx, "tts-1-hd")
+	voices, err := provider.ListVoices(ctx)
 	if err != nil {
 		t.Fatalf("ListVoices failed: %v", err)
 	}

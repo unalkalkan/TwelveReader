@@ -41,9 +41,8 @@ func (h *VoicesHandler) ListVoices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get optional query parameters
+	// Get optional provider query parameter
 	providerName := r.URL.Query().Get("provider")
-	model := r.URL.Query().Get("model")
 
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
@@ -58,7 +57,7 @@ func (h *VoicesHandler) ListVoices(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		voices, err := ttsProvider.ListVoices(ctx, model)
+		voices, err := ttsProvider.ListVoices(ctx)
 		if err != nil {
 			log.Printf("Failed to get voices from provider %s: %v", providerName, err)
 			respondError(w, fmt.Sprintf("Failed to get voices from provider: %v", err), http.StatusInternalServerError)
@@ -91,7 +90,7 @@ func (h *VoicesHandler) ListVoices(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			voices, err := ttsProvider.ListVoices(ctx, model)
+			voices, err := ttsProvider.ListVoices(ctx)
 			if err != nil {
 				log.Printf("Failed to get voices from provider %s: %v", provName, err)
 				// Continue with other providers instead of failing completely
