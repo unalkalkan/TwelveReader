@@ -39,6 +39,25 @@ func (s *StubLLMProvider) Segment(ctx context.Context, req SegmentRequest) (*Seg
 	}, nil
 }
 
+func (s *StubLLMProvider) BatchSegment(ctx context.Context, req BatchSegmentRequest) (*BatchSegmentResponse, error) {
+	// Stub implementation - returns each paragraph as a single narrator segment
+	results := make([]BatchParagraphResult, 0, len(req.Paragraphs))
+	for _, p := range req.Paragraphs {
+		results = append(results, BatchParagraphResult{
+			ParagraphIndex: p.Index,
+			Segments: []Segment{
+				{
+					Text:             p.Text,
+					Person:           "narrator",
+					Language:         "en",
+					VoiceDescription: "neutral",
+				},
+			},
+		})
+	}
+	return &BatchSegmentResponse{Results: results}, nil
+}
+
 func (s *StubLLMProvider) Close() error {
 	return nil
 }

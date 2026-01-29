@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -351,4 +352,224 @@ func (o *OpenAILLMProvider) parseSegmentationResponse(response string) ([]Segmen
 	}
 
 	return segments, nil
+}
+
+// BatchSegment processes multiple paragraphs in a single LLM call for efficiency
+func (o *OpenAILLMProvider) BatchSegment(ctx context.Context, req BatchSegmentRequest) (*BatchSegmentResponse, error) {
+	if len(req.Paragraphs) == 0 {
+		return &BatchSegmentResponse{Results: []BatchParagraphResult{}}, nil
+	}
+
+	// Build the batch prompt
+	prompt := o.buildBatchSegmentationPrompt(req)
+
+	// Call the OpenAI-compatible API
+	apiResp, err := o.callChatCompletion(ctx, prompt)
+	if err != nil {
+		// Check for token limit errors
+		if isTokenLimitError(err) {
+			return nil, &TokenLimitError{Err: err}
+		}
+		return nil, fmt.Errorf("failed to call LLM API: %w", err)
+	}
+
+	// Parse the batch response
+	results, err := o.parseBatchSegmentationResponse(apiResp, req.Paragraphs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse LLM batch response: %w", err)
+	}
+
+	return &BatchSegmentResponse{
+		Results: results,
+	}, nil
+}
+
+// TokenLimitError indicates the request exceeded token limits
+type TokenLimitError struct {
+	Err error
+}
+
+func (e *TokenLimitError) Error() string {
+	return fmt.Sprintf("token limit exceeded: %v", e.Err)
+}
+
+func (e *TokenLimitError) Unwrap() error {
+	return e.Err
+}
+
+// IsTokenLimitError checks if an error is a token limit error
+func IsTokenLimitError(err error) bool {
+	var tokenErr *TokenLimitError
+	return errors.As(err, &tokenErr)
+}
+
+// isTokenLimitError checks API error for token limit issues
+func isTokenLimitError(err error) bool {
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "token") &&
+		(strings.Contains(errStr, "limit") ||
+			strings.Contains(errStr, "exceed") ||
+			strings.Contains(errStr, "maximum") ||
+			strings.Contains(errStr, "too long") ||
+			strings.Contains(errStr, "context_length"))
+}
+
+// buildBatchSegmentationPrompt creates a prompt for batch segmentation
+func (o *OpenAILLMProvider) buildBatchSegmentationPrompt(req BatchSegmentRequest) string {
+	var sb strings.Builder
+
+	sb.WriteString("You are a text segmentation expert. Your task is to analyze multiple paragraphs and identify different speakers or narrative segments in each.\n\n")
+	sb.WriteString("For each segment, provide:\n")
+	sb.WriteString("1. The text of the segment\n")
+	sb.WriteString("2. The person/speaker identifier (e.g., 'narrator', 'character1', 'dialogue_speaker')\n")
+	sb.WriteString("3. The language (ISO-639-1 code, e.g., 'en', 'es')\n")
+	sb.WriteString("4. A voice description (e.g., 'neutral', 'excited', 'somber')\n\n")
+
+	sb.WriteString("I will provide multiple paragraphs numbered with their indices. Process each paragraph and return results grouped by paragraph index.\n\n")
+
+	sb.WriteString("PARAGRAPHS TO PROCESS:\n")
+	sb.WriteString("========================\n\n")
+
+	for _, p := range req.Paragraphs {
+		sb.WriteString(fmt.Sprintf("--- PARAGRAPH %d ---\n", p.Index))
+
+		if len(p.ContextBefore) > 0 {
+			sb.WriteString("Previous context:\n")
+			for _, ctx := range p.ContextBefore {
+				sb.WriteString(fmt.Sprintf("  > %s\n", truncateForLog(ctx, 200)))
+			}
+		}
+
+		sb.WriteString(fmt.Sprintf("Text: %s\n", p.Text))
+
+		if len(p.ContextAfter) > 0 {
+			sb.WriteString("Following context:\n")
+			for _, ctx := range p.ContextAfter {
+				sb.WriteString(fmt.Sprintf("  > %s\n", truncateForLog(ctx, 200)))
+			}
+		}
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("========================\n\n")
+	sb.WriteString("Please respond with a JSON object containing results for each paragraph.\n")
+	sb.WriteString("Format:\n")
+	sb.WriteString(`{
+  "paragraphs": [
+    {
+      "index": 0,
+      "segments": [
+        {"text": "segment text", "person": "speaker_id", "language": "en", "voice_description": "description"}
+      ]
+    }
+  ]
+}`)
+	sb.WriteString("\n\nProvide ONLY the JSON object, no additional text.")
+
+	return sb.String()
+}
+
+// parseBatchSegmentationResponse parses the LLM batch response
+func (o *OpenAILLMProvider) parseBatchSegmentationResponse(response string, paragraphs []BatchParagraph) ([]BatchParagraphResult, error) {
+	response = strings.TrimSpace(response)
+
+	// Try to find JSON object in the response
+	startIdx := strings.Index(response, "{")
+	endIdx := strings.LastIndex(response, "}")
+
+	if startIdx == -1 || endIdx == -1 || startIdx >= endIdx {
+		// Fallback: return each paragraph as a single narrator segment
+		log.Printf("[LLM-%s] No valid JSON in batch response, using fallback", o.name)
+		return o.createFallbackBatchResults(paragraphs), nil
+	}
+
+	jsonStr := response[startIdx : endIdx+1]
+
+	// Parse the batch response
+	type tempBatchResponse struct {
+		Paragraphs []struct {
+			Index    int `json:"index"`
+			Segments []struct {
+				Text             string `json:"text"`
+				Person           string `json:"person"`
+				Language         string `json:"language"`
+				VoiceDescription string `json:"voice_description"`
+			} `json:"segments"`
+		} `json:"paragraphs"`
+	}
+
+	var batchResp tempBatchResponse
+	if err := json.Unmarshal([]byte(jsonStr), &batchResp); err != nil {
+		log.Printf("[LLM-%s] Failed to parse batch JSON: %v, using fallback", o.name, err)
+		return o.createFallbackBatchResults(paragraphs), nil
+	}
+
+	// Build result map for quick lookup
+	resultMap := make(map[int][]Segment)
+	for _, p := range batchResp.Paragraphs {
+		segments := make([]Segment, 0, len(p.Segments))
+		for _, s := range p.Segments {
+			person := s.Person
+			if person == "" {
+				person = "narrator"
+			}
+			language := s.Language
+			if language == "" {
+				language = "en"
+			}
+			voiceDesc := s.VoiceDescription
+			if voiceDesc == "" {
+				voiceDesc = "neutral"
+			}
+			segments = append(segments, Segment{
+				Text:             s.Text,
+				Person:           person,
+				Language:         language,
+				VoiceDescription: voiceDesc,
+			})
+		}
+		resultMap[p.Index] = segments
+	}
+
+	// Build results preserving original order
+	results := make([]BatchParagraphResult, 0, len(paragraphs))
+	for _, p := range paragraphs {
+		segments, ok := resultMap[p.Index]
+		if !ok || len(segments) == 0 {
+			// Fallback for missing paragraphs
+			segments = []Segment{
+				{
+					Text:             p.Text,
+					Person:           "narrator",
+					Language:         "en",
+					VoiceDescription: "neutral",
+				},
+			}
+		}
+		results = append(results, BatchParagraphResult{
+			ParagraphIndex: p.Index,
+			Segments:       segments,
+		})
+	}
+
+	return results, nil
+}
+
+// createFallbackBatchResults creates fallback results when LLM fails
+func (o *OpenAILLMProvider) createFallbackBatchResults(paragraphs []BatchParagraph) []BatchParagraphResult {
+	results := make([]BatchParagraphResult, 0, len(paragraphs))
+	for _, p := range paragraphs {
+		results = append(results, BatchParagraphResult{
+			ParagraphIndex: p.Index,
+			Segments: []Segment{
+				{
+					Text:             p.Text,
+					Person:           "narrator",
+					Language:         "en",
+					VoiceDescription: "neutral",
+				},
+			},
+		})
+	}
+	return results
 }

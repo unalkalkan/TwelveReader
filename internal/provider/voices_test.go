@@ -19,8 +19,8 @@ func TestOpenAITTSProvider_ListVoices(t *testing.T) {
 		}
 
 		// Verify endpoint
-		if r.URL.Path != "/models/voices" {
-			t.Errorf("Expected /models/voices path, got %s", r.URL.Path)
+		if r.URL.Path != "/voices" {
+			t.Errorf("Expected /voices path, got %s", r.URL.Path)
 		}
 
 		// Verify authorization header
@@ -31,7 +31,8 @@ func TestOpenAITTSProvider_ListVoices(t *testing.T) {
 
 		// Return mock response
 		response := voicesAPIResponse{
-			Voices: []voiceData{
+			Object: "list",
+			Data: []voiceData{
 				{
 					ID:          "alloy",
 					Name:        "Alloy",
@@ -209,8 +210,8 @@ func TestOpenAITTSProvider_ListVoicesWithConfigModel(t *testing.T) {
 		}
 
 		// Verify endpoint
-		if r.URL.Path != "/models/voices" {
-			t.Errorf("Expected /models/voices path, got %s", r.URL.Path)
+		if r.URL.Path != "/voices" {
+			t.Errorf("Expected /voices path, got %s", r.URL.Path)
 		}
 
 		// Verify model query parameter is sent from config
@@ -221,7 +222,8 @@ func TestOpenAITTSProvider_ListVoicesWithConfigModel(t *testing.T) {
 
 		// Return mock response with voices for the specified model
 		response := voicesAPIResponse{
-			Voices: []voiceData{
+			Object: "list",
+			Data: []voiceData{
 				{
 					ID:          "alloy-hd",
 					Name:        "Alloy HD",

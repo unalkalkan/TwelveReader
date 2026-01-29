@@ -12,6 +12,10 @@ type LLMProvider interface {
 	// Segment calls the LLM to segment text and extract speaker information
 	Segment(ctx context.Context, req SegmentRequest) (*SegmentResponse, error)
 
+	// BatchSegment calls the LLM to segment multiple paragraphs in one request
+	// This is more efficient for quota usage. Returns segments grouped by paragraph index.
+	BatchSegment(ctx context.Context, req BatchSegmentRequest) (*BatchSegmentResponse, error)
+
 	// Close cleans up resources
 	Close() error
 }
@@ -27,6 +31,31 @@ type SegmentRequest struct {
 // SegmentResponse contains the segmentation results
 type SegmentResponse struct {
 	Segments []Segment // Identified segments
+}
+
+// BatchSegmentRequest contains multiple paragraphs to segment in one call
+type BatchSegmentRequest struct {
+	Paragraphs []BatchParagraph // Paragraphs to segment
+	Language   string           // Optional language hint
+}
+
+// BatchParagraph represents a single paragraph with its context
+type BatchParagraph struct {
+	Index         int      // Paragraph index for tracking
+	Text          string   // Paragraph text
+	ContextBefore []string // Previous paragraphs for context
+	ContextAfter  []string // Following paragraphs for context
+}
+
+// BatchSegmentResponse contains segmentation results for multiple paragraphs
+type BatchSegmentResponse struct {
+	Results []BatchParagraphResult // Results grouped by paragraph
+}
+
+// BatchParagraphResult contains segments for a single paragraph
+type BatchParagraphResult struct {
+	ParagraphIndex int       // Original paragraph index
+	Segments       []Segment // Segments extracted from this paragraph
 }
 
 // Segment represents a single text segment with metadata
