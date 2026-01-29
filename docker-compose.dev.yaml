@@ -1,0 +1,59 @@
+version: "3.9"
+
+# Development docker-compose configuration
+# Usage: docker compose -f docker-compose.dev.yaml up
+
+services:
+  # Backend server with hot reload via volume mount
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: twelvereader-backend-dev
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+      - ./config/dev.example.yaml:/app/config/config.yaml:ro
+      - twelvereader-data:/tmp/twelvereader
+    environment:
+      - TR_LLM_OPENAI_API_KEY=${TR_LLM_OPENAI_API_KEY:-}
+      - TR_TTS_OPENAI_API_KEY=${TR_TTS_OPENAI_API_KEY:-}
+      - TR_TTS_QWEN3_API_KEY=${TR_TTS_QWEN3_API_KEY:-}
+    working_dir: /app
+    command: go run ./cmd/server -config /app/config/config.yaml
+    networks:
+      - twelvereader-network
+
+  # Frontend development server with hot reload
+  frontend:
+    image: node:22-alpine
+    container_name: twelvereader-frontend-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./web-client:/app
+      - node-modules:/app/node_modules
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    environment:
+      - VITE_API_URL=http://backend:8080
+    depends_on:
+      - backend
+    networks:
+      - twelvereader-network
+
+volumes:
+  twelvereader-data:
+    driver: local
+  go-mod-cache:
+    driver: local
+  node-modules:
+    driver: local
+
+networks:
+  twelvereader-network:
+    driver: bridge

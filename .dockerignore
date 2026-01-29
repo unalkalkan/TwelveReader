@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Build artifacts
+bin/
+coverage.out
+coverage.html
+
+# Web client artifacts (built separately in multi-stage)
+web-client/node_modules/
+web-client/dist/
+
+# Local config with secrets
+config/dev.yaml
+config/config.yaml
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Docker files (not needed inside container)
+Dockerfile*
+docker-compose*.yaml
+.dockerignore
+
+# Documentation
+*.md
+!README.md
+
+# Test files
+*_test.go
+__tests__/
+*.test.ts
+*.test.tsx
+
+# Temp files
+tmp/
+*.tmp
+*.log

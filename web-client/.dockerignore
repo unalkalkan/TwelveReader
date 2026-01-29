@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build output (will be created during build)
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test files
+__tests__/
+*.test.ts
+*.test.tsx
+coverage/
+
+# Docker files (not needed inside container)
+Dockerfile
+.dockerignore
+
+# Documentation
+*.md

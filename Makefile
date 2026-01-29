@@ -66,5 +66,31 @@ dev: ## Run server in development mode
 	@echo "Running in development mode..."
 	$(GOCMD) run ./cmd/server -config config/dev.example.yaml
 
+# Docker targets
+.PHONY: docker-build docker-run docker-up docker-down docker-dev docker-logs
+
+docker-build: ## Build Docker image
+	@echo "Building Docker image..."
+	docker build -t twelvereader:latest .
+
+docker-run: docker-build ## Build and run Docker container
+	@echo "Running Docker container..."
+	docker run -p 8080:8080 -v $(PWD)/config/docker.yaml:/app/config/config.yaml:ro twelvereader:latest
+
+docker-up: ## Start services with docker-compose
+	@echo "Starting services..."
+	docker compose up -d
+
+docker-down: ## Stop services with docker-compose
+	@echo "Stopping services..."
+	docker compose down
+
+docker-dev: ## Start development environment with docker-compose
+	@echo "Starting development environment..."
+	docker compose -f docker-compose.dev.yaml up
+
+docker-logs: ## View docker-compose logs
+	docker compose logs -f
+
 .PHONY: all
 all: clean deps lint test build ## Run all checks and build

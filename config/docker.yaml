@@ -1,0 +1,63 @@
+# TwelveReader Server Configuration - Docker
+# This configuration is optimized for running in Docker containers
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30
+  write_timeout: 30
+
+storage:
+  adapter: "local"
+  
+  local:
+    base_path: "/app/data"
+  
+  # Uncomment for S3/MinIO storage
+  # s3:
+  #   endpoint: "http://minio:9000"    # For MinIO in docker-compose
+  #   region: "us-east-1"
+  #   bucket: "twelvereader"
+  #   access_key_id: ""                # Set via TR_STORAGE_S3_ACCESS_KEY_ID
+  #   secret_access_key: ""            # Set via TR_STORAGE_S3_SECRET_ACCESS_KEY
+  #   use_ssl: false                   # Set to true for AWS S3
+
+providers:
+  llm:
+    - name: "openai"
+      enabled: true
+      endpoint: "http://192.168.2.103:4141/v1"
+      api_key: ""                       # Set via TR_LLM_OPENAI_API_KEY env var
+      model: "gpt-5.2"
+      context_window: 8192
+      concurrency: 5
+      rate_limit_qps: 10.0
+      options:
+        temperature: "0.7"
+
+  tts:
+    - name: "qwen3-tts"
+      enabled: true
+      endpoint: "http://192.168.2.113:8000/v1"
+      api_key: ""                       # Set via TR_TTS_OPENAI_API_KEY env var
+      max_segment_size: 4096
+      concurrency: 5
+      rate_limit_qps: 10.0
+      timestamp_precision: "sentence"
+      options:
+        model: "qwen3-tts-customvoice-1.7b"
+
+  # ocr:
+  #   - name: "tesseract"
+  #     enabled: false
+  #     endpoint: "http://tesseract:8081/ocr"
+  #     api_key: ""
+  #     concurrency: 2
+  #     options:
+  #       language: "eng"
+
+pipeline:
+  worker_pool_size: 4
+  max_retries: 3
+  retry_backoff_ms: 1000
+  temp_dir: "/tmp/twelvereader"

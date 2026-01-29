@@ -1,0 +1,17 @@
+# Development Dockerfile for TwelveReader backend
+# Includes Go toolchain for live development
+
+FROM golang:1.24-alpine
+
+WORKDIR /app
+
+# Install development dependencies
+RUN apk add --no-cache git make
+
+# Pre-download Go modules for faster startup
+COPY go.mod go.sum ./
+RUN go mod download
+
+# The source code will be mounted as a volume
+# Default command runs the server
+CMD ["go", "run", "./cmd/server", "-config", "/app/config/config.yaml"]
