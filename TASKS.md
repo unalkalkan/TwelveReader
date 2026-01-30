@@ -19,8 +19,22 @@
 - [ ] Improved TXT implementation
 - [ ] We should figure out how to establish a consistent tone when using the narrator voice. Right now, due to the changes in the voice descriptions, each paragraph/sentence of the narrator might change a tone shift so much that the voice can feel that it belongs to a different person.
 - [ ] Should we worry about consistent tones between sentences of people? On top of my head -- maybe we can ensure a stable tone if the segments/senteces follow each other. But that might not always work. One other idea is to request the LLM to keep a stable tone/voice description with giving previous segments.
-- [ ] UUF - A GREAT IDEA - We can add characteristis to the people of the book. They can persist across different voice run types, and the hints would change the tone of the voice. Build up a persistent character of the voice, attach it to the every run.
 
+- [ ] We should keep a knowledge base for the characterists of people of the book. They should be built on the segmentation, and the hints would change the tone of the voice. Build up a persistent character of the voice, attach it to the every run. After implementing this, and generating this via the segmentation stage, I want to attach this snippet in every voice synthesis as `VoiceDescription`.
+```
+gender: Male.
+pitch: Low male pitch with significant upward inflections for emphasis and excitement.
+speed: Fast-paced delivery with deliberate pauses for dramatic effect.
+volume: Loud and projecting, increasing notably during moments of praise and announcements.
+age: Young adult to middle-aged adult.
+clarity: Highly articulate and distinct pronunciation.
+fluency: Very fluent speech with no hesitations.
+accent: British English.
+texture: Bright and clear vocal texture.
+emotion: Enthusiastic and excited, especially when complimenting.
+tone: Upbeat, authoritative, and performative.
+personality: Confident, extroverted, and engaging.
+```
 
 - [ ] Overall failed:
 ```
