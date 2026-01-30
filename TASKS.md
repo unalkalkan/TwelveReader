@@ -2,35 +2,7 @@
 
 ## TODO
 
-- [ ] Present available characters in each segmentation request (batch and single), so that new segmentation runs would not generate similar but not the same characters. Here's the following people list from the Suskind's Perfume. We need to eliminate duplicate people. Instruct the LLM in system prompt about this situation, that it can create people if they are not present in the list that is provided.
-
-```
-Father Terrier
-Father_Terrier
-Father_Terrier (fantasy/inner)
-Father_Terrier (inner/exclaimed)
-Father_Terrier_thought
-Grenouille
-Horace (quoted)
-Jeanne_Bussie
-Terrier
-Terrier (spoken)
-Terrier (thought)
-bystander
-character1
-character_grenouille
-dialogue_speaker
-monk
-narrator
-other_woman
-title_front_matter
-wet nurse
-wet_nurse
-wet_nurse_Jeanne_Bussie
-woman
-```
-
-- [ ] When the first X segments received, proceed with the TTS, and then proceed to play the book. Orchestation on LLM->TTS->Read should handle in parallel so that the user would not wait for the whole book to be finished before running the audio.
+- [ ] When the first X segments received, proceed with the TTS, and then proceed to play the book. Orchestation on LLM->TTS->Read should handle in parallel so that the user would not wait for the whole book to be finished before running the audio. Rather than the current web-client's visualization as tabs, we can do a different UX approach to show the progress on each Stage in one view, with reading being at the bottom of these stages. With this approach, we can see updates on each stage in one view, while reading the book (with already completed segments->synthesises).
 
 - [ ] Context deadlines may exceed way too quickly right now, we should raise these deadline timeouts. Below log is from the TTS, but I've seen that it also happens in the LLM.
 ```
@@ -66,3 +38,31 @@ woman
 ```
 
 ## DONE
+
+- [x] Keep them and present all available characters in each segmentation request (batch and single), so that new segmentation runs would not generate similar but not the same characters. Here's the following people list from the Suskind's Perfume. We need to eliminate duplicate people. Instruct the LLM in system prompt about this situation, that it can create people if they are not present in the list that is provided.
+
+```
+Father Terrier
+Father_Terrier
+Father_Terrier (fantasy/inner)
+Father_Terrier (inner/exclaimed)
+Father_Terrier_thought
+Grenouille
+Horace (quoted)
+Jeanne_Bussie
+Terrier
+Terrier (spoken)
+Terrier (thought)
+bystander
+character1
+character_grenouille
+dialogue_speaker
+monk
+narrator
+other_woman
+title_front_matter
+wet nurse
+wet_nurse
+wet_nurse_Jeanne_Bussie
+woman
+```

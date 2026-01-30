@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/unalkalkan/TwelveReader/internal/provider"
 	"github.com/unalkalkan/TwelveReader/pkg/types"
@@ -26,16 +28,20 @@ type Service struct {
 	contextWindow    int // Number of surrounding paragraphs to include
 	segmenterVersion string
 	batchSize        int
+	knownPersons     []string
+	knownPersonMap   map[string]string
 }
 
 // NewService creates a new segmentation service
 func NewService(llmProvider provider.LLMProvider, contextWindow int) *Service {
-	return &Service{
+	service := &Service{
 		llmProvider:      llmProvider,
 		contextWindow:    contextWindow,
 		segmenterVersion: "v1",
 		batchSize:        DefaultBatchSize,
 	}
+	service.initKnownPersons([]string{"narrator"})
+	return service
 }
 
 // SetBatchSize sets the batch size for processing
@@ -132,7 +138,8 @@ func (s *Service) buildBatchRequest(paragraphs []string, start, end int) provide
 	}
 
 	return provider.BatchSegmentRequest{
-		Paragraphs: batchParagraphs,
+		Paragraphs:   batchParagraphs,
+		KnownPersons: s.knownPersonsSnapshot(),
 	}
 }
 
@@ -194,6 +201,7 @@ func (s *Service) processParagraphsIndividually(ctx context.Context, bookID stri
 			Text:          paragraphs[i],
 			ContextBefore: contextBefore,
 			ContextAfter:  contextAfter,
+			KnownPersons:  s.knownPersonsSnapshot(),
 		}
 
 		resp, err := s.llmProvider.Segment(ctx, req)
@@ -206,6 +214,7 @@ func (s *Service) processParagraphsIndividually(ctx context.Context, bookID stri
 		// Convert response to segments
 		for _, llmSeg := range resp.Segments {
 			*counter++
+			person := s.registerPerson(llmSeg.Person)
 			segment := &types.Segment{
 				ID:               fmt.Sprintf("seg_%05d", *counter),
 				BookID:           bookID,
@@ -213,7 +222,7 @@ func (s *Service) processParagraphsIndividually(ctx context.Context, bookID stri
 				TOCPath:          chapter.TOCPath,
 				Text:             llmSeg.Text,
 				Language:         llmSeg.Language,
-				Person:           llmSeg.Person,
+				Person:           person,
 				VoiceDescription: llmSeg.VoiceDescription,
 				SourceContext: &types.SourceContext{
 					PrevParagraphID: s.getParagraphID(chapter.ID, i-1),
@@ -234,6 +243,7 @@ func (s *Service) processParagraphsIndividually(ctx context.Context, bookID stri
 // processSingleParagraphFallback creates a fallback segment for a single paragraph
 func (s *Service) processSingleParagraphFallback(bookID string, chapter *types.Chapter, text string, counter *int, paragraphIndex int) []*types.Segment {
 	*counter++
+	s.registerPerson("narrator")
 	return []*types.Segment{
 		{
 			ID:               fmt.Sprintf("seg_%05d", *counter),
@@ -265,6 +275,7 @@ func (s *Service) convertBatchResults(bookID string, chapter *types.Chapter, res
 
 		for _, llmSeg := range result.Segments {
 			*counter++
+			person := s.registerPerson(llmSeg.Person)
 			segment := &types.Segment{
 				ID:               fmt.Sprintf("seg_%05d", *counter),
 				BookID:           bookID,
@@ -272,7 +283,7 @@ func (s *Service) convertBatchResults(bookID string, chapter *types.Chapter, res
 				TOCPath:          chapter.TOCPath,
 				Text:             llmSeg.Text,
 				Language:         llmSeg.Language,
-				Person:           llmSeg.Person,
+				Person:           person,
 				VoiceDescription: llmSeg.VoiceDescription,
 				SourceContext: &types.SourceContext{
 					PrevParagraphID: s.getParagraphID(chapter.ID, paragraphIndex-1),
@@ -338,4 +349,100 @@ func DiscoverPersonas(segments []*types.Segment) []string {
 	}
 
 	return personas
+}
+
+func (s *Service) initKnownPersons(persons []string) {
+	s.knownPersonMap = make(map[string]string)
+	s.knownPersons = make([]string, 0, len(persons))
+	for _, person := range persons {
+		s.registerPerson(person)
+	}
+}
+
+func (s *Service) knownPersonsSnapshot() []string {
+	if len(s.knownPersons) == 0 {
+		return nil
+	}
+	known := make([]string, len(s.knownPersons))
+	copy(known, s.knownPersons)
+	return known
+}
+
+func (s *Service) registerPerson(person string) string {
+	person = strings.TrimSpace(person)
+	if person == "" {
+		return person
+	}
+	if s.knownPersonMap == nil {
+		s.knownPersonMap = make(map[string]string)
+	}
+	normalized := normalizePersonKey(person)
+	if normalized == "" {
+		return person
+	}
+	if existing, ok := s.knownPersonMap[normalized]; ok {
+		return existing
+	}
+	s.knownPersonMap[normalized] = person
+	s.knownPersons = append(s.knownPersons, person)
+	return person
+}
+
+var personQualifierTokens = map[string]bool{
+	"thought":   true,
+	"spoken":    true,
+	"inner":     true,
+	"fantasy":   true,
+	"quoted":    true,
+	"exclaimed": true,
+}
+
+func normalizePersonKey(person string) string {
+	person = strings.TrimSpace(person)
+	if person == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	lastSpace := false
+	for _, r := range person {
+		switch {
+		case r == '(':
+			lastSpace = true
+		case r == ')':
+			lastSpace = true
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			b.WriteRune(unicode.ToLower(r))
+			lastSpace = false
+		default:
+			if !lastSpace {
+				b.WriteByte(' ')
+				lastSpace = true
+			}
+		}
+	}
+
+	normalized := strings.TrimSpace(b.String())
+	if normalized == "" {
+		return ""
+	}
+
+	tokens := strings.Fields(normalized)
+	if len(tokens) == 0 {
+		return ""
+	}
+	if len(tokens) > 1 && tokens[0] == "character" {
+		tokens = tokens[1:]
+	}
+	for len(tokens) > 0 {
+		if personQualifierTokens[tokens[len(tokens)-1]] {
+			tokens = tokens[:len(tokens)-1]
+			continue
+		}
+		break
+	}
+	if len(tokens) == 0 {
+		return ""
+	}
+	return strings.Join(tokens, " ")
 }

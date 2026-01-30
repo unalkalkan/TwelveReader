@@ -70,9 +70,10 @@ If a provider configuration doesn't include both `endpoint` and `model`, the sys
 
 The OpenAI provider:
 1. Constructs a detailed prompt for text segmentation
-2. Calls the `/chat/completions` endpoint with the prompt
-3. Parses the JSON response containing segment information
-4. Returns structured segments with speaker, language, and voice description
+2. Injects the known-people list (when provided) to enforce consistent speaker identifiers
+3. Calls the `/chat/completions` endpoint with the prompt
+4. Parses the JSON response containing segment information
+5. Returns structured segments with speaker, language, and voice description
 
 Each segment includes:
 - `text`: The text content of the segment

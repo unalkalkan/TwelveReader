@@ -26,6 +26,7 @@ type SegmentRequest struct {
 	ContextBefore []string // Previous paragraphs for context
 	ContextAfter  []string // Following paragraphs for context
 	Language      string   // Optional language hint
+	KnownPersons  []string // Known speaker identifiers to reuse
 }
 
 // SegmentResponse contains the segmentation results
@@ -35,8 +36,9 @@ type SegmentResponse struct {
 
 // BatchSegmentRequest contains multiple paragraphs to segment in one call
 type BatchSegmentRequest struct {
-	Paragraphs []BatchParagraph // Paragraphs to segment
-	Language   string           // Optional language hint
+	Paragraphs   []BatchParagraph // Paragraphs to segment
+	Language     string           // Optional language hint
+	KnownPersons []string         // Known speaker identifiers to reuse
 }
 
 // BatchParagraph represents a single paragraph with its context

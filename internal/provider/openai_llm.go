@@ -56,10 +56,14 @@ func (o *OpenAILLMProvider) Name() string {
 // Segment calls the OpenAI-compatible API to segment text
 func (o *OpenAILLMProvider) Segment(ctx context.Context, req SegmentRequest) (*SegmentResponse, error) {
 	// Build the prompt for segmentation
+	systemPrompt := o.buildSegmentationSystemPrompt()
 	prompt := o.buildSegmentationPrompt(req)
 
 	// Call the OpenAI-compatible API
-	apiResp, err := o.callChatCompletion(ctx, prompt)
+	apiResp, err := o.callChatCompletion(ctx, []message{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: prompt},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to call LLM API: %w", err)
 	}
@@ -92,6 +96,8 @@ func (o *OpenAILLMProvider) buildSegmentationPrompt(req SegmentRequest) string {
 	sb.WriteString("3. The language (ISO-639-1 code, e.g., 'en', 'es')\n")
 	sb.WriteString("4. A voice description (e.g., 'neutral', 'excited', 'somber')\n\n")
 
+	appendKnownPersons(&sb, req.KnownPersons)
+
 	if len(req.ContextBefore) > 0 {
 		sb.WriteString("Previous context:\n")
 		for _, ctx := range req.ContextBefore {
@@ -117,6 +123,17 @@ func (o *OpenAILLMProvider) buildSegmentationPrompt(req SegmentRequest) string {
 	sb.WriteString("\n\nProvide ONLY the JSON array, no additional text.")
 
 	return sb.String()
+}
+
+func (o *OpenAILLMProvider) buildSegmentationSystemPrompt() string {
+	return strings.Join([]string{
+		"You are a text segmentation expert.",
+		"You will be given a list of known people for the book.",
+		"Always reuse the exact identifiers from that list when they match the speaker, including for quoted speech or internal thoughts.",
+		"Do not create variants by changing spacing, underscores, casing, or adding suffixes like '(thought)' or '_spoken'.",
+		"Only create a new person if none of the known people fit; when you do, use a concise snake_case identifier.",
+		"Follow the output format exactly and return only valid JSON.",
+	}, "\n")
 }
 
 // OpenAI API structures
@@ -162,7 +179,7 @@ type apiErrorResponse struct {
 }
 
 // callChatCompletion calls the OpenAI-compatible chat completion endpoint
-func (o *OpenAILLMProvider) callChatCompletion(ctx context.Context, prompt string) (string, error) {
+func (o *OpenAILLMProvider) callChatCompletion(ctx context.Context, messages []message) (string, error) {
 	// Prepare request - parse temperature with default
 	temperature := 0.0
 	hasTemperature := false
@@ -177,13 +194,8 @@ func (o *OpenAILLMProvider) callChatCompletion(ctx context.Context, prompt strin
 	}
 
 	reqBody := chatCompletionRequest{
-		Model: o.config.Model,
-		Messages: []message{
-			{
-				Role:    "user",
-				Content: prompt,
-			},
-		},
+		Model:    o.config.Model,
+		Messages: messages,
 	}
 
 	// Only set temperature if explicitly configured
@@ -206,8 +218,14 @@ func (o *OpenAILLMProvider) callChatCompletion(ctx context.Context, prompt strin
 
 	// Log request details
 	log.Printf("[LLM-%s] Request: POST %s", o.name, endpoint)
-	log.Printf("[LLM-%s] Request payload: model=%s, temperature=%.2f, prompt_length=%d chars", o.name, o.config.Model, temperature, len(prompt))
-	log.Printf("[LLM-%s] Request prompt (truncated): %s", o.name, truncateForLog(prompt, 500))
+	promptLength := 0
+	for _, msg := range messages {
+		promptLength += len(msg.Content)
+	}
+	log.Printf("[LLM-%s] Request payload: model=%s, temperature=%.2f, message_count=%d, prompt_length=%d chars", o.name, o.config.Model, temperature, len(messages), promptLength)
+	if len(messages) > 0 {
+		log.Printf("[LLM-%s] Request prompt (truncated): %s", o.name, truncateForLog(messages[len(messages)-1].Content, 500))
+	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
@@ -361,10 +379,14 @@ func (o *OpenAILLMProvider) BatchSegment(ctx context.Context, req BatchSegmentRe
 	}
 
 	// Build the batch prompt
+	systemPrompt := o.buildSegmentationSystemPrompt()
 	prompt := o.buildBatchSegmentationPrompt(req)
 
 	// Call the OpenAI-compatible API
-	apiResp, err := o.callChatCompletion(ctx, prompt)
+	apiResp, err := o.callChatCompletion(ctx, []message{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: prompt},
+	})
 	if err != nil {
 		// Check for token limit errors
 		if isTokenLimitError(err) {
@@ -425,6 +447,8 @@ func (o *OpenAILLMProvider) buildBatchSegmentationPrompt(req BatchSegmentRequest
 	sb.WriteString("3. The language (ISO-639-1 code, e.g., 'en', 'es')\n")
 	sb.WriteString("4. A voice description (e.g., 'neutral', 'excited', 'somber')\n\n")
 
+	appendKnownPersons(&sb, req.KnownPersons)
+
 	sb.WriteString("I will provide multiple paragraphs numbered with their indices. Process each paragraph and return results grouped by paragraph index.\n\n")
 
 	sb.WriteString("PARAGRAPHS TO PROCESS:\n")
@@ -467,6 +491,17 @@ func (o *OpenAILLMProvider) buildBatchSegmentationPrompt(req BatchSegmentRequest
 	sb.WriteString("\n\nProvide ONLY the JSON object, no additional text.")
 
 	return sb.String()
+}
+
+func appendKnownPersons(sb *strings.Builder, persons []string) {
+	if len(persons) == 0 {
+		return
+	}
+	sb.WriteString("Known people (reuse exact ids when applicable; create new only if none fit):\n")
+	for _, person := range persons {
+		sb.WriteString(fmt.Sprintf("- %s\n", person))
+	}
+	sb.WriteString("\n")
 }
 
 // parseBatchSegmentationResponse parses the LLM batch response
