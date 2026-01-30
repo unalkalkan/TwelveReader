@@ -4,10 +4,10 @@ import { YStack, XStack } from '@tamagui/stacks'
 import { Button } from '@tamagui/button'
 import { Text } from './tamagui.config'
 import { BookUpload } from './components/BookUpload'
-import { BookStatusCard } from './components/BookStatusCard'
 import { BookPlayer } from './components/BookPlayer'
-import { VoiceMapper } from './components/VoiceMapper'
-import { useServerInfo, useBookStatus } from './api/hooks'
+import { UnifiedProgressView } from './components/UnifiedProgressView'
+import { VoiceMappingDialog } from './components/VoiceMappingDialog'
+import { useServerInfo, usePersonas } from './api/hooks'
 import './App.css'
 
 const Container = styled(YStack, {
@@ -39,36 +39,35 @@ const Card = styled(YStack, {
   borderColor: '#e0e0e0',
 })
 
-type View = 'upload' | 'status' | 'voices' | 'player'
+type View = 'upload' | 'processing' | 'player'
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('upload')
   const [currentBookId, setCurrentBookId] = useState<string | null>(null)
   const { data: serverInfo } = useServerInfo()
-  const { data: bookStatus } = useBookStatus(currentBookId ?? undefined)
+  const { data: personas } = usePersonas(currentBookId ?? undefined)
 
   const handleUploadSuccess = (bookId: string) => {
     setCurrentBookId(bookId)
-    setCurrentView('status')
+    setCurrentView('processing')
   }
 
   const handleVoiceMappingComplete = () => {
-    setCurrentView('status')
+    // Voice mapping complete - user can continue
+    // Don't automatically switch views
   }
 
-  // Check if book is ready for voice mapping
-  const canMapVoices = bookStatus?.status === 'voice_mapping' || 
-                       bookStatus?.status === 'ready' || 
-                       bookStatus?.status === 'synthesized'
+  // Show voice mapping dialog if there are unmapped personas
+  const showVoiceDialog = currentBookId && personas && personas.unmapped.length > 0
 
   return (
     <Container>
       <Header>
         <Text fontSize={32} fontWeight="bold">
-          Twelve Reader - Web Client MVP
+          Twelve Reader - Hybrid Pipeline
         </Text>
         <Text fontSize={16} color="#8e8e93">
-          Upload, process, and play audiobooks with synchronized text
+          Upload, process incrementally, and play audiobooks with instant voice mapping
         </Text>
         {serverInfo && (
           <Text fontSize={12} color="#8e8e93">
@@ -87,20 +86,12 @@ function App() {
             Upload Book
           </Button>
           <Button
-            onPress={() => setCurrentView('status')}
+            onPress={() => setCurrentView('processing')}
             disabled={!currentBookId}
-            backgroundColor={currentView === 'status' ? '$primary' : '$secondary'}
+            backgroundColor={currentView === 'processing' ? '$primary' : '$secondary'}
             color="white"
           >
-            View Status
-          </Button>
-          <Button
-            onPress={() => setCurrentView('voices')}
-            disabled={!currentBookId || !canMapVoices}
-            backgroundColor={currentView === 'voices' ? '$primary' : '$secondary'}
-            color="white"
-          >
-            Map Voices
+            View Progress
           </Button>
           <Button
             onPress={() => setCurrentView('player')}
@@ -114,65 +105,65 @@ function App() {
 
         <Card>
           {currentView === 'upload' && (
-            <BookUpload onSuccess={handleUploadSuccess} />
-          )}
-
-          {currentView === 'status' && currentBookId && (
             <YStack gap={16}>
               <Text fontSize={24} fontWeight="bold">
-                Book Processing Status
+                Upload a Book
               </Text>
-              <BookStatusCard bookId={currentBookId} />
-              {bookStatus?.status === 'voice_mapping' && (
-                <Button
-                  onPress={() => setCurrentView('voices')}
-                  backgroundColor="$primary"
-                  color="white"
-                  marginTop={8}
-                >
-                  → Map Voices to Characters
-                </Button>
-              )}
+              <BookUpload onSuccess={handleUploadSuccess} />
             </YStack>
           )}
 
-          {currentView === 'voices' && currentBookId && (
+          {currentView === 'processing' && currentBookId && (
             <YStack gap={16}>
-              <Text fontSize={24} fontWeight="bold">
-                Voice Mapping
-              </Text>
-              <VoiceMapper 
-                bookId={currentBookId} 
-                onComplete={handleVoiceMappingComplete} 
-              />
+              <UnifiedProgressView bookId={currentBookId} />
             </YStack>
           )}
 
           {currentView === 'player' && currentBookId && (
-            <BookPlayer bookId={currentBookId} />
+            <YStack gap={16}>
+              <BookPlayer bookId={currentBookId} />
+            </YStack>
           )}
         </Card>
 
         <Card>
           <YStack gap={12}>
             <Text fontSize={20} fontWeight="bold">
-              About Twelve Reader
+              About Hybrid Pipeline
             </Text>
             <Text fontSize={14} lineHeight={20}>
-              Twelve Reader transforms static books into fully voiced, time-aligned
-              experiences. Upload a book (TXT, PDF, or ePUB), let the LLM segment
-              and annotate it, map voices to characters, and enjoy synchronized
-              audio playback with text highlighting.
+              The hybrid pipeline enables instant playback by processing books incrementally:
             </Text>
+            <YStack gap={8} paddingLeft={16}>
+              <Text fontSize={14} lineHeight={20}>
+                1. Upload your book (TXT, PDF, or ePUB)
+              </Text>
+              <Text fontSize={14} lineHeight={20}>
+                2. LLM segments first 5 paragraphs → Pause for voice mapping
+              </Text>
+              <Text fontSize={14} lineHeight={20}>
+                3. Continue segmentation + TTS synthesis in parallel
+              </Text>
+              <Text fontSize={14} lineHeight={20}>
+                4. New personas discovered? Map voices incrementally
+              </Text>
+              <Text fontSize={14} lineHeight={20}>
+                5. Start listening while synthesis continues!
+              </Text>
+            </YStack>
             <Text fontSize={14} lineHeight={20} color="#8e8e93">
-              Tech Stack: React + TypeScript + Tamagui + TanStack Query + Zod
+              Tech Stack: React + TypeScript + Tamagui + TanStack Query + Go Backend
             </Text>
           </YStack>
         </Card>
       </Content>
+
+      {/* Floating Voice Mapping Dialog - shows automatically when unmapped personas exist */}
+      {showVoiceDialog && (
+        <VoiceMappingDialog bookId={currentBookId} onComplete={handleVoiceMappingComplete} />
+      )}
     </Container>
   )
 }
 
 export default App
-

@@ -6,6 +6,8 @@ import {
   VoicesResponseSchema,
   ServerInfoSchema,
   ProvidersSchema,
+  PersonaDiscoverySchema,
+  PipelineStatusSchema,
   type BookMetadata,
   type ProcessingStatus,
   type Segment,
@@ -13,6 +15,8 @@ import {
   type VoicesResponse,
   type ServerInfo,
   type Providers,
+  type PersonaDiscovery,
+  type PipelineStatus,
 } from '../types/api'
 
 const API_BASE = '/api/v1'
@@ -125,15 +129,38 @@ export async function getVoiceMap(bookId: string): Promise<VoiceMap> {
 
 export async function setVoiceMap(
   bookId: string,
-  voiceMap: Omit<VoiceMap, 'book_id'>
+  voiceMap: Omit<VoiceMap, 'book_id'>,
+  options?: { initial?: boolean; update?: boolean }
 ): Promise<VoiceMap> {
+  const params = new URLSearchParams()
+  if (options?.initial) params.append('initial', 'true')
+  if (options?.update) params.append('update', 'true')
+  const queryString = params.toString()
+  
   return apiRequest<VoiceMap>(
-    `${API_BASE}/books/${bookId}/voice-map`,
+    `${API_BASE}/books/${bookId}/voice-map${queryString ? `?${queryString}` : ''}`,
     {
       method: 'POST',
       body: JSON.stringify(voiceMap),
     },
     VoiceMapSchema
+  )
+}
+
+// Hybrid Pipeline Endpoints
+export async function getPipelineStatus(bookId: string): Promise<PipelineStatus> {
+  return apiRequest<PipelineStatus>(
+    `${API_BASE}/books/${bookId}/pipeline/status`,
+    {},
+    PipelineStatusSchema
+  )
+}
+
+export async function getPersonas(bookId: string): Promise<PersonaDiscovery> {
+  return apiRequest<PersonaDiscovery>(
+    `${API_BASE}/books/${bookId}/personas`,
+    {},
+    PersonaDiscoverySchema
   )
 }
 

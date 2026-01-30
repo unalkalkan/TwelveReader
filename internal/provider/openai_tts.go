@@ -34,8 +34,8 @@ func NewOpenAITTSProvider(config types.TTSProviderConfig) (*OpenAITTSProvider, e
 		return nil, fmt.Errorf("model is required for OpenAI TTS provider (set in options.model)")
 	}
 
-	// Configure timeout from options or use default
-	timeout := 120 * time.Second // TTS can take longer than LLM calls
+	// Configure timeout from options or use default (5 minutes)
+	timeout := 300 * time.Second // TTS can take longer than LLM calls
 	if timeoutStr, ok := config.Options["timeout"]; ok {
 		var timeoutSec int
 		if _, err := fmt.Sscanf(timeoutStr, "%d", &timeoutSec); err == nil && timeoutSec > 0 {

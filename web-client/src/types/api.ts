@@ -58,9 +58,11 @@ export const SegmentSchema = z.object({
   language: z.string(),
   person: z.string(),
   voice_description: z.string(),
+  voice_id: z.string().optional(), // Present after TTS synthesis
   processing: z.object({
     segmenter_version: z.string(),
     generated_at: z.string(),
+    tts_provider: z.string().optional(), // Present after TTS synthesis
   }),
   timestamps: z
     .object({
@@ -75,6 +77,10 @@ export const SegmentSchema = z.object({
     })
     .optional(),
   audio_url: z.string().optional(),
+  source_context: z.object({
+    prev_paragraph_id: z.string().optional(),
+    next_paragraph_id: z.string().optional(),
+  }).optional(),
 })
 
 export type Segment = z.infer<typeof SegmentSchema>
@@ -130,3 +136,36 @@ export const ProvidersSchema = z.object({
 })
 
 export type Providers = z.infer<typeof ProvidersSchema>
+
+// Persona Discovery (for hybrid pipeline)
+export const PersonaDiscoverySchema = z.object({
+  discovered: z.array(z.string()),
+  mapped: z.record(z.string(), z.string()),
+  unmapped: z.array(z.string()),
+  pending_segments: z.number(),
+})
+
+export type PersonaDiscovery = z.infer<typeof PersonaDiscoverySchema>
+
+// Stage Progress (for pipeline status)
+export const StageProgressSchema = z.object({
+  stage: z.string(),
+  current: z.number(),
+  total: z.number(),
+  percentage: z.number(),
+  status: z.string(),
+  message: z.string(),
+  started_at: z.string().optional(),
+  completed_at: z.string().optional(),
+})
+
+export type StageProgress = z.infer<typeof StageProgressSchema>
+
+// Pipeline Status (detailed real-time status from hybrid orchestrator)
+export const PipelineStatusSchema = z.object({
+  book_id: z.string(),
+  stages: z.array(StageProgressSchema),
+  updated_at: z.string(),
+})
+
+export type PipelineStatus = z.infer<typeof PipelineStatusSchema>

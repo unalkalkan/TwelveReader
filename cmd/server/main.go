@@ -123,6 +123,10 @@ func main() {
 			bookHandler.StreamSegments(w, r)
 		} else if strings.HasSuffix(path, "/download") {
 			bookHandler.DownloadBook(w, r)
+		} else if strings.Contains(path, "/pipeline/status") {
+			bookHandler.GetPipelineStatus(w, r)
+		} else if strings.HasSuffix(path, "/personas") {
+			bookHandler.GetPersonas(w, r)
 		} else if strings.Contains(path, "/audio/") {
 			bookHandler.GetAudio(w, r)
 		} else {

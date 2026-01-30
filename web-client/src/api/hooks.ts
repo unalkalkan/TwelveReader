@@ -9,6 +9,8 @@ import {
   getBookSegments,
   getVoiceMap,
   setVoiceMap,
+  getPipelineStatus,
+  getPersonas,
 } from './client'
 import type { VoiceMap } from '../types/api'
 
@@ -66,10 +68,28 @@ export function useBookStatus(bookId: string | undefined) {
 }
 
 export function useBookSegments(bookId: string | undefined) {
+  const queryClient = useQueryClient()
+  
   return useQuery({
     queryKey: ['bookSegments', bookId],
     queryFn: () => getBookSegments(bookId!),
     enabled: !!bookId,
+    retry: 3, // Retry failed requests up to 3 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000), // Exponential backoff: 1s, 2s, 3s
+    refetchInterval: () => {
+      // Get the latest book status from the query cache
+      const bookStatus = queryClient.getQueryData(['bookStatus', bookId]) as { status: string } | undefined
+      
+      // Only poll if the book is still being processed
+      if (!bookStatus) return false
+      
+      if (bookStatus.status === 'synthesizing' || bookStatus.status === 'segmenting') {
+        return 5000 // Poll every 5 seconds
+      }
+      return false // Stop polling when done or ready
+    },
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    refetchOnMount: false, // Don't refetch on component mount if data exists
   })
 }
 
@@ -103,11 +123,59 @@ export function useSetVoiceMap(bookId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (voiceMap: Omit<VoiceMap, 'book_id'>) =>
-      setVoiceMap(bookId, voiceMap),
-    onSuccess: () => {
+    mutationFn: ({
+      voiceMap,
+      options,
+    }: {
+      voiceMap: Omit<VoiceMap, 'book_id'>
+      options?: { initial?: boolean; update?: boolean }
+    }) => setVoiceMap(bookId, voiceMap, options),
+    onSuccess: async () => {
+      // Invalidate and wait for personas query to refetch
+      // This ensures the UI updates with the new unmapped personas list
+      await queryClient.invalidateQueries({ queryKey: ['personas', bookId] })
       queryClient.invalidateQueries({ queryKey: ['voiceMap', bookId] })
       queryClient.invalidateQueries({ queryKey: ['bookStatus', bookId] })
+      queryClient.invalidateQueries({ queryKey: ['pipelineStatus', bookId] })
+    },
+  })
+}
+
+// Hybrid Pipeline hooks
+export function usePipelineStatus(bookId: string | undefined) {
+  return useQuery({
+    queryKey: ['pipelineStatus', bookId],
+    queryFn: () => getPipelineStatus(bookId!),
+    enabled: !!bookId,
+    refetchInterval: (query) => {
+      const stages = query.state.data?.stages
+      if (!stages) return false
+      
+      // Check if any stage is in progress
+      const isProcessing = stages.some(
+        (stage) => stage.status === 'in_progress' || stage.status === 'waiting_for_mapping'
+      )
+      
+      // Refetch every 2 seconds if processing
+      return isProcessing ? 2000 : false
+    },
+  })
+}
+
+export function usePersonas(bookId: string | undefined) {
+  return useQuery({
+    queryKey: ['personas', bookId],
+    queryFn: () => getPersonas(bookId!),
+    enabled: !!bookId,
+    retry: 3, // Retry failed requests up to 3 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000), // Exponential backoff: 1s, 2s, 3s
+    refetchInterval: (query) => {
+      const data = query.state.data
+      // Refetch every 2 seconds if there are unmapped personas
+      if (data && data.unmapped.length > 0) {
+        return 2000
+      }
+      return false
     },
   })
 }

@@ -14,8 +14,8 @@ import (
 	"github.com/unalkalkan/TwelveReader/internal/book"
 	"github.com/unalkalkan/TwelveReader/internal/packaging"
 	"github.com/unalkalkan/TwelveReader/internal/parser"
+	"github.com/unalkalkan/TwelveReader/internal/pipeline"
 	"github.com/unalkalkan/TwelveReader/internal/provider"
-	"github.com/unalkalkan/TwelveReader/internal/segmentation"
 	"github.com/unalkalkan/TwelveReader/internal/storage"
 	"github.com/unalkalkan/TwelveReader/internal/streaming"
 	"github.com/unalkalkan/TwelveReader/internal/tts"
@@ -25,22 +25,37 @@ import (
 
 // BookHandler handles book-related API endpoints
 type BookHandler struct {
-	repo             book.Repository
-	parserFactory    parser.Factory
-	providerReg      *provider.Registry
-	ttsOrchestrator  *tts.Orchestrator
-	packagingService *packaging.Service
-	streamingService *streaming.Service
-	storage          storage.Adapter
+	repo               book.Repository
+	parserFactory      parser.Factory
+	providerReg        *provider.Registry
+	ttsOrchestrator    *tts.Orchestrator
+	hybridOrchestrator *pipeline.HybridOrchestrator
+	packagingService   *packaging.Service
+	streamingService   *streaming.Service
+	storage            storage.Adapter
 }
 
 // NewBookHandler creates a new book handler
 func NewBookHandler(repo book.Repository, parserFactory parser.Factory, providerReg *provider.Registry, storage storage.Adapter) *BookHandler {
+	// Get first available LLM provider for hybrid orchestrator
+	var llmProvider provider.LLMProvider
+	llmProviders := providerReg.ListLLM()
+	if len(llmProviders) > 0 {
+		llmProvider, _ = providerReg.GetLLM(llmProviders[0])
+	}
+
 	return &BookHandler{
-		repo:             repo,
-		parserFactory:    parserFactory,
-		providerReg:      providerReg,
-		ttsOrchestrator:  tts.NewOrchestrator(providerReg, repo, storage, 3),
+		repo:            repo,
+		parserFactory:   parserFactory,
+		providerReg:     providerReg,
+		ttsOrchestrator: tts.NewOrchestrator(providerReg, repo, storage, 3),
+		hybridOrchestrator: pipeline.NewHybridOrchestrator(
+			pipeline.DefaultPipelineConfig(),
+			repo,
+			storage,
+			llmProvider,
+			providerReg,
+		),
 		packagingService: packaging.NewService(repo, storage),
 		streamingService: streaming.NewService(repo),
 		storage:          storage,
@@ -139,7 +154,7 @@ func (h *BookHandler) UploadBook(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, newBook, http.StatusCreated)
 }
 
-// processBook handles async book processing
+// processBook handles async book processing using the hybrid pipeline
 func (h *BookHandler) processBook(bookID string, data []byte, format string) {
 	ctx := context.Background()
 
@@ -182,54 +197,67 @@ func (h *BookHandler) processBook(bookID string, data []byte, format string) {
 		h.repo.UpdateBook(ctx, book)
 	}
 
-	// Segment chapters using LLM with progress tracking
-	llmProviders := h.providerReg.ListLLM()
+	// Start hybrid pipeline with progress tracking
+	progressCallback := func(status *pipeline.PipelineStatus) {
+		book, err := h.repo.GetBook(ctx, bookID)
+		if err != nil {
+			log.Printf("Failed to get book for progress update: %v", err)
+			return
+		}
+		if book == nil {
+			return
+		}
 
-	if len(llmProviders) > 0 {
-		llmProvider, err := h.providerReg.GetLLM(llmProviders[0])
-		if err == nil && llmProvider != nil {
-			segService := segmentation.NewService(llmProvider, 2)
-
-			// Create progress callback to update book status
-			progressCallback := func(segmentedParagraphs, totalParagraphs int) {
-				book, err := h.repo.GetBook(ctx, bookID)
-				if err == nil && book != nil {
-					book.SegmentedParagraphs = segmentedParagraphs
-					book.TotalParagraphs = totalParagraphs
-					h.repo.UpdateBook(ctx, book)
+		// Update book status based on pipeline progress
+		for _, stage := range status.Stages {
+			switch stage.Stage {
+			case "segmenting":
+				book.SegmentedParagraphs = stage.Current
+				if stage.Total > 0 {
+					book.TotalParagraphs = stage.Total
 				}
-			}
-
-			segments, err := segService.SegmentChaptersWithProgress(ctx, bookID, chapters, progressCallback)
-			if err != nil {
-				log.Printf("Segmentation failed for book %s: %v", bookID, err)
-			} else {
-				// Save segments
-				for _, segment := range segments {
-					if err := h.repo.SaveSegment(ctx, segment); err != nil {
-						log.Printf("Failed to save segment %s: %v", segment.ID, err)
+				if stage.Status == "in_progress" {
+					book.Status = "segmenting"
+				} else if stage.Status == "waiting_for_mapping" {
+					book.Status = "voice_mapping"
+					book.WaitingForMapping = true
+				} else if stage.Status == "completed" {
+					// Segmentation complete, update total segments
+					if stage.Total > 0 {
+						book.TotalSegments = stage.Total
 					}
 				}
-
-				// Update book with segment count
-				book, _ = h.repo.GetBook(ctx, bookID)
-				if book != nil {
-					book.TotalSegments = len(segments)
-					book.SegmentedParagraphs = totalParagraphs // Mark as complete
-					book.Status = "voice_mapping"
-					h.repo.UpdateBook(ctx, book)
+			case "synthesizing":
+				book.SynthesizedSegments = stage.Current
+				if stage.Total > 0 {
+					book.TotalSegments = stage.Total
+				}
+				if stage.Status == "in_progress" {
+					book.Status = "synthesizing"
+				}
+			case "ready":
+				if stage.Status == "completed" {
+					book.Status = "synthesized"
 				}
 			}
+		}
+
+		// Try to get persona information from orchestrator
+		if personaDiscovery, err := h.hybridOrchestrator.GetPersonaDiscovery(bookID); err == nil {
+			book.DiscoveredPersonas = personaDiscovery.Discovered
+			book.UnmappedPersonas = personaDiscovery.Unmapped
+			book.PendingSegmentCount = personaDiscovery.PendingSegments
+		}
+
+		if err := h.repo.UpdateBook(ctx, book); err != nil {
+			log.Printf("Failed to update book progress: %v", err)
 		}
 	}
 
-	// If no LLM provider, mark as ready
-	if len(llmProviders) == 0 {
-		book, _ = h.repo.GetBook(ctx, bookID)
-		if book != nil {
-			book.Status = "ready"
-			h.repo.UpdateBook(ctx, book)
-		}
+	// Start the hybrid pipeline
+	if err := h.hybridOrchestrator.StartPipeline(ctx, bookID, chapters, progressCallback); err != nil {
+		log.Printf("Failed to start hybrid pipeline for book %s: %v", bookID, err)
+		h.updateBookError(ctx, bookID, fmt.Sprintf("Pipeline error: %v", err))
 	}
 }
 
@@ -380,52 +408,64 @@ func (h *BookHandler) SetVoiceMap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("[SetVoiceMap] Received request for book %s", bookID)
+
 	// Parse request body
 	var voiceMap types.VoiceMap
 	if err := json.NewDecoder(r.Body).Decode(&voiceMap); err != nil {
+		log.Printf("[SetVoiceMap] Failed to decode request body: %v", err)
 		respondError(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	voiceMap.BookID = bookID
+	log.Printf("[SetVoiceMap] Voice map contains %d personas", len(voiceMap.Persons))
+	for _, pv := range voiceMap.Persons {
+		log.Printf("[SetVoiceMap]   - %s -> %s", pv.ID, pv.ProviderVoice)
+	}
 
 	// Save voice map
 	if err := h.repo.SaveVoiceMap(r.Context(), &voiceMap); err != nil {
+		log.Printf("[SetVoiceMap] Failed to save voice map: %v", err)
 		respondError(w, "Failed to save voice map", http.StatusInternalServerError)
 		return
 	}
+	log.Printf("[SetVoiceMap] Voice map saved successfully")
 
-	// Update book status to ready and trigger TTS synthesis
-	book, err := h.repo.GetBook(r.Context(), bookID)
-	if err == nil && book != nil {
-		book.Status = "ready"
-		h.repo.UpdateBook(r.Context(), book)
+	// Check if this is initial mapping or update for newly discovered persona
+	isInitial := r.URL.Query().Get("initial") == "true"
+	isUpdate := r.URL.Query().Get("update") == "true"
 
-		// Start TTS synthesis asynchronously with background context
-		// Note: Using background context because TTS synthesis should complete
-		// even if the HTTP request is cancelled
-		go func() {
-			defer func() {
-				if r := recover(); r != nil {
-					log.Printf("[PANIC] TTS synthesis for %s: %v", bookID, r)
-				}
-			}()
-
-			// Create a new context for TTS synthesis to avoid cancellation
-			ctx := context.Background()
-
-			// Get first available TTS provider
-			ttsProviders := h.providerReg.ListTTS()
-			if len(ttsProviders) > 0 {
-				if err := h.ttsOrchestrator.SynthesizeBook(ctx, bookID, ttsProviders[0]); err != nil {
-					log.Printf("TTS synthesis failed for book %s: %v", bookID, err)
-				}
-			} else {
-				log.Printf("No TTS providers available for book %s", bookID)
-			}
-		}()
+	// Determine which type of mapping this is
+	if !isInitial && !isUpdate {
+		// Default behavior: if no query param, assume initial for backward compatibility
+		isInitial = true
 	}
+	log.Printf("[SetVoiceMap] Mapping type: isInitial=%v, isUpdate=%v", isInitial, isUpdate)
 
+	// Apply voice mapping to hybrid orchestrator
+	// The orchestrator will update book.UnmappedPersonas and book.WaitingForMapping
+	log.Printf("[SetVoiceMap] Applying voice mapping to orchestrator")
+	if err := h.hybridOrchestrator.ApplyVoiceMapping(r.Context(), bookID, &voiceMap, isInitial); err != nil {
+		// Log error but don't fail the request - orchestrator might not be running
+		log.Printf("[SetVoiceMap] Failed to apply voice mapping to orchestrator: %v", err)
+
+		// If orchestrator is not running, manually update book status
+		book, err := h.repo.GetBook(r.Context(), bookID)
+		if err == nil && book != nil {
+			log.Printf("[SetVoiceMap] Manually updating book status (orchestrator not running)")
+			if book.Status == "voice_mapping" {
+				book.Status = "ready"
+			}
+			book.WaitingForMapping = false
+			h.repo.UpdateBook(r.Context(), book)
+		}
+	} else {
+		log.Printf("[SetVoiceMap] Voice mapping applied to orchestrator successfully")
+	}
+	// Note: If orchestrator is running, it will handle updating book status in applyVoiceMapping()
+
+	log.Printf("[SetVoiceMap] Returning success response")
 	respondJSON(w, voiceMap, http.StatusOK)
 }
 
@@ -600,6 +640,192 @@ func (h *BookHandler) GetAudio(w http.ResponseWriter, r *http.Request) {
 
 	// Stream audio data
 	io.Copy(w, audioReader)
+}
+
+// GetPipelineStatus handles GET /api/v1/books/:id/pipeline/status
+func (h *BookHandler) GetPipelineStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract book ID from path
+	bookID := extractIDFromPath(r.URL.Path, "/api/v1/books/")
+	if bookID == "" {
+		respondError(w, "Book ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Get book to ensure it exists
+	book, err := h.repo.GetBook(r.Context(), bookID)
+	if err != nil {
+		respondError(w, "Book not found", http.StatusNotFound)
+		return
+	}
+
+	// Try to get status from active hybrid orchestrator pipeline
+	pipelineStatus, err := h.hybridOrchestrator.GetPipelineStatus(bookID)
+	if err == nil && pipelineStatus != nil {
+		// Convert pipeline status to processing status
+		status := convertPipelineStatusToProcessingStatus(pipelineStatus, book)
+		respondJSON(w, status, http.StatusOK)
+		return
+	}
+
+	// If no active pipeline, build status from book metadata
+	status := buildPipelineStatusFromBook(book)
+	respondJSON(w, status, http.StatusOK)
+}
+
+// GetPersonas handles GET /api/v1/books/:id/personas
+func (h *BookHandler) GetPersonas(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract book ID from path
+	bookID := extractIDFromPath(r.URL.Path, "/api/v1/books/")
+	if bookID == "" {
+		respondError(w, "Book ID required", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("[GetPersonas] Received request for book %s", bookID)
+
+	// Get book to check discovered personas
+	book, err := h.repo.GetBook(r.Context(), bookID)
+	if err != nil {
+		log.Printf("[GetPersonas] Book not found: %v", err)
+		respondError(w, "Book not found", http.StatusNotFound)
+		return
+	}
+
+	log.Printf("[GetPersonas] Book status: %s, DiscoveredPersonas: %v, UnmappedPersonas: %v",
+		book.Status, book.DiscoveredPersonas, book.UnmappedPersonas)
+
+	// Get voice map
+	voiceMap, err := h.repo.GetVoiceMap(r.Context(), bookID)
+	mapped := make(map[string]string)
+	if err == nil && voiceMap != nil {
+		log.Printf("[GetPersonas] Found voice map with %d personas", len(voiceMap.Persons))
+		for _, pv := range voiceMap.Persons {
+			mapped[pv.ID] = pv.ProviderVoice
+			log.Printf("[GetPersonas]   - %s -> %s", pv.ID, pv.ProviderVoice)
+		}
+	} else {
+		log.Printf("[GetPersonas] No voice map found or error: %v", err)
+	}
+
+	// Build persona discovery response
+	personaDiscovery := &types.PersonaDiscovery{
+		Discovered:      book.DiscoveredPersonas,
+		Mapped:          mapped,
+		Unmapped:        book.UnmappedPersonas,
+		PendingSegments: book.PendingSegmentCount,
+	}
+
+	log.Printf("[GetPersonas] Returning: Discovered=%v, Mapped=%v, Unmapped=%v, Pending=%d",
+		personaDiscovery.Discovered, len(personaDiscovery.Mapped),
+		personaDiscovery.Unmapped, personaDiscovery.PendingSegments)
+
+	respondJSON(w, personaDiscovery, http.StatusOK)
+}
+
+// Helper functions
+
+// convertPipelineStatusToProcessingStatus converts pipeline.PipelineStatus to types.ProcessingStatus
+func convertPipelineStatusToProcessingStatus(pipelineStatus *pipeline.PipelineStatus, book *types.Book) *types.ProcessingStatus {
+	status := &types.ProcessingStatus{
+		BookID:              book.ID,
+		Status:              book.Status,
+		Stage:               book.Status,
+		TotalChapters:       book.TotalChapters,
+		ParsedChapters:      book.TotalChapters,
+		TotalSegments:       book.TotalSegments,
+		TotalParagraphs:     book.TotalParagraphs,
+		SegmentedParagraphs: book.SegmentedParagraphs,
+		SynthesizedSegments: book.SynthesizedSegments,
+		Error:               book.Error,
+		UpdatedAt:           pipelineStatus.UpdatedAt,
+	}
+
+	// Extract progress from stages
+	for _, stage := range pipelineStatus.Stages {
+		switch stage.Stage {
+		case "segmenting":
+			status.SegmentedParagraphs = stage.Current
+			if stage.Total > 0 {
+				status.TotalParagraphs = stage.Total
+			}
+			if stage.Status == "in_progress" {
+				status.Stage = "segmenting"
+				if stage.Total > 0 {
+					status.Progress = float64(stage.Current) / float64(stage.Total) * 100
+				}
+			} else if stage.Status == "waiting_for_mapping" {
+				status.Stage = "voice_mapping"
+				status.Progress = 100
+			}
+		case "synthesizing":
+			status.SynthesizedSegments = stage.Current
+			if stage.Total > 0 {
+				status.TotalSegments = stage.Total
+			}
+			if stage.Status == "in_progress" {
+				status.Stage = "synthesizing"
+				if stage.Total > 0 {
+					status.Progress = float64(stage.Current) / float64(stage.Total) * 100
+				}
+			}
+		case "ready":
+			if stage.Status == "completed" {
+				status.Stage = "synthesized"
+				status.Progress = 100
+			}
+		}
+	}
+
+	return status
+}
+
+// buildPipelineStatusFromBook creates a pipeline status from book metadata
+func buildPipelineStatusFromBook(book *types.Book) *types.ProcessingStatus {
+	status := &types.ProcessingStatus{
+		BookID:              book.ID,
+		Status:              book.Status,
+		Stage:               book.Status,
+		TotalChapters:       book.TotalChapters,
+		ParsedChapters:      book.TotalChapters,
+		TotalSegments:       book.TotalSegments,
+		TotalParagraphs:     book.TotalParagraphs,
+		SegmentedParagraphs: book.SegmentedParagraphs,
+		SynthesizedSegments: book.SynthesizedSegments,
+		Error:               book.Error,
+		UpdatedAt:           time.Now(),
+	}
+
+	// Calculate progress based on current stage
+	switch book.Status {
+	case "uploaded":
+		status.Progress = 0
+	case "parsing":
+		status.Progress = 0
+	case "segmenting":
+		if book.TotalParagraphs > 0 {
+			status.Progress = float64(book.SegmentedParagraphs) / float64(book.TotalParagraphs) * 100
+		}
+	case "voice_mapping":
+		status.Progress = 100 // Segmentation complete, waiting for user
+	case "synthesizing":
+		if book.TotalSegments > 0 {
+			status.Progress = float64(book.SynthesizedSegments) / float64(book.TotalSegments) * 100
+		}
+	case "synthesized":
+		status.Progress = 100
+	}
+
+	return status
 }
 
 // Helper functions

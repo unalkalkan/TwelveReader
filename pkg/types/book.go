@@ -19,6 +19,12 @@ type Book struct {
 	TotalParagraphs     int `json:"total_paragraphs"`     // Total paragraphs to segment
 	SegmentedParagraphs int `json:"segmented_paragraphs"` // Paragraphs processed so far
 	SynthesizedSegments int `json:"synthesized_segments"` // Segments with audio generated
+
+	// Persona tracking fields for hybrid pipeline
+	DiscoveredPersonas  []string `json:"discovered_personas"`   // All personas discovered so far
+	UnmappedPersonas    []string `json:"unmapped_personas"`     // Personas waiting for voice mapping
+	PendingSegmentCount int      `json:"pending_segment_count"` // Segments waiting for voice mapping
+	WaitingForMapping   bool     `json:"waiting_for_mapping"`   // Pipeline is waiting for user voice mapping
 }
 
 // Chapter represents a chapter in a book
@@ -111,4 +117,12 @@ type ProcessingStatus struct {
 	TotalParagraphs     int `json:"total_paragraphs"`     // Total paragraphs to segment
 	SegmentedParagraphs int `json:"segmented_paragraphs"` // Paragraphs segmented so far
 	SynthesizedSegments int `json:"synthesized_segments"` // Segments with audio generated
+}
+
+// PersonaDiscovery represents discovered personas with their mapping status
+type PersonaDiscovery struct {
+	Discovered      []string          `json:"discovered"`       // All discovered personas
+	Mapped          map[string]string `json:"mapped"`           // persona -> voiceID
+	Unmapped        []string          `json:"unmapped"`         // Personas needing mapping
+	PendingSegments int               `json:"pending_segments"` // Segments waiting for voice mapping
 }

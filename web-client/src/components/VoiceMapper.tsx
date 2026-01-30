@@ -121,7 +121,10 @@ export function VoiceMapper({ bookId, onComplete }: VoiceMapperProps) {
     }))
 
     try {
-      await setVoiceMapMutation.mutateAsync({ persons: personVoices })
+      await setVoiceMapMutation.mutateAsync({ 
+        voiceMap: { persons: personVoices },
+        options: { initial: true }
+      })
       onComplete?.()
     } catch (error) {
       console.error('Failed to save voice map:', error)

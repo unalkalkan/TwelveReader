@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sync"
 
 	"github.com/unalkalkan/TwelveReader/internal/storage"
 	"github.com/unalkalkan/TwelveReader/pkg/types"
@@ -59,7 +60,8 @@ type Repository interface {
 
 // StorageRepository implements Repository using a storage adapter
 type StorageRepository struct {
-	storage storage.Adapter
+	storage  storage.Adapter
+	bookLock sync.Map // Per-book mutex for book metadata operations
 }
 
 // NewRepository creates a new book repository
@@ -69,8 +71,15 @@ func NewRepository(storageAdapter storage.Adapter) Repository {
 	}
 }
 
-// SaveBook stores book metadata
+// SaveBook stores book metadata atomically
 func (r *StorageRepository) SaveBook(ctx context.Context, book *types.Book) error {
+	// Get or create a mutex for this book
+	lockInterface, _ := r.bookLock.LoadOrStore(book.ID, &sync.Mutex{})
+	mu := lockInterface.(*sync.Mutex)
+
+	mu.Lock()
+	defer mu.Unlock()
+
 	data, err := json.Marshal(book)
 	if err != nil {
 		return fmt.Errorf("failed to marshal book: %w", err)
@@ -82,6 +91,13 @@ func (r *StorageRepository) SaveBook(ctx context.Context, book *types.Book) erro
 
 // GetBook retrieves book metadata by ID
 func (r *StorageRepository) GetBook(ctx context.Context, bookID string) (*types.Book, error) {
+	// Get or create a mutex for this book
+	lockInterface, _ := r.bookLock.LoadOrStore(bookID, &sync.Mutex{})
+	mu := lockInterface.(*sync.Mutex)
+
+	mu.Lock()
+	defer mu.Unlock()
+
 	path := filepath.Join("books", bookID, "metadata.json")
 	reader, err := r.storage.Get(ctx, path)
 	if err != nil {

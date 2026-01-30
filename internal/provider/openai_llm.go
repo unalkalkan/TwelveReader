@@ -31,8 +31,8 @@ func NewOpenAILLMProvider(config types.LLMProviderConfig) (*OpenAILLMProvider, e
 		return nil, fmt.Errorf("model is required for OpenAI LLM provider")
 	}
 
-	// Configure timeout from options or use default
-	timeout := 60 * time.Second
+	// Configure timeout from options or use default (5 minutes)
+	timeout := 300 * time.Second
 	if timeoutStr, ok := config.Options["timeout"]; ok {
 		var timeoutSec int
 		if _, err := fmt.Sscanf(timeoutStr, "%d", &timeoutSec); err == nil && timeoutSec > 0 {
