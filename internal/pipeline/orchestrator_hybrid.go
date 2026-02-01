@@ -39,11 +39,12 @@ type hybridPipelineState struct {
 	wg               sync.WaitGroup
 
 	// Segmentation state
-	segmentsMu          sync.RWMutex
-	allSegments         []*types.Segment
-	segmentCounter      int
-	totalParagraphs     int
-	processedParagraphs int
+	segmentsMu            sync.RWMutex
+	allSegments           []*types.Segment
+	segmentCounter        int
+	totalParagraphs       int
+	processedParagraphs   int
+	segmentationComplete  bool // Signals when all segments have been processed and queued
 
 	// Persona tracking
 	personaMu          sync.RWMutex
@@ -51,14 +52,14 @@ type hybridPipelineState struct {
 	mappedPersonas     map[string]string // persona -> voiceID
 	unmappedPersonas   []string          // Personas needing mapping
 	initialMappingDone bool              // Whether initial 5-segment mapping is complete
-	initialMappingOnce sync.Once         // Ensure initial mapping is processed only once
 
 	// Segment queue
 	segmentQueue *SegmentQueue
 
 	// Channels for coordination
-	voiceMappingNeeded chan PersonaDiscoveryEvent
-	voiceMappingDone   chan VoiceMappingUpdate
+	voiceMappingNeeded     chan PersonaDiscoveryEvent
+	voiceMappingDone       chan VoiceMappingUpdate
+	initialMappingReceived chan struct{} // Closed when initial mapping is received and applied
 
 	// TTS state
 	ttsMu            sync.RWMutex
@@ -112,17 +113,18 @@ func (o *HybridOrchestrator) StartPipeline(
 
 	pipelineCtx, cancel := context.WithCancel(ctx)
 	state := &hybridPipelineState{
-		bookID:             bookID,
-		chapters:           chapters,
-		allSegments:        make([]*types.Segment, 0),
-		discoveredPersonas: make(map[string]bool),
-		mappedPersonas:     make(map[string]string),
-		unmappedPersonas:   make([]string, 0),
-		segmentQueue:       NewSegmentQueue(),
-		voiceMappingNeeded: make(chan PersonaDiscoveryEvent, 10),
-		voiceMappingDone:   make(chan VoiceMappingUpdate, 10),
-		progressCallback:   progressCallback,
-		cancelFunc:         cancel,
+		bookID:                 bookID,
+		chapters:               chapters,
+		allSegments:            make([]*types.Segment, 0),
+		discoveredPersonas:     make(map[string]bool),
+		mappedPersonas:         make(map[string]string),
+		unmappedPersonas:       make([]string, 0),
+		segmentQueue:           NewSegmentQueue(),
+		voiceMappingNeeded:     make(chan PersonaDiscoveryEvent, 10),
+		voiceMappingDone:       make(chan VoiceMappingUpdate, 10),
+		initialMappingReceived: make(chan struct{}),
+		progressCallback:       progressCallback,
+		cancelFunc:             cancel,
 	}
 
 	// Calculate total paragraphs
@@ -177,6 +179,13 @@ func (o *HybridOrchestrator) StartPipeline(
 // runSegmentationStage processes chapters through LLM segmentation
 func (o *HybridOrchestrator) runSegmentationStage(ctx context.Context, state *hybridPipelineState) {
 	defer state.wg.Done()
+	defer func() {
+		// Mark segmentation as complete so TTS workers know when to exit
+		state.segmentsMu.Lock()
+		state.segmentationComplete = true
+		state.segmentsMu.Unlock()
+		log.Printf("[runSegmentationStage] Segmentation marked complete")
+	}()
 
 	now := time.Now()
 	o.updateStageProgress(state, "segmenting", func(stage *StageProgress) {
@@ -223,6 +232,7 @@ func (o *HybridOrchestrator) runSegmentationStage(ctx context.Context, state *hy
 		state.segmentsMu.RLock()
 		book.TotalSegments = len(state.allSegments)
 		state.segmentsMu.RUnlock()
+		book.Status = "synthesizing"
 		o.repo.UpdateBook(ctx, book)
 	}
 }
@@ -500,39 +510,51 @@ func (o *HybridOrchestrator) getKnownPersonas(state *hybridPipelineState) []stri
 }
 
 // handlePersonaDiscovery checks for new personas and triggers mapping if needed
+// This function must NOT hold any locks when waiting for external events (like voice mapping)
 func (o *HybridOrchestrator) handlePersonaDiscovery(
 	ctx context.Context,
 	state *hybridPipelineState,
 	segment *types.Segment,
 	segmentCount int,
 ) {
-	state.personaMu.Lock()
-	defer state.personaMu.Unlock()
-
 	persona := segment.Person
-	isNewPersona := !state.discoveredPersonas[persona]
 
+	// First, check and update persona discovery under lock
+	state.personaMu.Lock()
+	isNewPersona := !state.discoveredPersonas[persona]
 	if isNewPersona {
 		state.discoveredPersonas[persona] = true
 	}
 
-	// Check if initial mapping is needed (after 5 segments)
-	if !state.initialMappingDone && segmentCount >= o.config.MinSegmentsBeforeTTS {
+	// Check if we need to trigger initial mapping
+	needsInitialMapping := !state.initialMappingDone && segmentCount >= o.config.MinSegmentsBeforeTTS
+	if needsInitialMapping {
 		state.initialMappingDone = true
+	}
 
-		// Collect all discovered personas
-		personas := make([]string, 0, len(state.discoveredPersonas))
+	// Collect discovered personas if needed (while under lock)
+	var personas []string
+	if needsInitialMapping {
+		personas = make([]string, 0, len(state.discoveredPersonas))
 		for p := range state.discoveredPersonas {
 			personas = append(personas, p)
 		}
+	}
+	state.personaMu.Unlock()
 
-		// Send event for initial voice mapping
-		state.voiceMappingNeeded <- PersonaDiscoveryEvent{
+	// Handle initial voice mapping (outside of lock)
+	if needsInitialMapping {
+		// Send event for initial voice mapping (non-blocking, buffered channel)
+		select {
+		case state.voiceMappingNeeded <- PersonaDiscoveryEvent{
 			Personas:  personas,
 			IsInitial: true,
+		}:
+		default:
+			log.Printf("[handlePersonaDiscovery] Warning: voiceMappingNeeded channel full")
 		}
 
-		// Update book status
+		// Update book status asynchronously
 		go func() {
 			book, err := o.repo.GetBook(ctx, state.bookID)
 			if err == nil && book != nil {
@@ -544,65 +566,63 @@ func (o *HybridOrchestrator) handlePersonaDiscovery(
 			}
 		}()
 
-		// Unlock mutex before waiting for voice mapping
-		// This prevents deadlock when applyVoiceMapping tries to acquire the lock
-		state.personaMu.Unlock()
-
 		// Wait for initial voice mapping before continuing
+		// This blocks segmentation until the user provides voice mappings
+		log.Printf("[handlePersonaDiscovery] Waiting for initial voice mapping...")
 		select {
-		case mappingUpdate := <-state.voiceMappingDone:
-			log.Printf("[runSegmentationStage] Received initial voice mapping")
-			// Use Once to ensure this is only processed once across all goroutines
-			state.initialMappingOnce.Do(func() {
-				log.Printf("[runSegmentationStage] Processing initial mapping (first receiver)")
-				o.applyVoiceMapping(ctx, state, mappingUpdate)
-				state.initialMappingDone = true
-
-				// Broadcast to other waiting goroutines by resending
-				// This won't block because channel has buffer size 10
-				state.voiceMappingDone <- mappingUpdate
-			})
+		case <-state.initialMappingReceived:
+			log.Printf("[handlePersonaDiscovery] Initial voice mapping received, continuing segmentation")
 		case <-ctx.Done():
+			log.Printf("[handlePersonaDiscovery] Context cancelled while waiting for voice mapping")
 			return
 		}
+	}
 
-		// Re-acquire lock before continuing
-		state.personaMu.Lock()
-	} else if state.initialMappingDone && isNewPersona {
-		// New persona discovered after initial mapping
+	// Handle new persona discovered after initial mapping
+	state.personaMu.Lock()
+	if state.initialMappingDone && isNewPersona {
 		isMapped := state.mappedPersonas[persona] != ""
-
 		if !isMapped {
-			// Add to unmapped list
 			state.unmappedPersonas = append(state.unmappedPersonas, persona)
+			unmappedCopy := make([]string, len(state.unmappedPersonas))
+			copy(unmappedCopy, state.unmappedPersonas)
+			state.personaMu.Unlock()
 
-			// Send event for new persona mapping
-			state.voiceMappingNeeded <- PersonaDiscoveryEvent{
+			// Send event for new persona mapping (non-blocking)
+			select {
+			case state.voiceMappingNeeded <- PersonaDiscoveryEvent{
 				Personas:        []string{persona},
 				IsInitial:       false,
 				BlockingSegment: segment,
+			}:
+			default:
+				log.Printf("[handlePersonaDiscovery] Warning: voiceMappingNeeded channel full")
 			}
 
-			// Update book status
+			// Update book status asynchronously
 			go func() {
 				book, err := o.repo.GetBook(ctx, state.bookID)
 				if err == nil && book != nil {
-					book.UnmappedPersonas = state.unmappedPersonas
+					book.UnmappedPersonas = unmappedCopy
 					book.WaitingForMapping = true
 					book.PendingSegmentCount = state.segmentQueue.UnmappedCount()
 					o.repo.UpdateBook(ctx, book)
 				}
 			}()
+
+			state.personaMu.Lock()
 		}
 	}
 
-	// Queue segment for TTS
+	// Queue segment for TTS (under lock to check mapping status)
 	if state.initialMappingDone {
 		isMapped := state.mappedPersonas[persona] != ""
+		state.personaMu.Unlock()
+
 		state.segmentQueue.Enqueue(segment, isMapped)
 
 		if !isMapped {
-			// Update pending count
+			// Update pending count asynchronously
 			go func() {
 				book, err := o.repo.GetBook(ctx, state.bookID)
 				if err == nil && book != nil {
@@ -611,6 +631,8 @@ func (o *HybridOrchestrator) handlePersonaDiscovery(
 				}
 			}()
 		}
+	} else {
+		state.personaMu.Unlock()
 	}
 }
 
@@ -618,25 +640,13 @@ func (o *HybridOrchestrator) handlePersonaDiscovery(
 func (o *HybridOrchestrator) runTTSStage(ctx context.Context, state *hybridPipelineState) {
 	defer state.wg.Done()
 
-	// Wait for initial voice mapping
+	// Wait for initial voice mapping signal
+	log.Printf("[runTTSStage] Waiting for initial voice mapping...")
 	select {
-	case mappingUpdate := <-state.voiceMappingDone:
-		log.Printf("[runTTSStage] Received initial voice mapping signal")
-		// Use Once to ensure initial mapping is only processed once
-		// Either runTTSStage or runSegmentationStage can win the race
-		processed := false
-		state.initialMappingOnce.Do(func() {
-			log.Printf("[runTTSStage] Processing initial mapping (first receiver)")
-			o.applyVoiceMapping(ctx, state, mappingUpdate)
-			state.initialMappingDone = true
-			processed = true
-			// Broadcast to other waiting goroutine
-			state.voiceMappingDone <- mappingUpdate
-		})
-		if !processed {
-			log.Printf("[runTTSStage] Initial mapping already processed by runSegmentationStage")
-		}
+	case <-state.initialMappingReceived:
+		log.Printf("[runTTSStage] Initial voice mapping received, starting TTS")
 	case <-ctx.Done():
+		log.Printf("[runTTSStage] Context cancelled while waiting for voice mapping")
 		return
 	}
 
@@ -674,9 +684,11 @@ func (o *HybridOrchestrator) runTTSStage(ctx context.Context, state *hybridPipel
 // ttsWorker processes segments from the queue
 func (o *HybridOrchestrator) ttsWorker(ctx context.Context, state *hybridPipelineState, workerID int) {
 	defer state.ttsWorkers.Done()
+	log.Printf("[ttsWorker-%d] Starting", workerID)
 
 	for {
 		if ctx.Err() != nil {
+			log.Printf("[ttsWorker-%d] Context cancelled, exiting", workerID)
 			return
 		}
 
@@ -685,12 +697,21 @@ func (o *HybridOrchestrator) ttsWorker(ctx context.Context, state *hybridPipelin
 		if segment == nil {
 			// No segments available, check if we're done
 			state.segmentsMu.RLock()
-			allSegmentsProcessed := state.segmentCounter > 0 &&
-				state.segmentQueue.MappedCount() == 0 &&
-				state.segmentQueue.UnmappedCount() == 0
+			segmentationDone := state.segmentationComplete
+			totalSegments := len(state.allSegments)
 			state.segmentsMu.RUnlock()
 
-			if allSegmentsProcessed {
+			mappedCount := state.segmentQueue.MappedCount()
+			unmappedCount := state.segmentQueue.UnmappedCount()
+
+			// Only exit if segmentation is complete AND all queues are empty
+			if segmentationDone && mappedCount == 0 && unmappedCount == 0 {
+				state.ttsMu.RLock()
+				synthesizedCount := state.synthesizedCount
+				state.ttsMu.RUnlock()
+
+				log.Printf("[ttsWorker-%d] All segments processed (synthesized: %d/%d), exiting",
+					workerID, synthesizedCount, totalSegments)
 				return
 			}
 
@@ -705,14 +726,19 @@ func (o *HybridOrchestrator) ttsWorker(ctx context.Context, state *hybridPipelin
 		state.personaMu.RUnlock()
 
 		if voiceID == "" {
-			log.Printf("Warning: Segment %s has no voice mapping for persona %s", segment.ID, segment.Person)
+			log.Printf("[ttsWorker-%d] Warning: Segment %s has no voice mapping for persona %s, re-queueing as unmapped",
+				workerID, segment.ID, segment.Person)
+			// Re-queue as unmapped
+			state.segmentQueue.Enqueue(segment, false)
 			continue
 		}
 
 		// Synthesize audio
+		log.Printf("[ttsWorker-%d] Synthesizing segment %s (persona: %s, voice: %s)",
+			workerID, segment.ID, segment.Person, voiceID)
 		err := o.synthesizeSegment(ctx, state.bookID, segment, voiceID)
 		if err != nil {
-			log.Printf("Failed to synthesize segment %s: %v", segment.ID, err)
+			log.Printf("[ttsWorker-%d] Failed to synthesize segment %s: %v", workerID, segment.ID, err)
 			// TODO: Add to retry queue
 			continue
 		}
@@ -726,6 +752,8 @@ func (o *HybridOrchestrator) ttsWorker(ctx context.Context, state *hybridPipelin
 		state.segmentsMu.RLock()
 		totalSegments := len(state.allSegments)
 		state.segmentsMu.RUnlock()
+
+		log.Printf("[ttsWorker-%d] Completed segment %s (%d/%d)", workerID, segment.ID, currentCount, totalSegments)
 
 		o.updateStageProgress(state, "synthesizing", func(stage *StageProgress) {
 			stage.Current = currentCount
@@ -751,25 +779,26 @@ func (o *HybridOrchestrator) ttsWorker(ctx context.Context, state *hybridPipelin
 		})
 		o.notifyProgress(state)
 
-		// Update book
-		go func() {
+		// Update book asynchronously
+		go func(count int) {
 			book, err := o.repo.GetBook(ctx, state.bookID)
 			if err == nil && book != nil {
-				book.SynthesizedSegments = currentCount
+				book.SynthesizedSegments = count
 				o.repo.UpdateBook(ctx, book)
 			}
-		}()
+		}(currentCount)
 	}
 }
 
-// monitorVoiceMappings listens for voice mapping updates
+// monitorVoiceMappings listens for voice mapping updates from the voiceMappingDone channel
+// Note: Most voice mappings are now applied directly via ApplyVoiceMapping(),
+// but this goroutine handles any updates that come through the channel
 func (o *HybridOrchestrator) monitorVoiceMappings(ctx context.Context, state *hybridPipelineState) {
 	log.Printf("[monitorVoiceMappings] Starting for book %s", state.bookID)
 	for {
 		select {
 		case mappingUpdate := <-state.voiceMappingDone:
-			log.Printf("[monitorVoiceMappings] Received mapping update, isInitial=%v", mappingUpdate.IsInitial)
-			// Process all voice mapping updates (both initial and subsequent)
+			log.Printf("[monitorVoiceMappings] Received mapping update via channel, isInitial=%v", mappingUpdate.IsInitial)
 			o.applyVoiceMapping(ctx, state, mappingUpdate)
 		case <-ctx.Done():
 			log.Printf("[monitorVoiceMappings] Context cancelled, exiting")
@@ -848,6 +877,7 @@ func (o *HybridOrchestrator) synthesizeSegment(
 }
 
 // ApplyVoiceMapping updates the pipeline with new voice mappings
+// This is called from the API handler when the user submits voice mappings
 func (o *HybridOrchestrator) ApplyVoiceMapping(
 	ctx context.Context,
 	bookID string,
@@ -862,10 +892,25 @@ func (o *HybridOrchestrator) ApplyVoiceMapping(
 		return fmt.Errorf("no active pipeline for book %s", bookID)
 	}
 
-	// Send mapping update
-	state.voiceMappingDone <- VoiceMappingUpdate{
+	log.Printf("[ApplyVoiceMapping] Applying voice mapping for book %s, isInitial=%v", bookID, isInitial)
+
+	// Apply the mapping directly (synchronously)
+	o.applyVoiceMapping(ctx, state, VoiceMappingUpdate{
 		VoiceMap:  voiceMap,
 		IsInitial: isInitial,
+	})
+
+	// If this is the initial mapping, signal both the segmentation and TTS stages to continue
+	if isInitial {
+		// Use sync.Once pattern to ensure we only close the channel once
+		select {
+		case <-state.initialMappingReceived:
+			// Channel already closed, do nothing
+			log.Printf("[ApplyVoiceMapping] Initial mapping already signaled")
+		default:
+			close(state.initialMappingReceived)
+			log.Printf("[ApplyVoiceMapping] Initial mapping signal sent")
+		}
 	}
 
 	return nil
