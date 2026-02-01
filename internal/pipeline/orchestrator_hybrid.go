@@ -542,6 +542,11 @@ func (o *HybridOrchestrator) handlePersonaDiscovery(
 	}
 	state.personaMu.Unlock()
 
+	// Track if this segment should be queued by us (vs queued by applyVoiceMapping)
+	// Segments created BEFORE initial mapping are queued by applyVoiceMapping
+	// Segments created AFTER initial mapping are queued by this function
+	segmentCreatedBeforeInitialMapping := needsInitialMapping
+
 	// Handle initial voice mapping (outside of lock)
 	if needsInitialMapping {
 		// Send event for initial voice mapping (non-blocking, buffered channel)
@@ -580,7 +585,7 @@ func (o *HybridOrchestrator) handlePersonaDiscovery(
 
 	// Handle new persona discovered after initial mapping
 	state.personaMu.Lock()
-	if state.initialMappingDone && isNewPersona {
+	if state.initialMappingDone && isNewPersona && !segmentCreatedBeforeInitialMapping {
 		isMapped := state.mappedPersonas[persona] != ""
 		if !isMapped {
 			state.unmappedPersonas = append(state.unmappedPersonas, persona)
@@ -615,7 +620,9 @@ func (o *HybridOrchestrator) handlePersonaDiscovery(
 	}
 
 	// Queue segment for TTS (under lock to check mapping status)
-	if state.initialMappingDone {
+	// Only queue if initial mapping is done AND this segment was created AFTER initial mapping
+	// Segments created before/during initial mapping are queued by applyVoiceMapping
+	if state.initialMappingDone && !segmentCreatedBeforeInitialMapping {
 		isMapped := state.mappedPersonas[persona] != ""
 		state.personaMu.Unlock()
 
