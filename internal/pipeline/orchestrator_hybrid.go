@@ -57,9 +57,10 @@ type hybridPipelineState struct {
 	segmentQueue *SegmentQueue
 
 	// Channels for coordination
-	voiceMappingNeeded     chan PersonaDiscoveryEvent
-	voiceMappingDone       chan VoiceMappingUpdate
-	initialMappingReceived chan struct{} // Closed when initial mapping is received and applied
+	voiceMappingNeeded      chan PersonaDiscoveryEvent
+	voiceMappingDone        chan VoiceMappingUpdate
+	initialMappingReceived  chan struct{} // Closed when initial mapping is received and applied
+	closeInitialMappingOnce sync.Once     // Ensures initialMappingReceived is closed exactly once
 
 	// TTS state
 	ttsMu            sync.RWMutex
@@ -232,7 +233,11 @@ func (o *HybridOrchestrator) runSegmentationStage(ctx context.Context, state *hy
 		state.segmentsMu.RLock()
 		book.TotalSegments = len(state.allSegments)
 		state.segmentsMu.RUnlock()
-		book.Status = "synthesizing"
+		// Only update status if we're still in a state where this makes sense
+		// Don't overwrite if already synthesized or in error state
+		if book.Status == "segmenting" || book.Status == "voice_mapping" {
+			book.Status = "synthesizing"
+		}
 		o.repo.UpdateBook(ctx, book)
 	}
 }
@@ -542,10 +547,10 @@ func (o *HybridOrchestrator) handlePersonaDiscovery(
 	}
 	state.personaMu.Unlock()
 
-	// Track if this segment should be queued by us (vs queued by applyVoiceMapping)
-	// Segments created BEFORE initial mapping are queued by applyVoiceMapping
-	// Segments created AFTER initial mapping are queued by this function
-	segmentCreatedBeforeInitialMapping := needsInitialMapping
+	// Track if this is the segment that triggers initial mapping (the 5th segment)
+	// This segment and all prior ones will be queued by applyVoiceMapping,
+	// so this function should NOT queue them to avoid duplicates
+	isInitialMappingTrigger := needsInitialMapping
 
 	// Handle initial voice mapping (outside of lock)
 	if needsInitialMapping {
@@ -585,7 +590,7 @@ func (o *HybridOrchestrator) handlePersonaDiscovery(
 
 	// Handle new persona discovered after initial mapping
 	state.personaMu.Lock()
-	if state.initialMappingDone && isNewPersona && !segmentCreatedBeforeInitialMapping {
+	if state.initialMappingDone && isNewPersona && !isInitialMappingTrigger {
 		isMapped := state.mappedPersonas[persona] != ""
 		if !isMapped {
 			state.unmappedPersonas = append(state.unmappedPersonas, persona)
@@ -620,9 +625,9 @@ func (o *HybridOrchestrator) handlePersonaDiscovery(
 	}
 
 	// Queue segment for TTS (under lock to check mapping status)
-	// Only queue if initial mapping is done AND this segment was created AFTER initial mapping
-	// Segments created before/during initial mapping are queued by applyVoiceMapping
-	if state.initialMappingDone && !segmentCreatedBeforeInitialMapping {
+	// Only queue if initial mapping is done AND this is NOT the trigger segment
+	// The trigger segment and all prior ones are queued by applyVoiceMapping
+	if state.initialMappingDone && !isInitialMappingTrigger {
 		isMapped := state.mappedPersonas[persona] != ""
 		state.personaMu.Unlock()
 
@@ -735,8 +740,10 @@ func (o *HybridOrchestrator) ttsWorker(ctx context.Context, state *hybridPipelin
 		if voiceID == "" {
 			log.Printf("[ttsWorker-%d] Warning: Segment %s has no voice mapping for persona %s, re-queueing as unmapped",
 				workerID, segment.ID, segment.Person)
-			// Re-queue as unmapped
+			// Re-queue as unmapped - it will wait for PromotePendingSegments to be called
 			state.segmentQueue.Enqueue(segment, false)
+			// Small sleep to prevent potential CPU spinning if there's a logic error
+			time.Sleep(50 * time.Millisecond)
 			continue
 		}
 
@@ -909,15 +916,11 @@ func (o *HybridOrchestrator) ApplyVoiceMapping(
 
 	// If this is the initial mapping, signal both the segmentation and TTS stages to continue
 	if isInitial {
-		// Use sync.Once pattern to ensure we only close the channel once
-		select {
-		case <-state.initialMappingReceived:
-			// Channel already closed, do nothing
-			log.Printf("[ApplyVoiceMapping] Initial mapping already signaled")
-		default:
+		// Use sync.Once to ensure the channel is closed exactly once
+		state.closeInitialMappingOnce.Do(func() {
 			close(state.initialMappingReceived)
 			log.Printf("[ApplyVoiceMapping] Initial mapping signal sent")
-		}
+		})
 	}
 
 	return nil
