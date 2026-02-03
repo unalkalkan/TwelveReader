@@ -97,6 +97,14 @@ export async function uploadBook(
   return BookMetadataSchema.parse(data)
 }
 
+export async function getBooks(): Promise<BookMetadata[]> {
+  return apiRequest<BookMetadata[]>(
+    `${API_BASE}/books`,
+    {},
+    BookMetadataSchema.array()
+  )
+}
+
 export async function getBook(bookId: string): Promise<BookMetadata> {
   return apiRequest<BookMetadata>(
     `${API_BASE}/books/${bookId}`,

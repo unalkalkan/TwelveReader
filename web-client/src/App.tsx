@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { styled } from '@tamagui/core'
 import { YStack, XStack } from '@tamagui/stacks'
 import { Button } from '@tamagui/button'
@@ -7,6 +7,7 @@ import { BookUpload } from './components/BookUpload'
 import { BookPlayer } from './components/BookPlayer'
 import { UnifiedProgressView } from './components/UnifiedProgressView'
 import { VoiceMappingDialog } from './components/VoiceMappingDialog'
+import { RunList } from './components/RunList'
 import { useServerInfo, usePersonas } from './api/hooks'
 import './App.css'
 
@@ -41,9 +42,15 @@ const Card = styled(YStack, {
 
 type View = 'upload' | 'processing' | 'player'
 
+const loadFromStorage = <T,>(key: string): T | null => {
+  if (typeof window === 'undefined') return null
+  const value = window.localStorage.getItem(key)
+  return value ? (value as T) : null
+}
+
 function App() {
-  const [currentView, setCurrentView] = useState<View>('upload')
-  const [currentBookId, setCurrentBookId] = useState<string | null>(null)
+  const [currentView, setCurrentView] = useState<View>(() => loadFromStorage<View>('tr:currentView') ?? 'upload')
+  const [currentBookId, setCurrentBookId] = useState<string | null>(() => loadFromStorage<string>('tr:currentBookId'))
   const { data: serverInfo } = useServerInfo()
   const { data: personas } = usePersonas(currentBookId ?? undefined)
 
@@ -51,6 +58,26 @@ function App() {
     setCurrentBookId(bookId)
     setCurrentView('processing')
   }
+
+  const handleJoinRun = (bookId: string) => {
+    setCurrentBookId(bookId)
+    setCurrentView('processing')
+  }
+
+  // Persist selections so a page refresh keeps the active book/pipeline context
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (currentBookId) {
+      window.localStorage.setItem('tr:currentBookId', currentBookId)
+    } else {
+      window.localStorage.removeItem('tr:currentBookId')
+    }
+  }, [currentBookId])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem('tr:currentView', currentView)
+  }, [currentView])
 
   const handleVoiceMappingComplete = () => {
     // Voice mapping complete - user can continue
@@ -102,6 +129,10 @@ function App() {
             Play Book
           </Button>
         </XStack>
+
+        <Card>
+          <RunList activeBookId={currentBookId} onSelect={handleJoinRun} />
+        </Card>
 
         <Card>
           {currentView === 'upload' && (

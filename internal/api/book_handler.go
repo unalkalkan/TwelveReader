@@ -62,6 +62,23 @@ func NewBookHandler(repo book.Repository, parserFactory parser.Factory, provider
 	}
 }
 
+// ListBooks handles GET /api/v1/books
+func (h *BookHandler) ListBooks(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	books, err := h.repo.ListBooks(r.Context())
+	if err != nil {
+		log.Printf("Failed to list books: %v", err)
+		respondError(w, "Failed to list books", http.StatusInternalServerError)
+		return
+	}
+
+	respondJSON(w, books, http.StatusOK)
+}
+
 // UploadBook handles POST /api/v1/books
 func (h *BookHandler) UploadBook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

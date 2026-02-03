@@ -106,7 +106,17 @@ func main() {
 
 	// Book API endpoints (Milestone 3)
 	bookHandler := api.NewBookHandler(bookRepo, parserFactory, providerRegistry, storageAdapter)
-	mux.HandleFunc("/api/v1/books", bookHandler.UploadBook)
+	mux.HandleFunc("/api/v1/books", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			bookHandler.UploadBook(w, r)
+			return
+		}
+		if r.Method == http.MethodGet {
+			bookHandler.ListBooks(w, r)
+			return
+		}
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	})
 	mux.HandleFunc("/api/v1/books/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.HasSuffix(path, "/status") {

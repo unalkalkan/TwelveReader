@@ -3,6 +3,7 @@ import {
   getServerInfo,
   getProviders,
   getVoices,
+  getBooks,
   uploadBook,
   getBook,
   getBookStatus,
@@ -27,7 +28,15 @@ export function useProviders() {
   return useQuery({
     queryKey: ['providers'],
     queryFn: getProviders,
-    staleTime: Infinity,
+  staleTime: Infinity,
+  })
+}
+
+export function useBooks() {
+  return useQuery({
+    queryKey: ['books'],
+    queryFn: getBooks,
+    staleTime: 30 * 1000,
   })
 }
 

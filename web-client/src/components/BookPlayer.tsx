@@ -42,6 +42,7 @@ export function BookPlayer({ bookId }: { bookId: string }) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [audioError, setAudioError] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const audioSrcRef = useRef<string | null>(null)
 
   const currentSegment = segments?.[currentSegmentIndex]
 
@@ -82,9 +83,10 @@ export function BookPlayer({ bookId }: { bookId: string }) {
       const newSrc = getAudioUrl(bookId, currentSegment.id)
       
       // Only update src if it has changed to avoid interrupting playback
-      if (audioRef.current.src !== newSrc) {
+      if (audioSrcRef.current !== newSrc) {
         setAudioError(false)
         audioRef.current.src = newSrc
+        audioSrcRef.current = newSrc
         
         // Restore playback state if audio was playing
         if (isPlaying) {
@@ -189,7 +191,7 @@ export function BookPlayer({ bookId }: { bookId: string }) {
     }
   }
 
-  if (isLoading || isRefetching) {
+  if (isLoading) {
     return (
       <Container>
         <Text>Loading segments...</Text>
@@ -239,7 +241,14 @@ export function BookPlayer({ bookId }: { bookId: string }) {
         <Text fontSize={20} fontWeight="bold">
           Book Player
         </Text>
-        {getStatusBadge()}
+        <XStack gap={8} alignItems="center">
+          {isRefetching && (
+            <Text fontSize={12} color="#8e8e93">
+              Refreshing…
+            </Text>
+          )}
+          {getStatusBadge()}
+        </XStack>
       </XStack>
 
       <YStack gap={4}>
