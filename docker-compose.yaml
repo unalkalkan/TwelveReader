@@ -31,15 +31,18 @@ services:
       - twelvereader-network
 
   web-client:
-    build:
-      context: ./web-client
-      dockerfile: Dockerfile
-    container_name: twelvereader-web
+    image: node:22-alpine
+    container_name: twelvereader-frontend
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "3000:3000"
+    volumes:
+      - ./web-client:/app
+      - node-modules:/app/node_modules
+    working_dir: /app
+    command: sh -c "npm install && npx expo export --platform web && npx -y serve dist -l 3000"
     environment:
-      - API_URL=http://twelvereader:8080
+      - EXPO_PUBLIC_API_URL=http://twelvereader:8080
     depends_on:
       - twelvereader
     networks:
@@ -74,6 +77,8 @@ volumes:
     driver: local
   # minio-data:
   #   driver: local
+  node-modules:
+    driver: local
 
 networks:
   twelvereader-network:

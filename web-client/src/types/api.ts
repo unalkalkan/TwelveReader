@@ -1,6 +1,6 @@
-import { z } from 'zod'
+import { z } from 'zod';
 
-// Book Status
+// ── Book Status ────────────────────────────────────────────────────────
 export const BookStatusSchema = z.enum([
   'uploaded',
   'parsing',
@@ -11,11 +11,10 @@ export const BookStatusSchema = z.enum([
   'synthesized',
   'synthesis_error',
   'error',
-])
+]);
+export type BookStatus = z.infer<typeof BookStatusSchema>;
 
-export type BookStatus = z.infer<typeof BookStatusSchema>
-
-// Book Metadata
+// ── Book Metadata ──────────────────────────────────────────────────────
 export const BookMetadataSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -26,11 +25,10 @@ export const BookMetadataSchema = z.object({
   orig_format: z.string(),
   total_chapters: z.number(),
   total_segments: z.number(),
-})
+});
+export type BookMetadata = z.infer<typeof BookMetadataSchema>;
 
-export type BookMetadata = z.infer<typeof BookMetadataSchema>
-
-// Processing Status
+// ── Processing Status ──────────────────────────────────────────────────
 export const ProcessingStatusSchema = z.object({
   book_id: z.string(),
   status: BookStatusSchema,
@@ -40,15 +38,13 @@ export const ProcessingStatusSchema = z.object({
   parsed_chapters: z.number(),
   total_segments: z.number(),
   updated_at: z.string(),
-  // Detailed progress tracking
   total_paragraphs: z.number().optional(),
   segmented_paragraphs: z.number().optional(),
   synthesized_segments: z.number().optional(),
-})
+});
+export type ProcessingStatus = z.infer<typeof ProcessingStatusSchema>;
 
-export type ProcessingStatus = z.infer<typeof ProcessingStatusSchema>
-
-// Segment
+// ── Segment ────────────────────────────────────────────────────────────
 export const SegmentSchema = z.object({
   id: z.string(),
   book_id: z.string(),
@@ -58,11 +54,11 @@ export const SegmentSchema = z.object({
   language: z.string(),
   person: z.string(),
   voice_description: z.string(),
-  voice_id: z.string().optional(), // Present after TTS synthesis
+  voice_id: z.string().optional(),
   processing: z.object({
     segmenter_version: z.string(),
     generated_at: z.string(),
-    tts_provider: z.string().optional(), // Present after TTS synthesis
+    tts_provider: z.string().optional(),
   }),
   timestamps: z
     .object({
@@ -72,34 +68,33 @@ export const SegmentSchema = z.object({
           word: z.string(),
           start: z.number(),
           end: z.number(),
-        })
+        }),
       ),
     })
     .optional(),
   audio_url: z.string().optional(),
-  source_context: z.object({
-    prev_paragraph_id: z.string().optional(),
-    next_paragraph_id: z.string().optional(),
-  }).optional(),
-})
+  source_context: z
+    .object({
+      prev_paragraph_id: z.string().optional(),
+      next_paragraph_id: z.string().optional(),
+    })
+    .optional(),
+});
+export type Segment = z.infer<typeof SegmentSchema>;
 
-export type Segment = z.infer<typeof SegmentSchema>
-
-// Voice Map
+// ── Voice Map ──────────────────────────────────────────────────────────
 export const PersonVoiceSchema = z.object({
   id: z.string(),
   provider_voice: z.string(),
-})
-
+});
 export const VoiceMapSchema = z.object({
   book_id: z.string(),
   persons: z.array(PersonVoiceSchema),
-})
+});
+export type PersonVoice = z.infer<typeof PersonVoiceSchema>;
+export type VoiceMap = z.infer<typeof VoiceMapSchema>;
 
-export type PersonVoice = z.infer<typeof PersonVoiceSchema>
-export type VoiceMap = z.infer<typeof VoiceMapSchema>
-
-// Voice (TTS voice from provider)
+// ── Voice ──────────────────────────────────────────────────────────────
 export const VoiceSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -108,46 +103,41 @@ export const VoiceSchema = z.object({
   accent: z.string().optional(),
   description: z.string().optional(),
   provider: z.string(),
-})
+});
+export type Voice = z.infer<typeof VoiceSchema>;
 
-export type Voice = z.infer<typeof VoiceSchema>
-
-// Voices Response
+// ── Voices Response ────────────────────────────────────────────────────
 export const VoicesResponseSchema = z.object({
   voices: z.array(VoiceSchema),
   count: z.number(),
-})
+});
+export type VoicesResponse = z.infer<typeof VoicesResponseSchema>;
 
-export type VoicesResponse = z.infer<typeof VoicesResponseSchema>
-
-// Server Info
+// ── Server Info ────────────────────────────────────────────────────────
 export const ServerInfoSchema = z.object({
   version: z.string(),
   storage_adapter: z.string(),
-})
+});
+export type ServerInfo = z.infer<typeof ServerInfoSchema>;
 
-export type ServerInfo = z.infer<typeof ServerInfoSchema>
-
-// Providers
+// ── Providers ──────────────────────────────────────────────────────────
 export const ProvidersSchema = z.object({
   llm: z.array(z.string()),
   tts: z.array(z.string()),
   ocr: z.array(z.string()),
-})
+});
+export type Providers = z.infer<typeof ProvidersSchema>;
 
-export type Providers = z.infer<typeof ProvidersSchema>
-
-// Persona Discovery (for hybrid pipeline)
+// ── Persona Discovery ──────────────────────────────────────────────────
 export const PersonaDiscoverySchema = z.object({
   discovered: z.array(z.string()),
   mapped: z.record(z.string(), z.string()),
   unmapped: z.array(z.string()),
   pending_segments: z.number(),
-})
+});
+export type PersonaDiscovery = z.infer<typeof PersonaDiscoverySchema>;
 
-export type PersonaDiscovery = z.infer<typeof PersonaDiscoverySchema>
-
-// Stage Progress (for pipeline status)
+// ── Stage Progress ─────────────────────────────────────────────────────
 export const StageProgressSchema = z.object({
   stage: z.string(),
   current: z.number(),
@@ -157,15 +147,13 @@ export const StageProgressSchema = z.object({
   message: z.string(),
   started_at: z.string().optional(),
   completed_at: z.string().optional(),
-})
+});
+export type StageProgress = z.infer<typeof StageProgressSchema>;
 
-export type StageProgress = z.infer<typeof StageProgressSchema>
-
-// Pipeline Status (detailed real-time status from hybrid orchestrator)
+// ── Pipeline Status ────────────────────────────────────────────────────
 export const PipelineStatusSchema = z.object({
   book_id: z.string(),
   stages: z.array(StageProgressSchema),
   updated_at: z.string(),
-})
-
-export type PipelineStatus = z.infer<typeof PipelineStatusSchema>
+});
+export type PipelineStatus = z.infer<typeof PipelineStatusSchema>;
