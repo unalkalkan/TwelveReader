@@ -13,6 +13,8 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '../src/hooks/useColorScheme';
 import Colors from '../constants/Colors';
+import { PlaybackProvider } from '../src/store/playbackStore';
+import { FavoritesProvider } from '../src/store/favoritesStore';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -71,20 +73,24 @@ function RootLayoutNav() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider value={navTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="player"
-            options={{
-              headerShown: false,
-              presentation: 'fullScreenModal',
-              animation: 'slide_from_bottom',
-            }}
-          />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-        </Stack>
-      </ThemeProvider>
+      <PlaybackProvider>
+        <FavoritesProvider>
+          <ThemeProvider value={navTheme}>
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="player"
+                options={{
+                  headerShown: false,
+                  presentation: 'fullScreenModal',
+                  animation: 'slide_from_bottom',
+                }}
+              />
+              <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+            </Stack>
+          </ThemeProvider>
+        </FavoritesProvider>
+      </PlaybackProvider>
     </QueryClientProvider>
   );
 }

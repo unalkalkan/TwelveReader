@@ -15,11 +15,13 @@ import Colors from '../constants/Colors';
 import { useColorScheme } from '../src/hooks/useColorScheme';
 import {
   useBook,
-  useBookSegments,
   useBookStatus,
   usePipelineStatus,
+  useBookStreamSegments,
 } from '../src/api/hooks';
-import { getAudioUrl } from '../src/api/client';
+import { usePlayback } from '../src/store/playbackStore';
+import { useAudioPlayer } from '../src/hooks/useAudioPlayer';
+import { ChapterList } from '../src/components/ChapterList';
 
 export default function PlayerScreen() {
   const theme = useColorScheme();
@@ -28,43 +30,48 @@ export default function PlayerScreen() {
   const { bookId } = useLocalSearchParams<{ bookId: string }>();
 
   const { data: book } = useBook(bookId);
-  const { data: segments } = useBookSegments(bookId);
+  const { data: streamSegments } = useBookStreamSegments(bookId);
   const { data: status } = useBookStatus(bookId);
   const { data: pipeline } = usePipelineStatus(bookId);
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentSegmentIdx, setCurrentSegmentIdx] = useState(0);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const {
+    state,
+    setBook,
+    seekToSegment,
+    togglePlayback,
+    play,
+    pause,
+    cycleSpeed,
+  } = usePlayback();
 
-  const currentSegment = segments?.[currentSegmentIdx];
+  const [chapterListVisible, setChapterListVisible] = useState(false);
+
+  // Use stream segments (includes audio_url + timestamps)
+  const segments = streamSegments ?? [];
+
+  // Wire audio player
+  const { rewind10, forward30 } = useAudioPlayer(bookId, segments);
+
+  // Set book in playback store on mount (if different)
+  useEffect(() => {
+    if (bookId && state.currentBookId !== bookId) {
+      setBook(bookId);
+    }
+  }, [bookId, state.currentBookId, setBook]);
+
+  const { currentSegmentIndex, isPlaying, playbackSpeed, elapsedMs, durationMs } =
+    state;
+
+  const currentSegment = segments?.[currentSegmentIndex];
   const totalSegments = segments?.length ?? 0;
-  const progress =
-    totalSegments > 0 ? ((currentSegmentIdx + 1) / totalSegments) * 100 : 0;
 
-  const togglePlayback = useCallback(() => {
-    setIsPlaying((p) => !p);
-    // Audio playback would be integrated with expo-av here
-  }, []);
-
-  const skipForward = useCallback(() => {
-    if (currentSegmentIdx < totalSegments - 1) {
-      setCurrentSegmentIdx((i) => i + 1);
-    }
-  }, [currentSegmentIdx, totalSegments]);
-
-  const skipBackward = useCallback(() => {
-    if (currentSegmentIdx > 0) {
-      setCurrentSegmentIdx((i) => i - 1);
-    }
-  }, [currentSegmentIdx]);
-
-  const cycleSpeed = useCallback(() => {
-    setPlaybackSpeed((s) => {
-      const speeds = [0.5, 0.75, 1.0, 1.2, 1.5, 2.0];
-      const idx = speeds.indexOf(s);
-      return speeds[(idx + 1) % speeds.length];
-    });
-  }, []);
+  // Progress based on segments + current audio position
+  const withinSegmentProgress =
+    durationMs > 0 ? elapsedMs / durationMs : 0;
+  const overallProgress =
+    totalSegments > 0
+      ? ((currentSegmentIndex + withinSegmentProgress) / totalSegments) * 100
+      : 0;
 
   // Show processing overlay if book is still being processed
   const isProcessing =
@@ -72,6 +79,56 @@ export default function PlayerScreen() {
     ['uploaded', 'parsing', 'segmenting', 'synthesizing', 'voice_mapping'].includes(
       status.status,
     );
+
+  // ── Word-level highlighting ──────────────────────────────────────────
+  const renderSegmentText = useCallback(
+    (seg: (typeof segments)[0], isCurrent: boolean) => {
+      if (!isCurrent || !seg.timestamps?.items?.length) {
+        return (
+          <Text
+            style={[
+              styles.paragraph,
+              isCurrent
+                ? { color: colors.text }
+                : { color: colors.textMuted, opacity: 0.4 },
+            ]}
+          >
+            {seg.text}
+          </Text>
+        );
+      }
+
+      // Word-level highlight: compare elapsed audio time with word timestamps
+      const elapsedSec = elapsedMs / 1000;
+
+      return (
+        <Text style={[styles.paragraph, { color: colors.text }]}>
+          {seg.timestamps.items.map((item, i) => {
+            const isActive =
+              elapsedSec >= item.start && elapsedSec < item.end;
+            const isPast = elapsedSec >= item.end;
+
+            return (
+              <Text
+                key={i}
+                style={[
+                  isActive && {
+                    backgroundColor: 'rgba(59, 130, 246, 0.3)',
+                    borderRadius: 2,
+                  },
+                  isPast && !isActive && { opacity: 0.7 },
+                ]}
+              >
+                {item.word}
+                {i < seg.timestamps!.items.length - 1 ? ' ' : ''}
+              </Text>
+            );
+          })}
+        </Text>
+      );
+    },
+    [elapsedMs, colors],
+  );
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
@@ -126,50 +183,27 @@ export default function PlayerScreen() {
         {segments && segments.length > 0 ? (
           segments
             .slice(
-              Math.max(0, currentSegmentIdx - 1),
-              currentSegmentIdx + 3,
+              Math.max(0, currentSegmentIndex - 1),
+              currentSegmentIndex + 3,
             )
             .map((seg, displayIdx) => {
               const actualIdx =
-                Math.max(0, currentSegmentIdx - 1) + displayIdx;
-              const isCurrent = actualIdx === currentSegmentIdx;
-              const isPast = actualIdx < currentSegmentIdx;
+                Math.max(0, currentSegmentIndex - 1) + displayIdx;
+              const isCurrent = actualIdx === currentSegmentIndex;
 
               return (
                 <TouchableOpacity
                   key={seg.id}
                   activeOpacity={0.8}
-                  onPress={() => setCurrentSegmentIdx(actualIdx)}
+                  onPress={() => seekToSegment(actualIdx)}
                 >
-                  <Text
-                    style={[
-                      styles.paragraph,
-                      isPast && { opacity: 0.4 },
-                      isCurrent && {
-                        color: colors.text,
-                      },
-                      !isCurrent &&
-                        !isPast && {
-                          color: colors.textMuted,
-                        },
-                    ]}
-                  >
-                    {isCurrent ? (
-                      <Text
-                        style={[
-                          styles.highlightedText,
-                          {
-                            backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                            color: colors.text,
-                          },
-                        ]}
-                      >
-                        {seg.text}
-                      </Text>
-                    ) : (
-                      seg.text
-                    )}
-                  </Text>
+                  {/* Show persona label if available */}
+                  {isCurrent && seg.person && (
+                    <Text style={[styles.personLabel, { color: colors.accent }]}>
+                      {seg.person}
+                    </Text>
+                  )}
+                  {renderSegmentText(seg, isCurrent)}
                 </TouchableOpacity>
               );
             })
@@ -221,7 +255,7 @@ export default function PlayerScreen() {
               style={[
                 styles.progressFill,
                 {
-                  width: `${progress}%`,
+                  width: `${Math.min(overallProgress, 100)}%`,
                   backgroundColor: colors.accent,
                 },
               ]}
@@ -229,10 +263,10 @@ export default function PlayerScreen() {
           </View>
           <View style={styles.timeRow}>
             <Text style={[styles.timeText, { color: colors.textMuted }]}>
-              {formatSegmentTime(currentSegmentIdx)}
+              {formatTime(elapsedMs)}
             </Text>
             <Text style={[styles.timeText, { color: colors.textMuted }]}>
-              {formatSegmentTime(totalSegments - currentSegmentIdx)}
+              -{formatTime(Math.max(0, durationMs - elapsedMs))}
             </Text>
           </View>
         </View>
@@ -246,7 +280,7 @@ export default function PlayerScreen() {
               color={colors.textMuted}
             />
           </TouchableOpacity>
-          <TouchableOpacity onPress={skipBackward}>
+          <TouchableOpacity onPress={rewind10}>
             <MaterialIcons
               name="replay-10"
               size={28}
@@ -268,7 +302,7 @@ export default function PlayerScreen() {
               color={theme === 'dark' ? '#000000' : '#FFFFFF'}
             />
           </TouchableOpacity>
-          <TouchableOpacity onPress={skipForward}>
+          <TouchableOpacity onPress={forward30}>
             <MaterialIcons
               name="forward-30"
               size={28}
@@ -299,7 +333,7 @@ export default function PlayerScreen() {
               <MaterialIcons name="person" size={16} color={colors.textMuted} />
             </View>
           </TouchableOpacity>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => setChapterListVisible(true)}>
             <MaterialIcons
               name="format-list-bulleted"
               size={24}
@@ -322,13 +356,25 @@ export default function PlayerScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* ─── Chapter List ─── */}
+      <ChapterList
+        visible={chapterListVisible}
+        onClose={() => setChapterListVisible(false)}
+        segments={segments as any}
+        currentSegmentIndex={currentSegmentIndex}
+        onSelectSegment={(idx) => {
+          seekToSegment(idx);
+          setChapterListVisible(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
 
-function formatSegmentTime(segments: number): string {
-  // Rough estimate: ~15 seconds per segment
-  const totalSeconds = segments * 15;
+function formatTime(ms: number): string {
+  if (!ms || ms < 0) return '00:00';
+  const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
@@ -377,9 +423,12 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     marginBottom: 24,
   },
-  highlightedText: {
-    borderRadius: 4,
-    paddingHorizontal: 4,
+  personLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 4,
   },
   emptyReading: {
     alignItems: 'center',

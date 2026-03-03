@@ -5,15 +5,18 @@ import {
   getVoices,
   getBooks,
   uploadBook,
+  uploadBookWithProgress,
   getBook,
   getBookStatus,
   getBookSegments,
+  fetchBookStream,
   getVoiceMap,
   setVoiceMap,
   getPipelineStatus,
   getPersonas,
 } from './client';
 import type { VoiceMap } from '../types/api';
+import { useState, useCallback } from 'react';
 
 // ── Server ──────────────────────────────────────────────────────────────
 
@@ -185,6 +188,84 @@ export function usePersonas(bookId: string | undefined) {
       const data = query.state.data;
       if (data && data.unmapped.length > 0) return 2_000;
       return false;
+    },
+  });
+}
+
+// ── Stream-based segments (includes audio_url + timestamps) ─────────────
+
+export function useBookStreamSegments(bookId: string | undefined) {
+  const qc = useQueryClient();
+
+  return useQuery({
+    queryKey: ['bookStreamSegments', bookId],
+    queryFn: () => fetchBookStream(bookId!),
+    enabled: !!bookId,
+    retry: 3,
+    retryDelay: (i) => Math.min(1_000 * 2 ** i, 3_000),
+    refetchInterval: () => {
+      const bs = qc.getQueryData(['bookStatus', bookId]) as
+        | { status: string }
+        | undefined;
+      if (!bs) return false;
+      if (bs.status === 'synthesizing' || bs.status === 'segmenting')
+        return 5_000;
+      return false;
+    },
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+}
+
+// ── Upload with progress ────────────────────────────────────────────────
+
+export function useUploadBookWithProgress() {
+  const qc = useQueryClient();
+  const [progress, setProgress] = useState(0);
+
+  const mutation = useMutation({
+    mutationFn: ({
+      fileUri,
+      fileName,
+      mimeType,
+      metadata,
+    }: {
+      fileUri: string;
+      fileName: string;
+      mimeType: string;
+      metadata?: { title?: string; author?: string; language?: string };
+    }) => {
+      setProgress(0);
+      return uploadBookWithProgress(fileUri, fileName, mimeType, metadata, setProgress);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['books'] });
+      setProgress(0);
+    },
+    onError: () => {
+      setProgress(0);
+    },
+  });
+
+  return { ...mutation, progress };
+}
+
+// ── Books with fast polling (for Library) ───────────────────────────────
+
+export function useBooksWithFastPolling() {
+  return useQuery({
+    queryKey: ['books'],
+    queryFn: getBooks,
+    staleTime: 5_000,
+    refetchInterval: (query) => {
+      const books = query.state.data;
+      if (!books) return 30_000;
+      const hasActiveProcessing = books.some((b) =>
+        ['uploaded', 'parsing', 'segmenting', 'synthesizing', 'voice_mapping'].includes(
+          b.status,
+        ),
+      );
+      return hasActiveProcessing ? 3_000 : 30_000;
     },
   });
 }

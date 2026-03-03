@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,22 +14,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../src/hooks/useColorScheme';
 import { useVoices } from '../../src/api/hooks';
+import { useFavorites } from '../../src/store/favoritesStore';
 import type { Voice } from '../../src/types/api';
 
-const VOICE_TABS = ['Recents', 'Favorites', 'Explore'] as const;
+const VOICE_TABS = ['Explore', 'Favorites', 'Recents'] as const;
 const VOICE_TAB_ICONS: Record<string, keyof typeof MaterialIcons.glyphMap> = {
-  Recents: 'schedule',
-  Favorites: 'favorite-border',
   Explore: 'explore',
+  Favorites: 'favorite-border',
+  Recents: 'schedule',
 };
 
 const GRADIENT_COLORS = [
-  ['#06B6D4', '#2563EB'], // cyan → blue
-  ['#84CC16', '#16A34A'], // lime → green
-  ['#EC4899', '#9333EA'], // pink → purple
-  ['#F59E0B', '#EA580C'], // amber → orange
-  ['#8B5CF6', '#6D28D9'], // violet
-  ['#EF4444', '#DC2626'], // red
+  '#06B6D4', '#84CC16', '#EC4899', '#F59E0B',
+  '#8B5CF6', '#EF4444', '#10B981', '#F97316',
 ];
 
 const COLLECTIONS = [
@@ -39,13 +38,49 @@ export default function VoicesScreen() {
   const theme = useColorScheme();
   const colors = Colors[theme];
   const [activeTab, setActiveTab] = useState<string>('Explore');
-  const { data: voicesData } = useVoices();
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const { data: voicesData, isLoading } = useVoices();
+  const { favoriteIds, isFavorite, toggleFavorite, recentIds } = useFavorites();
 
-  const voices = voicesData?.voices ?? [];
+  const allVoices = voicesData?.voices ?? [];
 
-  // Split into trending (first 2) and language-recommended (rest)
-  const trendingVoices = voices.slice(0, 2);
-  const languageVoices = voices.slice(2, 4);
+  // Filter voices based on active tab + search
+  const filteredVoices = useMemo(() => {
+    let list: Voice[] = [];
+
+    switch (activeTab) {
+      case 'Favorites':
+        list = allVoices.filter((v) => favoriteIds.has(v.id));
+        break;
+      case 'Recents':
+        // Show voices in recent order
+        list = recentIds
+          .map((id) => allVoices.find((v) => v.id === id))
+          .filter(Boolean) as Voice[];
+        break;
+      case 'Explore':
+      default:
+        list = allVoices;
+        break;
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (v) =>
+          v.name.toLowerCase().includes(q) ||
+          v.description?.toLowerCase().includes(q) ||
+          v.provider.toLowerCase().includes(q),
+      );
+    }
+
+    return list;
+  }, [allVoices, activeTab, favoriteIds, recentIds, searchQuery]);
+
+  // Split voices for display sections (only in Explore tab)
+  const trendingVoices = activeTab === 'Explore' ? filteredVoices.slice(0, 4) : [];
+  const languageVoices = activeTab === 'Explore' ? filteredVoices.slice(4, 8) : [];
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
@@ -54,9 +89,14 @@ export default function VoicesScreen() {
         <Text style={[styles.title, { color: colors.text }]}>Voices</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
+            onPress={() => setSearchVisible(!searchVisible)}
             style={[styles.iconBtn, { backgroundColor: colors.card }]}
           >
-            <MaterialIcons name="search" size={20} color={colors.text} />
+            <MaterialIcons
+              name={searchVisible ? 'close' : 'search'}
+              size={20}
+              color={colors.text}
+            />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.iconBtn, { backgroundColor: colors.card }]}
@@ -65,6 +105,26 @@ export default function VoicesScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* ─── Search bar ─── */}
+      {searchVisible && (
+        <View style={[styles.searchBar, { backgroundColor: colors.card }]}>
+          <MaterialIcons name="search" size={20} color={colors.textMuted} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search voices..."
+            placeholderTextColor={colors.textMuted}
+            autoFocus
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <MaterialIcons name="close" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* ─── Filter tabs ─── */}
       <ScrollView
@@ -98,6 +158,9 @@ export default function VoicesScreen() {
               ]}
             >
               {t}
+              {t === 'Favorites' && favoriteIds.size > 0
+                ? ` (${favoriteIds.size})`
+                : ''}
             </Text>
           </TouchableOpacity>
         ))}
@@ -107,69 +170,128 @@ export default function VoicesScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ─── Trending Voices ─── */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Trending voices
-          </Text>
-          {(trendingVoices.length > 0
-            ? trendingVoices
-            : PLACEHOLDER_VOICES.slice(0, 2)
-          ).map((voice, idx) => (
-            <VoiceRow
-              key={voice.id ?? voice.name}
-              voice={voice}
-              gradientIdx={idx}
-              colors={colors}
-            />
-          ))}
-        </View>
+        {/* ─── Explore tab: sections ─── */}
+        {activeTab === 'Explore' && !searchQuery && (
+          <>
+            {/* Trending Voices */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Trending voices
+              </Text>
+              {trendingVoices.length > 0 ? (
+                trendingVoices.map((voice, idx) => (
+                  <VoiceRow
+                    key={voice.id}
+                    voice={voice}
+                    gradientIdx={idx}
+                    colors={colors}
+                    isFav={isFavorite(voice.id)}
+                    onToggleFav={() => toggleFavorite(voice.id)}
+                  />
+                ))
+              ) : isLoading ? (
+                <Text style={{ color: colors.textMuted }}>Loading...</Text>
+              ) : (
+                <Text style={{ color: colors.textMuted }}>No voices available</Text>
+              )}
+            </View>
 
-        {/* ─── Voice Collections ─── */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Voice Collections
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 16 }}
-          >
-            {COLLECTIONS.map((c) => (
-              <TouchableOpacity
-                key={c.name}
-                activeOpacity={0.8}
-                style={[
-                  styles.collectionCard,
-                  { backgroundColor: c.color },
-                ]}
+            {/* Voice Collections */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Voice Collections
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 16 }}
               >
-                <View style={styles.collectionInner}>
-                  <Text style={styles.collectionLabel}>{c.name}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+                {COLLECTIONS.map((c) => (
+                  <TouchableOpacity
+                    key={c.name}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.collectionCard,
+                      { backgroundColor: c.color },
+                    ]}
+                  >
+                    <View style={styles.collectionInner}>
+                      <Text style={styles.collectionLabel}>{c.name}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
 
-        {/* ─── Best for your language ─── */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Best for your language 🇺🇸
-          </Text>
-          {(languageVoices.length > 0
-            ? languageVoices
-            : PLACEHOLDER_VOICES.slice(2, 4)
-          ).map((voice, idx) => (
-            <VoiceRow
-              key={voice.id ?? voice.name}
-              voice={voice}
-              gradientIdx={idx + 2}
-              colors={colors}
-              favorited={idx === 1}
-            />
-          ))}
-        </View>
+            {/* Best for your language */}
+            {languageVoices.length > 0 && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  Best for your language 🇺🇸
+                </Text>
+                {languageVoices.map((voice, idx) => (
+                  <VoiceRow
+                    key={voice.id}
+                    voice={voice}
+                    gradientIdx={idx + 4}
+                    colors={colors}
+                    isFav={isFavorite(voice.id)}
+                    onToggleFav={() => toggleFavorite(voice.id)}
+                  />
+                ))}
+              </View>
+            )}
+          </>
+        )}
+
+        {/* ─── Flat list for Favorites, Recents, or search results ─── */}
+        {(activeTab !== 'Explore' || searchQuery) && (
+          <View style={styles.section}>
+            {activeTab === 'Favorites' && filteredVoices.length === 0 && !searchQuery && (
+              <View style={styles.emptyState}>
+                <MaterialIcons name="favorite-border" size={48} color={colors.textMuted} />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                  No favorites yet
+                </Text>
+                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                  Tap the heart icon on any voice to save it here
+                </Text>
+              </View>
+            )}
+            {activeTab === 'Recents' && filteredVoices.length === 0 && !searchQuery && (
+              <View style={styles.emptyState}>
+                <MaterialIcons name="schedule" size={48} color={colors.textMuted} />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                  No recent voices
+                </Text>
+                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                  Voices you use will appear here
+                </Text>
+              </View>
+            )}
+            {searchQuery && filteredVoices.length === 0 && (
+              <View style={styles.emptyState}>
+                <MaterialIcons name="search-off" size={48} color={colors.textMuted} />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                  No matches
+                </Text>
+                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                  Try a different search term
+                </Text>
+              </View>
+            )}
+            {filteredVoices.map((voice, idx) => (
+              <VoiceRow
+                key={voice.id}
+                voice={voice}
+                gradientIdx={idx}
+                colors={colors}
+                isFav={isFavorite(voice.id)}
+                onToggleFav={() => toggleFavorite(voice.id)}
+              />
+            ))}
+          </View>
+        )}
 
         <View style={{ height: 200 }} />
       </ScrollView>
@@ -183,21 +305,31 @@ function VoiceRow({
   voice,
   gradientIdx,
   colors,
-  favorited = false,
+  isFav,
+  onToggleFav,
 }: {
-  voice: Voice | { id?: string; name: string; description?: string };
+  voice: Voice;
   gradientIdx: number;
   colors: typeof Colors.dark;
-  favorited?: boolean;
+  isFav: boolean;
+  onToggleFav: () => void;
 }) {
   const gc = GRADIENT_COLORS[gradientIdx % GRADIENT_COLORS.length];
-  const [fav, setFav] = useState(favorited);
+
+  const handlePreview = () => {
+    Alert.alert(
+      'Voice Preview',
+      `Preview for "${voice.name}" is not yet available. This requires a TTS preview endpoint on the backend.`,
+    );
+  };
 
   return (
     <View style={styles.voiceRow}>
-      <View style={[styles.voiceAvatar, { backgroundColor: gc[0] }]}>
-        <MaterialIcons name="person" size={24} color="#FFF" />
-      </View>
+      <TouchableOpacity onPress={handlePreview}>
+        <View style={[styles.voiceAvatar, { backgroundColor: gc }]}>
+          <MaterialIcons name="play-arrow" size={24} color="#FFF" />
+        </View>
+      </TouchableOpacity>
       <View style={{ flex: 1 }}>
         <Text style={[styles.voiceName, { color: colors.text }]}>
           {voice.name}
@@ -206,29 +338,24 @@ function VoiceRow({
           style={[styles.voiceDesc, { color: colors.textMuted }]}
           numberOfLines={2}
         >
-          {'description' in voice && voice.description
-            ? voice.description
-            : 'AI Voice'}
+          {voice.description || `${voice.gender ?? 'AI'} Voice · ${voice.provider}`}
         </Text>
+        {voice.languages && voice.languages.length > 0 && (
+          <Text style={[styles.voiceLangs, { color: colors.textMuted }]}>
+            {voice.languages.join(', ')}
+          </Text>
+        )}
       </View>
-      <TouchableOpacity onPress={() => setFav(!fav)}>
+      <TouchableOpacity onPress={onToggleFav}>
         <MaterialIcons
-          name={fav ? 'favorite' : 'favorite-border'}
+          name={isFav ? 'favorite' : 'favorite-border'}
           size={22}
-          color={fav ? '#EF4444' : colors.textMuted}
+          color={isFav ? '#EF4444' : colors.textMuted}
         />
       </TouchableOpacity>
     </View>
   );
 }
-
-// Placeholders when API isn't connected yet
-const PLACEHOLDER_VOICES = [
-  { name: 'Viraj', description: 'Rich, Confident And Expressive · Narrative & Story' },
-  { name: 'True', description: 'Crime & Horror Narrator · Narrative & Story' },
-  { name: 'Brian', description: 'Deep, Resonant And Comforting · Social Media' },
-  { name: 'Sarah', description: 'Velvety Actress · Informative & Educational' },
-];
 
 // ─── Styles ─────────────────────────────────────────────────────────────
 
@@ -250,6 +377,21 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 24,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 0,
   },
   tabRow: { paddingHorizontal: 24, gap: 8, paddingBottom: 8 },
   pill: {
@@ -280,6 +422,7 @@ const styles = StyleSheet.create({
   },
   voiceName: { fontSize: 16, fontWeight: '600', marginBottom: 2 },
   voiceDesc: { fontSize: 12, lineHeight: 16 },
+  voiceLangs: { fontSize: 11, marginTop: 2, fontStyle: 'italic' },
   // Collections
   collectionCard: {
     width: 288,
@@ -297,5 +440,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     lineHeight: 22,
+  },
+  // Empty states
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    maxWidth: 260,
   },
 });

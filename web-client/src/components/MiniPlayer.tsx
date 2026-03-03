@@ -10,42 +10,32 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from '../hooks/useColorScheme';
 import Colors from '../../constants/Colors';
+import { usePlayback } from '../store/playbackStore';
+import { useBook } from '../api/hooks';
 
-interface MiniPlayerProps {
-  bookId?: string;
-  title?: string;
-  author?: string;
-  coverUrl?: string;
-  isPlaying?: boolean;
-  onPlayPause?: () => void;
-}
-
-export function MiniPlayer({
-  bookId,
-  title = 'Perfume',
-  author = 'Patrick Süskind',
-  coverUrl,
-  isPlaying = false,
-  onPlayPause,
-}: MiniPlayerProps) {
+export function MiniPlayer() {
   const theme = useColorScheme();
   const colors = Colors[theme];
   const router = useRouter();
+  const { state, togglePlayback, seekToSegment } = usePlayback();
+  const { data: book } = useBook(state.currentBookId ?? undefined);
 
-  if (!bookId && !title) return null;
+  // Don't render if no active book
+  if (!state.currentBookId) return null;
+
+  const title = book?.title ?? 'Loading...';
+  const author = book?.author ?? '';
 
   return (
     <TouchableOpacity
       activeOpacity={0.9}
-      onPress={() => bookId && router.push(`/player?bookId=${bookId}`)}
+      onPress={() =>
+        router.push(`/player?bookId=${state.currentBookId}`)
+      }
       style={[styles.container, { backgroundColor: colors.miniPlayerBg }]}
     >
       <Image
-        source={
-          coverUrl
-            ? { uri: coverUrl }
-            : require('../../assets/images/icon.png')
-        }
+        source={require('../../assets/images/icon.png')}
         style={styles.cover}
       />
       <View style={styles.info}>
@@ -63,22 +53,28 @@ export function MiniPlayer({
         </Text>
       </View>
       <View style={styles.controls}>
-        <TouchableOpacity onPress={onPlayPause} hitSlop={8}>
+        <TouchableOpacity onPress={togglePlayback} hitSlop={8}>
           <MaterialIcons
-            name={isPlaying ? 'pause' : 'play-arrow'}
+            name={state.isPlaying ? 'pause' : 'play-arrow'}
             size={28}
             color={colors.text}
           />
         </TouchableOpacity>
-        <TouchableOpacity hitSlop={8} style={{ marginLeft: 16 }}>
+        <TouchableOpacity
+          hitSlop={8}
+          style={{ marginLeft: 16 }}
+          onPress={() => {
+            if (state.currentSegmentIndex > 0) {
+              seekToSegment(state.currentSegmentIndex - 1);
+            }
+          }}
+        >
           <MaterialIcons name="replay-30" size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
-}
-
-const styles = StyleSheet.create({
+}const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',

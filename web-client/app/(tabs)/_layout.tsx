@@ -16,10 +16,7 @@ export default function TabLayout() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Persistent mini-player above tabs */}
       <View style={styles.miniPlayerWrapper}>
-        <MiniPlayer
-          title="Perfume"
-          author="Patrick Süskind"
-        />
+        <MiniPlayer />
       </View>
 
       <Tabs

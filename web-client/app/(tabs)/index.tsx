@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,6 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
-  useWindowDimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,7 +13,9 @@ import { useRouter } from 'expo-router';
 
 import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../src/hooks/useColorScheme';
-import { useBooks } from '../../src/api/hooks';
+import { useBooks, useVoices, useBookStatus } from '../../src/api/hooks';
+import { usePlayback } from '../../src/store/playbackStore';
+import type { BookMetadata } from '../../src/types/api';
 
 const FILTERS = ['For you', 'Following', 'Recents'] as const;
 const FILTER_ICONS: Record<string, keyof typeof MaterialIcons.glyphMap> = {
@@ -37,9 +37,63 @@ export default function HomeScreen() {
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<string>('For you');
   const { data: books } = useBooks();
+  const { data: voicesData } = useVoices();
+  const { state: playbackState } = usePlayback();
 
-  // Pick latest book (if any) for "Continue listening"
-  const latestBook = books?.[0];
+  // Get the book that's currently in the player (if any)
+  const { data: currentBookStatus } = useBookStatus(
+    playbackState.currentBookId ?? undefined,
+  );
+
+  // Determine which book to show in "Continue Listening"
+  const continueBook = useMemo(() => {
+    if (!books?.length) return null;
+    // If something is playing, find it
+    if (playbackState.currentBookId) {
+      const playing = books.find((b) => b.id === playbackState.currentBookId);
+      if (playing) return playing;
+    }
+    // Otherwise show most recent
+    return books[0];
+  }, [books, playbackState.currentBookId]);
+
+  // Compute real progress for continue card
+  const totalSegments = currentBookStatus?.total_segments ?? continueBook?.total_segments ?? 0;
+  const progressPercent =
+    totalSegments > 0
+      ? Math.round(
+          ((playbackState.currentSegmentIndex + 1) / totalSegments) * 100,
+        )
+      : 0;
+  const estimatedMinutesLeft =
+    totalSegments > 0
+      ? Math.round(
+          ((totalSegments - playbackState.currentSegmentIndex) * 15) / 60,
+        )
+      : 0;
+
+  // Filter books based on active filter
+  const filteredBooks = useMemo(() => {
+    if (!books) return [];
+    switch (activeFilter) {
+      case 'Recents':
+        return [...books].sort(
+          (a, b) =>
+            new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime(),
+        );
+      case 'Following':
+        // Future feature — show empty for now
+        return [];
+      case 'For you':
+      default:
+        return books;
+    }
+  }, [books, activeFilter]);
+
+  // Get real voices for trending section
+  const trendingVoices = voicesData?.voices?.slice(0, 2) ?? [];
+
+  const GRADIENT_COLORS = ['#0EA5E9', '#84CC16', '#EC4899', '#F59E0B'];
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
@@ -55,6 +109,7 @@ export default function HomeScreen() {
             <MaterialIcons name="search" size={20} color={colors.text} />
           </TouchableOpacity>
           <TouchableOpacity
+            onPress={() => router.push('/modal')}
             style={[styles.iconBtn, { backgroundColor: colors.card }]}
           >
             <MaterialIcons name="person" size={20} color={colors.text} />
@@ -106,57 +161,73 @@ export default function HomeScreen() {
         </ScrollView>
 
         {/* ─── Continue Listening ─── */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
-            CONTINUE LISTENING
-          </Text>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() =>
-              latestBook &&
-              router.push(`/player?bookId=${latestBook.id}`)
-            }
-            style={[styles.continueCard, { backgroundColor: colors.card }]}
-          >
-            <View style={styles.continueThumb}>
-              <Image
-                source={require('../../assets/images/icon.png')}
-                style={styles.continueImg}
-              />
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: '74%', backgroundColor: colors.accent },
-                  ]}
-                />
-              </View>
-            </View>
-            <View style={styles.continueMeta}>
-              <Text style={[styles.continueTitle, { color: colors.text }]}>
-                {latestBook?.title ?? 'Perfume'}
-              </Text>
-              <Text
-                style={[styles.continueAuthor, { color: colors.textMuted }]}
-              >
-                {latestBook?.author ?? 'Patrick Süskind'}
-              </Text>
-              <View style={styles.continueStats}>
-                <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '500' }}>
-                  74%
-                </Text>
-                <Text style={{ color: colors.textMuted, fontSize: 12, marginLeft: 8 }}>
-                  118 mins left
-                </Text>
-              </View>
-            </View>
+        {continueBook && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+              CONTINUE LISTENING
+            </Text>
             <TouchableOpacity
-              style={[styles.moreBtn, { borderColor: colors.border }]}
+              activeOpacity={0.8}
+              onPress={() =>
+                router.push(`/player?bookId=${continueBook.id}`)
+              }
+              style={[styles.continueCard, { backgroundColor: colors.card }]}
             >
-              <MaterialIcons name="more-vert" size={16} color={colors.textMuted} />
+              <View style={styles.continueThumb}>
+                <Image
+                  source={require('../../assets/images/icon.png')}
+                  style={styles.continueImg}
+                />
+                <View style={styles.progressBar}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${Math.max(progressPercent, 1)}%`,
+                        backgroundColor: colors.accent,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+              <View style={styles.continueMeta}>
+                <Text style={[styles.continueTitle, { color: colors.text }]}>
+                  {continueBook.title || 'Untitled'}
+                </Text>
+                <Text
+                  style={[styles.continueAuthor, { color: colors.textMuted }]}
+                >
+                  {continueBook.author || 'Unknown author'}
+                </Text>
+                <View style={styles.continueStats}>
+                  <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '500' }}>
+                    {progressPercent}%
+                  </Text>
+                  {estimatedMinutesLeft > 0 && (
+                    <Text style={{ color: colors.textMuted, fontSize: 12, marginLeft: 8 }}>
+                      {estimatedMinutesLeft} mins left
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.moreBtn, { borderColor: colors.border }]}
+              >
+                <MaterialIcons name="more-vert" size={16} color={colors.textMuted} />
+              </TouchableOpacity>
             </TouchableOpacity>
-          </TouchableOpacity>
-        </View>
+          </View>
+        )}
+
+        {/* ─── Following filter: empty state ─── */}
+        {activeFilter === 'Following' && (
+          <View style={[styles.section, { alignItems: 'center', paddingVertical: 40 }]}>
+            <MaterialIcons name="group" size={48} color={colors.textMuted} />
+            <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 15 }}>
+              Following feature coming soon
+            </Text>
+          </View>
+        )}
 
         {/* ─── Upload & Listen ─── */}
         <View style={styles.section}>
@@ -223,7 +294,7 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* ─── Trending Voices ─── */}
+        {/* ─── Trending Voices (from API) ─── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -235,41 +306,76 @@ export default function HomeScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-          {['Viraj', 'True'].map((name) => (
-            <View key={name} style={styles.voiceRow}>
-              <View
-                style={[
-                  styles.voiceAvatar,
-                  {
-                    backgroundColor:
-                      name === 'Viraj' ? '#0EA5E9' : '#84CC16',
-                  },
-                ]}
-              >
-                <MaterialIcons name="person" size={24} color="#FFF" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.voiceName, { color: colors.text }]}>
-                  {name}
-                </Text>
-                <Text
-                  style={[styles.voiceDesc, { color: colors.textMuted }]}
-                  numberOfLines={1}
-                >
-                  {name === 'Viraj'
-                    ? 'Rich, Confident And Expressive • Narrative & Story'
-                    : 'Crime & Horror Narrator • Narrative & Story'}
-                </Text>
-              </View>
-              <TouchableOpacity>
-                <MaterialIcons
-                  name="favorite-border"
-                  size={20}
-                  color={colors.textMuted}
-                />
-              </TouchableOpacity>
-            </View>
-          ))}
+          {trendingVoices.length > 0
+            ? trendingVoices.map((voice, idx) => (
+                <View key={voice.id} style={styles.voiceRow}>
+                  <View
+                    style={[
+                      styles.voiceAvatar,
+                      {
+                        backgroundColor:
+                          GRADIENT_COLORS[idx % GRADIENT_COLORS.length],
+                      },
+                    ]}
+                  >
+                    <MaterialIcons name="person" size={24} color="#FFF" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.voiceName, { color: colors.text }]}>
+                      {voice.name}
+                    </Text>
+                    <Text
+                      style={[styles.voiceDesc, { color: colors.textMuted }]}
+                      numberOfLines={1}
+                    >
+                      {voice.description || `${voice.gender ?? 'AI'} Voice · ${voice.provider}`}
+                    </Text>
+                  </View>
+                  <TouchableOpacity>
+                    <MaterialIcons
+                      name="favorite-border"
+                      size={20}
+                      color={colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
+              ))
+            : /* Fallback placeholders */
+              ['Viraj', 'True'].map((name) => (
+                <View key={name} style={styles.voiceRow}>
+                  <View
+                    style={[
+                      styles.voiceAvatar,
+                      {
+                        backgroundColor:
+                          name === 'Viraj' ? '#0EA5E9' : '#84CC16',
+                      },
+                    ]}
+                  >
+                    <MaterialIcons name="person" size={24} color="#FFF" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.voiceName, { color: colors.text }]}>
+                      {name}
+                    </Text>
+                    <Text
+                      style={[styles.voiceDesc, { color: colors.textMuted }]}
+                      numberOfLines={1}
+                    >
+                      {name === 'Viraj'
+                        ? 'Rich, Confident And Expressive · Narrative & Story'
+                        : 'Crime & Horror Narrator · Narrative & Story'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity>
+                    <MaterialIcons
+                      name="favorite-border"
+                      size={20}
+                      color={colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
+              ))}
         </View>
 
         {/* Bottom spacer for mini player */}

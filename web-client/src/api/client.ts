@@ -207,3 +207,107 @@ export function getDownloadUrl(bookId: string): string {
 export function getAudioUrl(bookId: string, segmentId: string): string {
   return `${API_BASE}/books/${bookId}/audio/${segmentId}`;
 }
+
+// ── Stream (NDJSON) ─────────────────────────────────────────────────────
+
+export interface StreamSegment {
+  id: string;
+  book_id: string;
+  chapter: string;
+  toc_path: string[];
+  text: string;
+  language: string;
+  person: string;
+  voice_description: string;
+  voice_id?: string;
+  processing: {
+    segmenter_version: string;
+    generated_at: string;
+    tts_provider?: string;
+  };
+  timestamps?: {
+    precision: 'word' | 'sentence';
+    items: { word: string; start: number; end: number }[];
+  };
+  source_context?: {
+    prev_paragraph_id?: string;
+    next_paragraph_id?: string;
+  };
+  audio_url: string;
+}
+
+/**
+ * Fetch segments via the NDJSON /stream endpoint which includes audio_url
+ * and timestamps that are not present in the regular /segments list.
+ */
+export async function fetchBookStream(
+  bookId: string,
+  after?: string,
+): Promise<StreamSegment[]> {
+  const url = getStreamUrl(bookId, after);
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({
+      error: 'Stream request failed',
+      code: 'STREAM_ERROR',
+    }));
+    throw new Error(error.error || 'Stream request failed');
+  }
+
+  const text = await response.text();
+  const lines = text.split('\n').filter((line) => line.trim().length > 0);
+  return lines.map((line) => JSON.parse(line) as StreamSegment);
+}
+
+// ── Upload with progress callback ───────────────────────────────────────
+
+export function uploadBookWithProgress(
+  fileUri: string,
+  fileName: string,
+  mimeType: string,
+  metadata?: { title?: string; author?: string; language?: string },
+  onProgress?: (percent: number) => void,
+): Promise<BookMetadata> {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append('file', {
+      uri: fileUri,
+      name: fileName,
+      type: mimeType,
+    } as any);
+    if (metadata?.title) formData.append('title', metadata.title);
+    if (metadata?.author) formData.append('author', metadata.author);
+    if (metadata?.language) formData.append('language', metadata.language);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE}/books`);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          resolve(BookMetadataSchema.parse(data));
+        } catch (err: any) {
+          reject(new Error('Invalid response from server'));
+        }
+      } else {
+        try {
+          const error = JSON.parse(xhr.responseText);
+          reject(new Error(error.error || 'Upload failed'));
+        } catch {
+          reject(new Error('Upload failed'));
+        }
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.send(formData);
+  });
+}

@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   StyleSheet,
   FlatList,
+  TextInput,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 
 import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../src/hooks/useColorScheme';
-import { useBooks } from '../../src/api/hooks';
+import { useBooksWithFastPolling } from '../../src/api/hooks';
 import type { BookMetadata } from '../../src/types/api';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -33,62 +33,141 @@ const STATUS_COLORS: Record<string, string> = {
   ready: '#3B82F6',
   error: '#EF4444',
   synthesis_error: '#EF4444',
+  uploaded: '#F59E0B',
+  parsing: '#F59E0B',
+  segmenting: '#F59E0B',
+  synthesizing: '#8B5CF6',
+  voice_mapping: '#F59E0B',
 };
 
 export default function LibraryScreen() {
   const theme = useColorScheme();
   const colors = Colors[theme];
   const router = useRouter();
-  const { data: books, isLoading, refetch } = useBooks();
+  const { data: books, isLoading, refetch } = useBooksWithFastPolling();
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const renderBook = ({ item }: { item: BookMetadata }) => (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={() => router.push(`/player?bookId=${item.id}`)}
-      style={[styles.bookRow, { borderBottomColor: colors.border }]}
-    >
-      <View style={[styles.bookCover, { backgroundColor: colors.card }]}>
-        <MaterialIcons name="menu-book" size={24} color={colors.textMuted} />
-      </View>
-      <View style={styles.bookInfo}>
-        <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={1}>
-          {item.title}
-        </Text>
-        <Text style={[styles.bookAuthor, { color: colors.textSecondary }]} numberOfLines={1}>
-          {item.author}
-        </Text>
-        <View style={styles.bookMeta}>
-          <View
-            style={[
-              styles.statusDot,
-              {
-                backgroundColor:
-                  STATUS_COLORS[item.status] ?? colors.textMuted,
-              },
-            ]}
-          />
-          <Text style={[styles.statusText, { color: colors.textMuted }]}>
-            {STATUS_LABELS[item.status] ?? item.status}
-          </Text>
-          <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-            {' '}· {item.total_segments} segments
-          </Text>
+  // Filter books by search query
+  const filteredBooks = useMemo(() => {
+    if (!books) return [];
+    if (!searchQuery.trim()) return books;
+    const q = searchQuery.toLowerCase();
+    return books.filter(
+      (b) =>
+        b.title.toLowerCase().includes(q) ||
+        b.author.toLowerCase().includes(q),
+    );
+  }, [books, searchQuery]);
+
+  const renderBook = ({ item }: { item: BookMetadata }) => {
+    const isActive = [
+      'uploaded',
+      'parsing',
+      'segmenting',
+      'synthesizing',
+      'voice_mapping',
+    ].includes(item.status);
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => router.push(`/player?bookId=${item.id}`)}
+        style={[styles.bookRow, { borderBottomColor: colors.border }]}
+      >
+        <View style={[styles.bookCover, { backgroundColor: colors.card }]}>
+          <MaterialIcons name="menu-book" size={24} color={colors.textMuted} />
         </View>
-      </View>
-      <MaterialIcons name="chevron-right" size={20} color={colors.textMuted} />
-    </TouchableOpacity>
-  );
+        <View style={styles.bookInfo}>
+          <Text
+            style={[styles.bookTitle, { color: colors.text }]}
+            numberOfLines={1}
+          >
+            {item.title || 'Untitled'}
+          </Text>
+          <Text
+            style={[styles.bookAuthor, { color: colors.textSecondary }]}
+            numberOfLines={1}
+          >
+            {item.author || 'Unknown author'}
+          </Text>
+          <View style={styles.bookMeta}>
+            <View
+              style={[
+                styles.statusDot,
+                {
+                  backgroundColor:
+                    STATUS_COLORS[item.status] ?? colors.textMuted,
+                },
+              ]}
+            />
+            <Text style={[styles.statusText, { color: colors.textMuted }]}>
+              {STATUS_LABELS[item.status] ?? item.status}
+            </Text>
+            <Text style={{ color: colors.textMuted, fontSize: 12 }}>
+              {' '}· {item.total_segments} segments
+            </Text>
+          </View>
+          {/* Show progress bar for active processing */}
+          {isActive && (
+            <View style={[styles.bookProgressTrack, { backgroundColor: colors.border }]}>
+              <View
+                style={[
+                  styles.bookProgressFill,
+                  {
+                    backgroundColor: STATUS_COLORS[item.status] ?? colors.accent,
+                    width: item.total_segments > 0 ? `${Math.min(100, (item.total_segments / Math.max(item.total_chapters, 1)) * 10)}%` : '10%',
+                  },
+                ]}
+              />
+            </View>
+          )}
+        </View>
+        <MaterialIcons name="chevron-right" size={20} color={colors.textMuted} />
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background }]}
+    >
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Library</Text>
         <TouchableOpacity
+          onPress={() => {
+            setSearchVisible(!searchVisible);
+            if (searchVisible) setSearchQuery('');
+          }}
           style={[styles.iconBtn, { backgroundColor: colors.card }]}
         >
-          <MaterialIcons name="search" size={20} color={colors.text} />
+          <MaterialIcons
+            name={searchVisible ? 'close' : 'search'}
+            size={20}
+            color={colors.text}
+          />
         </TouchableOpacity>
       </View>
+
+      {/* ─── Search bar ─── */}
+      {searchVisible && (
+        <View style={[styles.searchBar, { backgroundColor: colors.card }]}>
+          <MaterialIcons name="search" size={20} color={colors.textMuted} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search by title or author..."
+            placeholderTextColor={colors.textMuted}
+            autoFocus
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <MaterialIcons name="close" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {isLoading ? (
         <View style={styles.empty}>
@@ -100,7 +179,9 @@ export default function LibraryScreen() {
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             Your library is empty
           </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.emptySubtitle, { color: colors.textSecondary }]}
+          >
             Upload a book to get started
           </Text>
           <TouchableOpacity
@@ -111,9 +192,19 @@ export default function LibraryScreen() {
             <Text style={styles.ctaBtnText}>Upload Book</Text>
           </TouchableOpacity>
         </View>
+      ) : filteredBooks.length === 0 && searchQuery ? (
+        <View style={styles.empty}>
+          <MaterialIcons name="search-off" size={48} color={colors.textMuted} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            No matches
+          </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+            Try a different search term
+          </Text>
+        </View>
       ) : (
         <FlatList
-          data={books}
+          data={filteredBooks}
           keyExtractor={(b) => b.id}
           renderItem={renderBook}
           contentContainerStyle={{ paddingBottom: 200, paddingHorizontal: 20 }}
@@ -143,6 +234,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 0,
+  },
   // Book row
   bookRow: {
     flexDirection: 'row',
@@ -164,6 +270,16 @@ const styles = StyleSheet.create({
   bookMeta: { flexDirection: 'row', alignItems: 'center' },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
   statusText: { fontSize: 12 },
+  bookProgressTrack: {
+    height: 3,
+    borderRadius: 1.5,
+    marginTop: 6,
+    overflow: 'hidden',
+  },
+  bookProgressFill: {
+    height: '100%',
+    borderRadius: 1.5,
+  },
   // Empty state
   empty: {
     flex: 1,
