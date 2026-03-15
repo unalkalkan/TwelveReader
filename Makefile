@@ -75,7 +75,7 @@ docker-build: ## Build Docker image
 
 docker-run: docker-build ## Build and run Docker container
 	@echo "Running Docker container..."
-	docker run -p 8080:8080 -v $(PWD)/config/docker.yaml:/app/config/config.yaml:ro twelvereader:latest
+	docker run -p 8080:8080 -v $(PWD)/config/config.yaml:/app/config/config.yaml:ro twelvereader:latest
 
 docker-up: ## Start services with docker-compose
 	@echo "Starting services..."

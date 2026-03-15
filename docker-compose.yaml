@@ -17,20 +17,25 @@ services:
       - HF_HUB_CACHE=/data/hf/hub
     volumes:
       - hf-cache:/data/hf
-    gpus: all
+    # gpus: all
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
     networks:
       - twelvereader-network
 
-  twelvereader:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: twelvereader
+    container_name: twelvereader-backend
     restart: unless-stopped
     ports:
       - "8080:8080"
     volumes:
-      - ./config/docker.yaml:/app/config/config.yaml:ro
+      - ./config/config.yaml:/app/config/config.yaml:ro
       - twelvereader-data:/app/data
     environment:
       # LLM Provider API Keys
@@ -52,56 +57,25 @@ services:
     networks:
       - twelvereader-network
 
-  web-client:
-    image: node:22-alpine
+  frontend:
+    build:
+      context: ./web-client
+      dockerfile: Dockerfile
     container_name: twelvereader-frontend
     restart: unless-stopped
     ports:
-      - "3000:3000"
-    volumes:
-      - ./web-client:/app
-      - node-modules:/app/node_modules
-    working_dir: /app
-    command: sh -c "npm install && npx expo export --platform web && npx -y serve dist -l 3000"
+      - "3000:80"
     environment:
-      - EXPO_PUBLIC_API_URL=http://twelvereader:8080
+      - EXPO_PUBLIC_API_URL=http://backend:8080
     depends_on:
-      - twelvereader
+      - backend
     networks:
       - twelvereader-network
-
-  # Optional: MinIO for S3-compatible local storage
-  # minio:
-  #   image: minio/minio:latest
-  #   container_name: twelvereader-minio
-  #   profiles:
-  #     - storage
-  #   restart: unless-stopped
-  #   ports:
-  #     - "9000:9000"
-  #     - "9001:9001"
-  #   volumes:
-  #     - minio-data:/data
-  #   environment:
-  #     - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
-  #     - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
-  #   command: server /data --console-address ":9001"
-  #   healthcheck:
-  #     test: ["CMD", "mc", "ready", "local"]
-  #     interval: 30s
-  #     timeout: 5s
-  #     retries: 3
-  #   networks:
-  #     - twelvereader-network
 
 volumes:
   twelvereader-data:
     driver: local
   hf-cache:
-    driver: local
-  # minio-data:
-  #   driver: local
-  node-modules:
     driver: local
 
 networks:
