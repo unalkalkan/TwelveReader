@@ -4,6 +4,26 @@ version: "3.9"
 # Usage: docker compose -f docker-compose.dev.yaml up
 
 services:
+  qwen3-tts:
+    build:
+      context: ./qwen3-tts
+      dockerfile: Dockerfile
+    container_name: twelvereader-qwen3-tts-dev
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - REQUIRE_CUDA=1
+      - HF_HOME=/data/hf
+      - TRANSFORMERS_CACHE=/data/hf/transformers
+      - HF_HUB_CACHE=/data/hf/hub
+    volumes:
+      - hf-cache:/data/hf
+    gpus: all
+    networks:
+      - twelvereader-network
+
   # Backend server with hot reload via volume mount
   backend:
     build:
@@ -12,11 +32,11 @@ services:
     container_name: twelvereader-backend-dev
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8081:8080"
     volumes:
       - .:/app
       - go-mod-cache:/go/pkg/mod
-      - ./config/dev.example.yaml:/app/config/config.yaml:ro
+      - ./config/docker.yaml:/app/config/config.yaml:ro
       - twelvereader-data:/tmp/twelvereader
     environment:
       - TR_LLM_OPENAI_API_KEY=${TR_LLM_OPENAI_API_KEY:-}
@@ -24,6 +44,8 @@ services:
       - TR_TTS_QWEN3_API_KEY=${TR_TTS_QWEN3_API_KEY:-}
     working_dir: /app
     command: go run ./cmd/server -config /app/config/config.yaml
+    depends_on:
+      - qwen3-tts
     networks:
       - twelvereader-network
 
@@ -52,6 +74,8 @@ volumes:
   go-mod-cache:
     driver: local
   node-modules:
+    driver: local
+  hf-cache:
     driver: local
 
 networks:

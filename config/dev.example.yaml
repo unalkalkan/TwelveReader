@@ -46,14 +46,14 @@ providers:
   tts:
     - name: "qwen3"
       enabled: true
-      endpoint: "https://api.example.com/tts/v1"
+      endpoint: "http://qwen3-tts:8000/v1"
       api_key: ""                     # Set via TR_TTS_QWEN3_API_KEY env var
       max_segment_size: 500           # characters
       concurrency: 3
       rate_limit_qps: 5.0
       timestamp_precision: "word"
       options:
-        model: "qwen3-tts"            # Required for OpenAI-compatible TTS
+        model: "qwen3-tts-customvoice-1.7b"  # Required for OpenAI-compatible TTS
         voice: "default"
     
     - name: "openai-tts"

@@ -1,0 +1,3 @@
+[submodule "qwen3-tts"]
+	path = qwen3-tts
+	url = https://github.com/unalkalkan/Qwen3-TTS.git
