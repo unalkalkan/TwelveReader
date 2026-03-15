@@ -20,8 +20,16 @@ import {
 } from '../types/api';
 
 /** Configured via EXPO_PUBLIC_API_URL env var; falls back to localhost for dev. */
-const API_BASE =
-  (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080') + '/api/v1';
+const configuredApiUrl =
+  (globalThis as { process?: { env?: Record<string, string | undefined> } }).process
+    ?.env?.EXPO_PUBLIC_API_URL;
+const inferredApiUrl =
+  typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080';
+const normalizedApiBase = (configuredApiUrl && configuredApiUrl.trim().length > 0
+  ? configuredApiUrl
+  : inferredApiUrl
+).replace(/\/$/, '');
+const API_BASE = `${normalizedApiBase}/api/v1`;
 
 // ── helpers ─────────────────────────────────────────────────────────────
 

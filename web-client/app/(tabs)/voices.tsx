@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../src/hooks/useColorScheme';
@@ -40,8 +41,14 @@ export default function VoicesScreen() {
   const [activeTab, setActiveTab] = useState<string>('Explore');
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: voicesData, isLoading } = useVoices();
+  const { data: voicesData, isLoading, refetch } = useVoices('qwen3-tts');
   const { favoriteIds, isFavorite, toggleFavorite, recentIds } = useFavorites();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refetch();
+    }, [refetch]),
+  );
 
   const allVoices = voicesData?.voices ?? [];
 
