@@ -103,6 +103,7 @@ func main() {
 	// Voices API endpoint (Milestone 4)
 	voicesHandler := api.NewVoicesHandler(providerRegistry)
 	mux.HandleFunc("/api/v1/voices", voicesHandler.ListVoices)
+	mux.HandleFunc("/api/v1/voices/preview", voicesHandler.PreviewVoice)
 
 	// Book API endpoints (Milestone 3)
 	bookHandler := api.NewBookHandler(bookRepo, parserFactory, providerRegistry, storageAdapter)

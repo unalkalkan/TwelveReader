@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -32,6 +33,20 @@ type VoiceResponse struct {
 	Accent      string   `json:"accent,omitempty"`
 	Description string   `json:"description,omitempty"`
 	Provider    string   `json:"provider"`
+}
+
+type VoicePreviewRequest struct {
+	Provider         string `json:"provider"`
+	VoiceID          string `json:"voice_id"`
+	Text             string `json:"text"`
+	Language         string `json:"language,omitempty"`
+	VoiceDescription string `json:"voice_description,omitempty"`
+}
+
+type VoicePreviewResponse struct {
+	AudioBase64 string `json:"audio_base64"`
+	MimeType    string `json:"mime_type"`
+	Format      string `json:"format"`
 }
 
 // ListVoices handles GET /api/v1/voices
@@ -119,5 +134,75 @@ func (h *VoicesHandler) ListVoices(w http.ResponseWriter, r *http.Request) {
 		"count":  len(allVoices),
 	}); err != nil {
 		log.Printf("Failed to encode response: %v", err)
+	}
+}
+
+// PreviewVoice handles POST /api/v1/voices/preview
+func (h *VoicesHandler) PreviewVoice(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req VoicePreviewRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Provider == "" {
+		respondError(w, "provider is required", http.StatusBadRequest)
+		return
+	}
+	if req.VoiceID == "" {
+		respondError(w, "voice_id is required", http.StatusBadRequest)
+		return
+	}
+	if req.Text == "" {
+		respondError(w, "text is required", http.StatusBadRequest)
+		return
+	}
+
+	ttsProvider, err := h.providerReg.GetTTS(req.Provider)
+	if err != nil {
+		respondError(w, fmt.Sprintf("Provider '%s' not found: %v", req.Provider, err), http.StatusNotFound)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	defer cancel()
+
+	ttsResp, err := ttsProvider.Synthesize(ctx, provider.TTSRequest{
+		Text:             req.Text,
+		VoiceID:          req.VoiceID,
+		Language:         req.Language,
+		VoiceDescription: req.VoiceDescription,
+	})
+	if err != nil {
+		respondError(w, fmt.Sprintf("Failed to synthesize preview: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	resp := VoicePreviewResponse{
+		AudioBase64: base64.StdEncoding.EncodeToString(ttsResp.AudioData),
+		MimeType:    audioMimeType(ttsResp.Format),
+		Format:      ttsResp.Format,
+	}
+
+	respondJSON(w, resp, http.StatusOK)
+}
+
+func audioMimeType(format string) string {
+	switch format {
+	case "mp3":
+		return "audio/mpeg"
+	case "wav":
+		return "audio/wav"
+	case "ogg":
+		return "audio/ogg"
+	case "flac":
+		return "audio/flac"
+	default:
+		return "application/octet-stream"
 	}
 }

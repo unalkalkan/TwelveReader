@@ -1,10 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/unalkalkan/TwelveReader/internal/provider"
@@ -256,5 +258,69 @@ func TestVoicesHandler_ListVoicesPartialFailure(t *testing.T) {
 
 	if len(voicesData) < 1 {
 		t.Errorf("Expected at least 1 voice from working provider, got %d", len(voicesData))
+	}
+}
+
+func TestVoicesHandler_PreviewVoice(t *testing.T) {
+	registry := provider.NewRegistry()
+
+	stubConfig := types.TTSProviderConfig{
+		Name:    "stub-tts",
+		Enabled: true,
+		Options: map[string]string{},
+	}
+
+	if err := registry.RegisterTTS(provider.NewStubTTSProvider(stubConfig)); err != nil {
+		t.Fatalf("Failed to register stub TTS provider: %v", err)
+	}
+
+	handler := NewVoicesHandler(registry)
+
+	body := map[string]string{
+		"provider": "stub-tts",
+		"voice_id": "stub-voice-1",
+		"text":     "hello world",
+	}
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/voices/preview", bytes.NewReader(jsonBody))
+	w := httptest.NewRecorder()
+
+	handler.PreviewVoice(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", w.Code)
+	}
+
+	var response map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	audioBase64, ok := response["audio_base64"].(string)
+	if !ok || audioBase64 == "" {
+		t.Fatal("Expected non-empty audio_base64 in response")
+	}
+
+	mimeType, ok := response["mime_type"].(string)
+	if !ok || mimeType == "" {
+		t.Fatal("Expected mime_type in response")
+	}
+}
+
+func TestVoicesHandler_PreviewVoiceValidation(t *testing.T) {
+	registry := provider.NewRegistry()
+	handler := NewVoicesHandler(registry)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/voices/preview", strings.NewReader(`{"voice_id":"v1","text":"hello"}`))
+	w := httptest.NewRecorder()
+
+	handler.PreviewVoice(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("Expected status 400, got %d", w.Code)
 	}
 }

@@ -162,6 +162,37 @@ curl http://localhost:8080/api/v1/voices?provider=openai-tts
 
 ---
 
+### POST /api/v1/voices/preview
+Generates a short TTS preview for a selected voice and returns base64 audio.
+
+**Request Body:**
+```json
+{
+  "provider": "qwen3-tts",
+  "voice_id": "aiden",
+  "text": "In my life, why do I give valuable time\nTo people who don't care if I live or die?",
+  "language": "en",
+  "voice_description": "warm and clear"
+}
+```
+
+**Response:**
+```json
+{
+  "audio_base64": "UklGRiQ...",
+  "mime_type": "audio/mpeg",
+  "format": "mp3"
+}
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `400 Bad Request` - Missing required fields (`provider`, `voice_id`, `text`) or invalid payload
+- `404 Not Found` - Provider not found
+- `500 Internal Server Error` - TTS synthesis failed
+
+---
+
 ## Configuration
 
 The server is configured via a YAML configuration file. See `config/dev.example.yaml` for a complete example.

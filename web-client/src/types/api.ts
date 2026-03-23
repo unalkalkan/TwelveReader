@@ -113,6 +113,13 @@ export const VoicesResponseSchema = z.object({
 });
 export type VoicesResponse = z.infer<typeof VoicesResponseSchema>;
 
+export const VoicePreviewResponseSchema = z.object({
+  audio_base64: z.string(),
+  mime_type: z.string(),
+  format: z.string(),
+});
+export type VoicePreviewResponse = z.infer<typeof VoicePreviewResponseSchema>;
+
 // ── Server Info ────────────────────────────────────────────────────────
 export const ServerInfoSchema = z.object({
   version: z.string(),

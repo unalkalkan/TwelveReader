@@ -4,6 +4,7 @@ import {
   SegmentSchema,
   VoiceMapSchema,
   VoicesResponseSchema,
+  VoicePreviewResponseSchema,
   ServerInfoSchema,
   ProvidersSchema,
   PersonaDiscoverySchema,
@@ -13,6 +14,7 @@ import {
   type Segment,
   type VoiceMap,
   type VoicesResponse,
+  type VoicePreviewResponse,
   type ServerInfo,
   type Providers,
   type PersonaDiscovery,
@@ -80,6 +82,23 @@ export async function getVoices(provider?: string): Promise<VoicesResponse> {
     `${API_BASE}/voices${qs ? `?${qs}` : ''}`,
     {},
     VoicesResponseSchema,
+  );
+}
+
+export async function previewVoice(params: {
+  provider: string;
+  voice_id: string;
+  text: string;
+  language?: string;
+  voice_description?: string;
+}): Promise<VoicePreviewResponse> {
+  return apiRequest<VoicePreviewResponse>(
+    `${API_BASE}/voices/preview`,
+    {
+      method: 'POST',
+      body: JSON.stringify(params),
+    },
+    VoicePreviewResponseSchema,
   );
 }
 

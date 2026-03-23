@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,18 @@ import {
   StyleSheet,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { Audio, type AVPlaybackStatus } from 'expo-av';
 
 import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../src/hooks/useColorScheme';
 import { useVoices } from '../../src/api/hooks';
 import { useFavorites } from '../../src/store/favoritesStore';
+import { previewVoice } from '../../src/api/client';
 import type { Voice } from '../../src/types/api';
 
 const VOICE_TABS = ['Explore', 'Favorites', 'Recents'] as const;
@@ -35,14 +38,20 @@ const COLLECTIONS = [
   { name: 'Top Sci-Fi Voices', color: '#312E81' },
 ];
 
+const PREVIEW_TEXT = `In my life, why do I give valuable time
+To people who don't care if I live or die?`;
+
 export default function VoicesScreen() {
   const theme = useColorScheme();
   const colors = Colors[theme];
   const [activeTab, setActiveTab] = useState<string>('Explore');
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loadingVoiceId, setLoadingVoiceId] = useState<string | null>(null);
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const previewSoundRef = useRef<Audio.Sound | null>(null);
   const { data: voicesData, isLoading, refetch } = useVoices('qwen3-tts');
-  const { favoriteIds, isFavorite, toggleFavorite, recentIds } = useFavorites();
+  const { favoriteIds, isFavorite, toggleFavorite, recentIds, addRecent } = useFavorites();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -88,6 +97,73 @@ export default function VoicesScreen() {
   // Split voices for display sections (only in Explore tab)
   const trendingVoices = activeTab === 'Explore' ? filteredVoices.slice(0, 4) : [];
   const languageVoices = activeTab === 'Explore' ? filteredVoices.slice(4, 8) : [];
+
+  useEffect(() => {
+    return () => {
+      const sound = previewSoundRef.current;
+      if (sound) {
+        sound.unloadAsync().catch(() => {});
+        previewSoundRef.current = null;
+      }
+    };
+  }, []);
+
+  const handlePreviewVoice = async (voice: Voice) => {
+    if (loadingVoiceId) return;
+
+    if (playingVoiceId === voice.id && previewSoundRef.current) {
+      await previewSoundRef.current.stopAsync().catch(() => {});
+      await previewSoundRef.current.unloadAsync().catch(() => {});
+      previewSoundRef.current = null;
+      setPlayingVoiceId(null);
+      return;
+    }
+
+    setLoadingVoiceId(voice.id);
+
+    try {
+      if (previewSoundRef.current) {
+        await previewSoundRef.current.stopAsync().catch(() => {});
+        await previewSoundRef.current.unloadAsync().catch(() => {});
+        previewSoundRef.current = null;
+      }
+
+      const response = await previewVoice({
+        provider: voice.provider,
+        voice_id: voice.id,
+        text: PREVIEW_TEXT,
+        language: voice.languages?.[0],
+        voice_description: voice.description,
+      });
+
+      const audioUri = `data:${response.mime_type};base64,${response.audio_base64}`;
+
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: audioUri },
+        { shouldPlay: true },
+      );
+
+      previewSoundRef.current = sound;
+      setPlayingVoiceId(voice.id);
+      addRecent(voice.id);
+
+      sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
+        if (!status.isLoaded) return;
+        if (status.didJustFinish) {
+          sound.unloadAsync().catch(() => {});
+          if (previewSoundRef.current === sound) {
+            previewSoundRef.current = null;
+          }
+          setPlayingVoiceId((current) => (current === voice.id ? null : current));
+        }
+      });
+    } catch (error: any) {
+      Alert.alert('Preview failed', error?.message ?? 'Could not generate voice preview.');
+      setPlayingVoiceId((current) => (current === voice.id ? null : current));
+    } finally {
+      setLoadingVoiceId((current) => (current === voice.id ? null : current));
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
@@ -194,6 +270,9 @@ export default function VoicesScreen() {
                     colors={colors}
                     isFav={isFavorite(voice.id)}
                     onToggleFav={() => toggleFavorite(voice.id)}
+                    onPreview={() => handlePreviewVoice(voice)}
+                    isPreviewLoading={loadingVoiceId === voice.id}
+                    isPreviewPlaying={playingVoiceId === voice.id}
                   />
                 ))
               ) : isLoading ? (
@@ -244,6 +323,9 @@ export default function VoicesScreen() {
                     colors={colors}
                     isFav={isFavorite(voice.id)}
                     onToggleFav={() => toggleFavorite(voice.id)}
+                    onPreview={() => handlePreviewVoice(voice)}
+                    isPreviewLoading={loadingVoiceId === voice.id}
+                    isPreviewPlaying={playingVoiceId === voice.id}
                   />
                 ))}
               </View>
@@ -295,6 +377,9 @@ export default function VoicesScreen() {
                 colors={colors}
                 isFav={isFavorite(voice.id)}
                 onToggleFav={() => toggleFavorite(voice.id)}
+                onPreview={() => handlePreviewVoice(voice)}
+                isPreviewLoading={loadingVoiceId === voice.id}
+                isPreviewPlaying={playingVoiceId === voice.id}
               />
             ))}
           </View>
@@ -314,27 +399,30 @@ function VoiceRow({
   colors,
   isFav,
   onToggleFav,
+  onPreview,
+  isPreviewLoading,
+  isPreviewPlaying,
 }: {
   voice: Voice;
   gradientIdx: number;
   colors: typeof Colors.dark;
   isFav: boolean;
   onToggleFav: () => void;
+  onPreview: () => void;
+  isPreviewLoading: boolean;
+  isPreviewPlaying: boolean;
 }) {
   const gc = GRADIENT_COLORS[gradientIdx % GRADIENT_COLORS.length];
 
-  const handlePreview = () => {
-    Alert.alert(
-      'Voice Preview',
-      `Preview for "${voice.name}" is not yet available. This requires a TTS preview endpoint on the backend.`,
-    );
-  };
-
   return (
     <View style={styles.voiceRow}>
-      <TouchableOpacity onPress={handlePreview}>
+      <TouchableOpacity onPress={onPreview} disabled={isPreviewLoading}>
         <View style={[styles.voiceAvatar, { backgroundColor: gc }]}>
-          <MaterialIcons name="play-arrow" size={24} color="#FFF" />
+          {isPreviewLoading ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <MaterialIcons name={isPreviewPlaying ? 'stop' : 'play-arrow'} size={24} color="#FFF" />
+          )}
         </View>
       </TouchableOpacity>
       <View style={{ flex: 1 }}>
