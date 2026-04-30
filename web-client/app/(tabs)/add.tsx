@@ -84,9 +84,11 @@ export default function AddScreen() {
 
     try {
       const book = await mutateAsync({
-        fileUri: pendingFile.uri,
-        fileName: pendingFile.name,
-        mimeType: pendingFile.mimeType,
+        fileSource: {
+          uri: pendingFile.uri,
+          name: pendingFile.name,
+          type: pendingFile.mimeType,
+        },
         metadata: {
           title: title.trim() || undefined,
           author: author.trim() || undefined,
@@ -105,17 +107,27 @@ export default function AddScreen() {
       Alert.alert('Error', 'Please enter some text');
       return;
     }
+
+    if (Platform.OS !== 'web') {
+      Alert.alert(
+        'Not Available',
+        'Typed text upload is currently web-only. Native temp-file support is coming soon.',
+      );
+      return;
+    }
+
     setActiveModal(null);
 
     try {
-      // Create a text blob and upload it
       const blob = new Blob([textContent], { type: 'text/plain' });
       const fileName = `${textTitle.trim() || 'text-input'}.txt`;
 
       const book = await mutateAsync({
-        fileUri: URL.createObjectURL(blob),
-        fileName,
-        mimeType: 'text/plain',
+        fileSource: {
+          blob,
+          name: fileName,
+          type: 'text/plain',
+        },
         metadata: {
           title: textTitle.trim() || 'Text Input',
           author: author.trim() || undefined,

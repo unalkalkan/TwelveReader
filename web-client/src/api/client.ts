@@ -104,21 +104,38 @@ export async function previewVoice(params: {
 
 // ── Books ───────────────────────────────────────────────────────────────
 
-export async function uploadBook(
-  fileUri: string,
-  fileName: string,
-  mimeType: string,
+export type FileSource =
+  | { uri: string; name: string; type: string }
+  | { blob: Blob; name: string; type: string };
+
+function appendFileToFormData(formData: FormData, source: FileSource): void {
+  if ('blob' in source) {
+    formData.append('file', source.blob, source.name);
+  } else {
+    formData.append('file', {
+      uri: source.uri,
+      name: source.name,
+      type: source.type,
+    } as any);
+  }
+}
+
+function appendMetadata(
+  formData: FormData,
   metadata?: { title?: string; author?: string; language?: string },
-): Promise<BookMetadata> {
-  const formData = new FormData();
-  formData.append('file', {
-    uri: fileUri,
-    name: fileName,
-    type: mimeType,
-  } as any);
+): void {
   if (metadata?.title) formData.append('title', metadata.title);
   if (metadata?.author) formData.append('author', metadata.author);
   if (metadata?.language) formData.append('language', metadata.language);
+}
+
+export async function uploadBook(
+  fileSource: FileSource,
+  metadata?: { title?: string; author?: string; language?: string },
+): Promise<BookMetadata> {
+  const formData = new FormData();
+  appendFileToFormData(formData, fileSource);
+  appendMetadata(formData, metadata);
 
   const response = await fetch(`${API_BASE}/books`, {
     method: 'POST',
@@ -290,22 +307,14 @@ export async function fetchBookStream(
 // ── Upload with progress callback ───────────────────────────────────────
 
 export function uploadBookWithProgress(
-  fileUri: string,
-  fileName: string,
-  mimeType: string,
+  fileSource: FileSource,
   metadata?: { title?: string; author?: string; language?: string },
   onProgress?: (percent: number) => void,
 ): Promise<BookMetadata> {
   return new Promise((resolve, reject) => {
     const formData = new FormData();
-    formData.append('file', {
-      uri: fileUri,
-      name: fileName,
-      type: mimeType,
-    } as any);
-    if (metadata?.title) formData.append('title', metadata.title);
-    if (metadata?.author) formData.append('author', metadata.author);
-    if (metadata?.language) formData.append('language', metadata.language);
+    appendFileToFormData(formData, fileSource);
+    appendMetadata(formData, metadata);
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${API_BASE}/books`);

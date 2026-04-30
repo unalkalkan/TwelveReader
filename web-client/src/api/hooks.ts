@@ -15,6 +15,7 @@ import {
   getPipelineStatus,
   getPersonas,
 } from './client';
+import type { FileSource } from './client';
 import type { VoiceMap } from '../types/api';
 import { useState, useCallback } from 'react';
 
@@ -123,16 +124,12 @@ export function useUploadBook() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
-      fileUri,
-      fileName,
-      mimeType,
+      fileSource,
       metadata,
     }: {
-      fileUri: string;
-      fileName: string;
-      mimeType: string;
+      fileSource: FileSource;
       metadata?: { title?: string; author?: string; language?: string };
-    }) => uploadBook(fileUri, fileName, mimeType, metadata),
+    }) => uploadBook(fileSource, metadata),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['books'] });
     },
@@ -225,18 +222,14 @@ export function useUploadBookWithProgress() {
 
   const mutation = useMutation({
     mutationFn: ({
-      fileUri,
-      fileName,
-      mimeType,
+      fileSource,
       metadata,
     }: {
-      fileUri: string;
-      fileName: string;
-      mimeType: string;
+      fileSource: FileSource;
       metadata?: { title?: string; author?: string; language?: string };
     }) => {
       setProgress(0);
-      return uploadBookWithProgress(fileUri, fileName, mimeType, metadata, setProgress);
+      return uploadBookWithProgress(fileSource, metadata, setProgress);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['books'] });
