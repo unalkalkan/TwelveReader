@@ -4,7 +4,8 @@ Generated: 2026-04-30T21:49:00Z
 
 ## Current state
 - Branch: `ui`.
-- Latest commit: `ffc5c46` (`fix(provider): add bounded retries for OpenAI-compatible calls`).
+- Accepted implementation commit: `ffc5c46` (`fix(provider): add bounded retries for OpenAI-compatible calls`).
+- Orchestrator checkpoint was committed after the implementation checkpoint.
 - UI MVP remains validated.
 - Latest bounded run: `wr_20260430_005` for backend provider timeout/retry hardening.
 - OpenCode was attempted with exactly `opencode-go/glm-5.1`; it timed out after partial edits, so Hermes completed the bounded task directly and recorded the fallback.
