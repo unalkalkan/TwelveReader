@@ -3,7 +3,7 @@
   "project_id": "twelvereader",
   "orchestrator_status": "running",
   "current_phase": "phase-5",
-  "current_goal": "remaining backend follow-up backlog: OCR provider implementation and live backend/browser validation",
+  "current_goal": "backend OCR provider implementation completed; remaining work is live backend/browser validation and optional scanned-PDF OCR pipeline wiring",
   "active_run_ids": [],
   "pending_review_ids": [],
   "active_feedback_ids": [
@@ -15,7 +15,7 @@
   "git": {
     "repo_initialized": true,
     "current_branch": "ui",
-    "last_commit_sha": "01c64ec",
+    "last_commit_sha": "12e0334",
     "working_tree_dirty": false
   },
   "escalation": {
@@ -24,21 +24,21 @@
     "target_tier": null
   },
   "last_supervisor_action": {
-    "at": "2026-04-30T23:00:35Z",
-    "action": "state_normalized",
-    "target_id": "01c64ec",
-    "notes": "State records the last accepted implementation commit for parser extraction; not chasing subsequent orchestrator-only commit hashes."
+    "at": "2026-04-30T23:36:30Z",
+    "action": "implementation_accepted",
+    "target_id": "blg_backend_ocr_provider",
+    "notes": "Committed OpenAI-compatible OCR provider implementation at 12e0334. Standard Go tests remain blocked because go is unavailable on PATH."
   },
   "counters": {
     "total_tasks": 13,
-    "completed": 12,
+    "completed": 13,
     "in_progress": 0,
     "failed": 0,
-    "total_runs": 8,
-    "successful_runs": 8,
+    "total_runs": 9,
+    "successful_runs": 9,
     "failed_runs": 0,
     "review_revisions": 0,
     "premium_escalations": 0
   },
-  "updated_at": "2026-04-30T23:00:35Z"
+  "updated_at": "2026-04-30T23:36:30Z"
 }

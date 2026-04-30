@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "run_id": "wr_20260430_009",
+  "backlog_item_id": "blg_backend_ocr_provider",
+  "role": "builder",
+  "worker": {
+    "type": "opencode",
+    "model": "opencode-go/glm-5.1"
+  },
+  "status": "completed",
+  "created_at": "2026-04-30T23:13:12Z",
+  "updated_at": "2026-04-30T23:36:30Z",
+  "task": {
+    "title": "Implement OpenAI-compatible OCR provider integration",
+    "objective": "Replace the OCR provider stub path for configured OCR endpoints with a real bounded HTTP integration while preserving stub fallback for missing endpoint configuration.",
+    "scope": [
+      "internal/provider/openai_ocr.go",
+      "internal/provider/openai_ocr_test.go",
+      "internal/provider/registry.go",
+      "internal/provider/registry_test.go",
+      "internal/config/loader.go",
+      "internal/config/loader_test.go",
+      "config/dev.example.yaml"
+    ],
+    "acceptance_criteria": [
+      "Use strict TDD: add tests first for OCR HTTP request behavior, response parsing, registry initialization, and env overrides.",
+      "When an enabled OCR provider has an endpoint, registry initialization must create a real OCR provider instead of the stub.",
+      "The real OCR provider must accept OpenAI-compatible vision chat/completions style endpoints and send image input as a base64 data URL with a language-aware prompt.",
+      "Support configurable model through OCR provider options.model and require it for the OpenAI-compatible path; preserve stub fallback when endpoint is absent.",
+      "Parse extracted text from standard chat completion responses and optional confidence from response JSON where available; return clear errors for empty image data, missing endpoint/model, non-2xx responses, empty choices, or empty extracted text.",
+      "Add TR_OCR_<NAME>_MODEL env override support without persisting secrets.",
+      "Keep implementation bounded: no parser changes, no frontend changes, no new external dependencies, no hardcoded secrets, no remote changes.",
+      "Run frontend validation from Hermes terminal: cd web-client && npx tsc --noEmit && npm run build. Run Go tests only if go exists; otherwise record blocked."
+    ],
+    "stop_condition": "Stop after OCR provider integration is implemented, reviewed, validated, recorded in orchestrator state, and committed; do not wire OCR into PDF page rasterization or scanned document parsing in this slice.",
+    "retry_budget": 1,
+    "validation": [
+      "git diff --check",
+      "cd web-client && npx tsc --noEmit",
+      "cd web-client && npm run build",
+      "If go exists: go test ./internal/provider ./internal/config; otherwise record blocked"
+    ]
+  }
+}

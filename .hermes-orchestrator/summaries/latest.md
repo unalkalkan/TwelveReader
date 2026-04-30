@@ -1,39 +1,39 @@
 # Latest Hermes Orchestrator Summary
 
-Generated: 2026-04-30T22:58:40Z
+Generated: 2026-04-30T23:36:30Z
 
 ## Current state
 - Branch: `ui`.
-- Latest bounded run: `wr_20260430_008` for `blg_backend_parser_ocr`.
+- Latest bounded run: `wr_20260430_009` for `blg_backend_ocr_provider`.
 - Worker: OpenCode was invoked with exactly `opencode-go/glm-5.1` for implementation and read-only review.
-- Review: `rv_20260430_008` approved with follow-up.
-- Accepted implementation commit: `01c64ec` (`feat(parser): add bounded pdf and epub extraction`).
+- Review: `rv_20260430_009` approved.
+- Accepted implementation commit: `12e0334` (`feat(provider): add OpenAI-compatible OCR provider`).
 
 ## Implemented this cycle
-- Replaced PDF parser placeholder output with bounded extraction for simple uncompressed PDF content streams.
-- Added literal-string parsing with escaped parentheses, newline/tab/backslash escapes, octal escape handling, and safer `BT`/`ET` operator boundary detection.
-- Replaced EPUB parser placeholder output with ZIP-based extraction using OPF spine order when available.
-- Added EPUB fallback to sorted HTML/XHTML files when OPF/container data is missing or unusable.
-- Added script/style stripping, HTML tag removal, entity decoding, stable chapter IDs/TOC paths, and decompressed entry/total size limits to reduce zip-bomb risk.
-- Added parser tests for EPUB spine order, fallback behavior, sanitization, entity decoding, nested OPF href paths, invalid input, stable IDs, simple PDF text extraction, escaped literal strings, placeholder removal, and invalid PDFs.
-- Split remaining OCR work to `blg_backend_ocr_provider`.
+- Added `OpenAIOCRProvider` for OpenAI-compatible vision chat/completions OCR.
+- Sends OCR image bytes as bounded base64 `data:image/...;base64,...` content parts with language-aware prompts.
+- Added image-size and response-size limits, configurable `max_tokens`, provider timeout parsing, retry/backoff reuse, context-aware retry cancellation, MIME detection, and clear errors for empty images, missing endpoint/model, non-2xx responses, empty choices, and empty OCR text.
+- Parses both plain text OCR output and structured JSON output with optional confidence.
+- Updated OCR registry selection: enabled OCR providers with an endpoint now create the real OCR provider; missing model fails fast; endpoint-less OCR providers retain stub fallback.
+- Added safe provider env var names for hyphenated provider names, preserving legacy hyphenated lookup, and added `TR_OCR_<NAME>_MODEL` override support.
+- Updated `config/dev.example.yaml` with OpenAI-compatible OCR defaults and blank API key placeholders only.
 
 ## Validation
-- `git diff --check`: passed.
+- `git diff --check`: passed before commit.
 - `cd web-client && npx tsc --noEmit`: passed.
 - `cd web-client && npm run build`: passed; existing `expo-av` deprecation warning remains.
-- `go test ./internal/parser`: blocked because `go` is not installed on PATH in this Hermes environment.
-- Supplemental only: `/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.12.linux-amd64/bin/go test ./internal/parser -v` passed.
+- `go test ./internal/config ./internal/provider -count=1`: blocked because `go` is not installed on PATH in this Hermes environment.
+- OpenCode GLM-5.1 read-only implementation gate returned `APPROVE` with no must-fix issues.
 
-## Review
-- OpenCode GLM-5.1 read-only review returned `REVISE` for zip-bomb risk, PDF octal/operator handling, missing escaped literal/nested OPF href tests, and regex recompilation.
-- Hermes fixed the required findings directly and reran validation.
-- No secrets or token-bearing remotes observed. Origin remote remains `https://github.com/unalkalkan/TwelveReader.git`.
+## Security / repo hygiene
+- No GitHub tokens or provider secrets were written.
+- Origin remote remains `https://github.com/unalkalkan/TwelveReader.git`.
+- API keys remain configured through blank config placeholders or environment variables.
 
-## Remaining backlog
-- `blg_backend_ocr_provider`: real OCR provider integration for scanned PDFs/images.
-- Add compressed/encoded real-world PDF handling, e.g. FlateDecode support or an audited parser dependency if dependency policy allows.
-- Live-backend/browser validation for upload, voice mapping, and active pipeline behavior.
+## Remaining work
+- Run Go tests on a host/CI image with Go installed.
+- Live backend/browser validation for upload, voice mapping, active pipeline behavior, playback, and downloads.
+- Optional future backend slice: scanned-PDF rasterization/OCR pipeline wiring and/or broader real-world PDF support.
 
 ## Next action
-- Continue OCR provider implementation or live-backend/browser validation if time remains.
+- Release orchestrator lock and continue with live validation only if another scheduled run starts before the deadline.

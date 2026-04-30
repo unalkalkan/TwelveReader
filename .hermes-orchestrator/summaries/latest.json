@@ -1,11 +1,17 @@
 {
   "version": 1,
-  "summary_id": "2026-04-30T20-40-23Z",
-  "generated_at": "2026-04-30T20:40:23Z",
-  "current_phase": "phase-1",
+  "summary_id": "2026-04-30T23-36-30Z",
+  "generated_at": "2026-04-30T23:36:30Z",
+  "current_phase": "phase-5",
   "active_run_ids": [],
-  "processed_feedback_ids": [],
-  "newly_completed_item_ids": [],
-  "blocked_item_ids": [],
-  "recommended_next_action": "customize_bootstrap_files"
+  "processed_feedback_ids": [
+    "fb_20260430_001"
+  ],
+  "newly_completed_item_ids": [
+    "blg_backend_ocr_provider"
+  ],
+  "blocked_item_ids": [
+    "go_tests_unavailable"
+  ],
+  "recommended_next_action": "run live backend/browser validation and optional scanned-PDF OCR pipeline wiring on a Go-capable host"
 }

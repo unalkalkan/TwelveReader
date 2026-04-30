@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "review_id": "rv_20260430_009",
+  "target_run_id": "wr_20260430_009",
+  "backlog_item_id": "blg_backend_ocr_provider",
+  "reviewer_role": "reviewer",
+  "model_tier": "hermes_supervisor_with_opencode_go_glm_5_1_readonly_review",
+  "review_type": "implementation_gate",
+  "verdict": "approve",
+  "created_at": "2026-04-30T23:36:30Z",
+  "summary": "Approved after Hermes review and an OpenCode GLM-5.1 read-only implementation gate. The change adds a bounded OpenAI-compatible OCR provider, registry selection, env override support, example config, and behavior-focused tests without adding dependencies, secrets, parser wiring, frontend changes, or remote changes.",
+  "findings": [
+    {
+      "severity": "low",
+      "status": "follow_up",
+      "description": "OCR provider exists and is registry-selectable, but scanned PDF rasterization and OCR invocation from parser/pipeline are intentionally out of scope for this bounded slice."
+    },
+    {
+      "severity": "low",
+      "status": "follow_up",
+      "description": "Go tests could not be run from the Hermes supervisor environment because go is not installed on PATH."
+    }
+  ],
+  "required_changes": [],
+  "accepted_changes": [
+    "Added OpenAIOCRProvider with image byte limits, response byte limits, max_tokens, retry/backoff, context cancellation, MIME detection, base64 data URL payloads, language-aware prompts, and plain-text/JSON response parsing.",
+    "Changed OCR registry initialization so endpoint-configured OCR providers use the real OpenAI-compatible implementation and fail fast if model is missing; endpoint-less providers remain stub fallback.",
+    "Added OCR MODEL env override support and safe underscore provider env var prefixes while preserving legacy hyphenated prefix lookup.",
+    "Updated dev example OCR config with OpenAI-compatible provider defaults and no committed secrets."
+  ],
+  "security_review": {
+    "hardcoded_secrets": false,
+    "path_traversal_risk": "none_observed_no_file_paths_added",
+    "remote_changed": false,
+    "notes": "No provider keys or GitHub tokens were committed. API keys remain blank/configurable via environment variables. Origin remains https://github.com/unalkalkan/TwelveReader.git."
+  },
+  "quality_review": {
+    "scope_control": "passed",
+    "type_safety": "frontend_passed_go_path_blocked",
+    "regression_risk": "low_for_configured_ocr_provider_path",
+    "notes": "Implementation is bounded to OCR provider/config/registry behavior and follows existing provider helper patterns."
+  },
+  "validation": [
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    },
+    {
+      "command": "cd web-client && npx tsc --noEmit",
+      "status": "passed"
+    },
+    {
+      "command": "cd web-client && npm run build",
+      "status": "passed",
+      "notes": "Existing expo-av deprecation warning remains."
+    },
+    {
+      "command": "go test ./internal/config ./internal/provider -count=1",
+      "status": "blocked",
+      "notes": "go binary not installed on PATH in Hermes environment"
+    }
+  ],
+  "escalation": {
+    "required": false,
+    "reason": null
+  },
+  "next_action": "release_lock_and_report_final_status"
+}
