@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "project_id": "twelvereader",
+  "updated_at": "2026-04-30T20:50:00Z",
+  "items": [
+    {
+      "id": "blg_bootstrap_orchestrator",
+      "title": "Bootstrap Hermes Orchestrator state",
+      "description": "Replace scaffold templates with project-specific mission/design/plan/acceptance/feedback/backlog/state.",
+      "status": "done",
+      "priority": 100,
+      "role_hint": "builder",
+      "phase": "phase-1",
+      "dependencies": [],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:43:00Z"
+    },
+    {
+      "id": "blg_fix_frontend_compile",
+      "title": "Fix frontend TypeScript compile errors",
+      "description": "Repair current Explore/useVoices response mismatch and any subsequent compile errors.",
+      "status": "done",
+      "priority": 95,
+      "role_hint": "builder",
+      "phase": "phase-2",
+      "dependencies": [
+        "blg_bootstrap_orchestrator"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_001",
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:50:00Z"
+    },
+    {
+      "id": "blg_voice_mapping_ui",
+      "title": "Implement voice mapping UI",
+      "description": "Add a usable flow for voice_mapping books to map discovered personas to voices and submit to backend.",
+      "status": "done",
+      "priority": 92,
+      "role_hint": "builder",
+      "phase": "phase-3",
+      "dependencies": [
+        "blg_fix_frontend_compile"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_001",
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:50:00Z"
+    },
+    {
+      "id": "blg_player_export_states",
+      "title": "Polish player export and state handling",
+      "description": "Add download/share action, mapping-required state, error state, and empty/no-audio guidance.",
+      "status": "done",
+      "priority": 84,
+      "role_hint": "builder",
+      "phase": "phase-3",
+      "dependencies": [
+        "blg_fix_frontend_compile"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_001",
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:50:00Z"
+    },
+    {
+      "id": "blg_library_progress_polish",
+      "title": "Improve library progress indicators",
+      "description": "Replace placeholder progress math with status-aware progress using available metadata/status fields.",
+      "status": "done",
+      "priority": 78,
+      "role_hint": "builder",
+      "phase": "phase-3",
+      "dependencies": [
+        "blg_fix_frontend_compile"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_001",
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:50:00Z"
+    },
+    {
+      "id": "blg_api_resilience",
+      "title": "Harden API client and schemas",
+      "description": "Make frontend API helpers resilient to backend error payloads, stream parsing issues, and optional fields.",
+      "status": "ready",
+      "priority": 72,
+      "role_hint": "builder",
+      "phase": "phase-2",
+      "dependencies": [
+        "blg_fix_frontend_compile"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:50:00Z"
+    },
+    {
+      "id": "blg_text_upload_web_compat",
+      "title": "Verify typed text upload on web/native",
+      "description": "Ensure Blob/object URL based text upload works on web and has safe native behavior or disabled guidance.",
+      "status": "idea",
+      "priority": 60,
+      "role_hint": "builder",
+      "phase": "phase-3",
+      "dependencies": [
+        "blg_fix_frontend_compile"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:43:00Z"
+    },
+    {
+      "id": "blg_backend_timeout_retry",
+      "title": "Backend timeout and retry improvements",
+      "description": "Raise provider deadlines and requeue failed segmentation/synthesis segments per TASKS.md.",
+      "status": "idea",
+      "priority": 50,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:43:00Z"
+    },
+    {
+      "id": "blg_backend_parser_ocr",
+      "title": "Backend parser/OCR implementation",
+      "description": "Replace PDF/ePUB stubs and add OCR support.",
+      "status": "idea",
+      "priority": 35,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:43:00Z"
+    },
+    {
+      "id": "blg_character_voice_kb",
+      "title": "Persistent character voice knowledge base",
+      "description": "Persist character/persona traits from segmentation and attach stable VoiceDescription for TTS.",
+      "status": "idea",
+      "priority": 40,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:43:00Z"
+    }
+  ]
+}

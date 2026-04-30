@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "project_id": "twelvereader",
+  "updated_at": "2026-04-30T20:50:00Z",
+  "entries": [
+    {
+      "id": "fb_20260430_001",
+      "created_at": "2026-04-30T20:43:00Z",
+      "created_by": "human",
+      "source": "telegram",
+      "state": "implemented",
+      "title": "Initialize Hermes Orchestrator and complete WIP UI branch directly",
+      "body_file": "feedback/fb_20260430_001.md",
+      "category": "architecture",
+      "priority": "high",
+      "affects_design": true,
+      "linked_design_sections": [
+        "Purpose",
+        "Scope",
+        "Current Direction",
+        "Architecture",
+        "Design Decisions"
+      ],
+      "linked_backlog_items": [
+        "blg_bootstrap_orchestrator",
+        "blg_fix_frontend_compile",
+        "blg_voice_mapping_ui",
+        "blg_player_export_states",
+        "blg_library_progress_polish"
+      ],
+      "linked_worker_runs": [
+        "wr_20260430_001"
+      ],
+      "resolution": "Orchestrator initialized; first UI MVP implementation pass completed with TypeScript/build validation. Remaining backend/liveness validation stays in backlog.",
+      "history": [
+        {
+          "at": "2026-04-30T20:43:00Z",
+          "actor": "human",
+          "from": null,
+          "to": "new",
+          "note": "Initial project-owner feedback received via Telegram."
+        },
+        {
+          "at": "2026-04-30T20:43:00Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "triaged",
+          "note": "Feedback changes orchestration/design scope and requires backlog creation."
+        },
+        {
+          "at": "2026-04-30T20:43:00Z",
+          "actor": "hermes",
+          "from": "triaged",
+          "to": "in_progress",
+          "note": "Design docs and implementation work started."
+        },
+        {
+          "at": "2026-04-30T20:50:00Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "implemented",
+          "note": "First direct implementation cycle completed and reviewed."
+        }
+      ]
+    }
+  ]
+}

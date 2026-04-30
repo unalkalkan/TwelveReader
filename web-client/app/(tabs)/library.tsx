@@ -116,7 +116,7 @@ export default function LibraryScreen() {
                   styles.bookProgressFill,
                   {
                     backgroundColor: STATUS_COLORS[item.status] ?? colors.accent,
-                    width: item.total_segments > 0 ? `${Math.min(100, (item.total_segments / Math.max(item.total_chapters, 1)) * 10)}%` : '10%',
+                    width: `${getBookProgressPercent(item)}%`,
                   },
                 ]}
               />
@@ -214,6 +214,33 @@ export default function LibraryScreen() {
       )}
     </SafeAreaView>
   );
+}
+
+function getBookProgressPercent(book: BookMetadata): number {
+  switch (book.status) {
+    case 'uploaded':
+      return 8;
+    case 'parsing':
+      return 15;
+    case 'segmenting': {
+      const total = book.total_paragraphs ?? 0;
+      const done = book.segmented_paragraphs ?? 0;
+      return total > 0 ? Math.max(15, Math.min(65, Math.round((done / total) * 65))) : 35;
+    }
+    case 'voice_mapping':
+      return 68;
+    case 'ready':
+      return 75;
+    case 'synthesizing': {
+      const total = book.total_segments ?? 0;
+      const done = book.synthesized_segments ?? 0;
+      return total > 0 ? Math.max(75, Math.min(98, 75 + Math.round((done / total) * 23))) : 82;
+    }
+    case 'synthesized':
+      return 100;
+    default:
+      return 10;
+  }
 }
 
 const styles = StyleSheet.create({

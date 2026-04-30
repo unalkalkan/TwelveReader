@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "run_id": "wr_20260430_001",
+  "backlog_item_id": "blg_fix_frontend_compile",
+  "worker_role": "builder",
+  "status": "completed",
+  "completed_at": "2026-04-30T20:50:00Z",
+  "summary": "Fixed the Explore voice-count TypeScript error, added a reusable voice mapping modal, connected player mapping/download/error states, extended BookMetadata schema for backend progress/persona fields, and improved library progress calculation.",
+  "outcome": "review_required",
+  "files_changed": [
+    "web-client/app/(tabs)/explore.tsx",
+    "web-client/app/(tabs)/library.tsx",
+    "web-client/app/player.tsx",
+    "web-client/src/components/VoiceMappingModal.tsx",
+    "web-client/src/types/api.ts"
+  ],
+  "tests": [
+    {
+      "command": "npx tsc --noEmit",
+      "status": "passed",
+      "notes": "TypeScript compile passed."
+    },
+    {
+      "command": "npm run build",
+      "status": "passed",
+      "notes": "Expo web export completed; expo-av deprecation warning only."
+    },
+    {
+      "command": "go test ./...",
+      "status": "blocked",
+      "notes": "go binary not installed in Hermes environment."
+    }
+  ],
+  "git": {
+    "commit_requested": true,
+    "commit_message_suggestion": "feat(ui): add voice mapping flow and stabilize web client",
+    "commit_sha": null
+  },
+  "artifacts": [],
+  "blockers": [
+    "Go backend tests blocked because go is not installed."
+  ],
+  "risks": [
+    "VoiceMappingModal submits initial=true for full mappings; backend defaults to initial when absent and supports this path for waiting voice_mapping state.",
+    "Expo AV is deprecated in SDK warning but existing app already uses expo-av; migration to expo-audio is a future task."
+  ],
+  "follow_up_suggestions": [
+    "Run Go tests in an environment with Go installed.",
+    "Exercise the voice_mapping flow against a live backend with a book paused for mapping.",
+    "Consider adding component/unit tests if a React Native testing setup is introduced."
+  ],
+  "review_request": {
+    "required": true,
+    "type": "implementation_gate",
+    "questions": [
+      "Do the UI changes satisfy compile and core voice-mapping acceptance?",
+      "Are there API contract risks in the new modal and schema extensions?"
+    ]
+  }
+}

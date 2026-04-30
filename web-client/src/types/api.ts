@@ -25,6 +25,14 @@ export const BookMetadataSchema = z.object({
   orig_format: z.string(),
   total_chapters: z.number(),
   total_segments: z.number(),
+  total_paragraphs: z.number().optional(),
+  segmented_paragraphs: z.number().optional(),
+  synthesized_segments: z.number().optional(),
+  discovered_personas: z.array(z.string()).optional().nullable(),
+  unmapped_personas: z.array(z.string()).optional().nullable(),
+  pending_segment_count: z.number().optional(),
+  waiting_for_mapping: z.boolean().optional(),
+  error: z.string().optional(),
 });
 export type BookMetadata = z.infer<typeof BookMetadataSchema>;
 

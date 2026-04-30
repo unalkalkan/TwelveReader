@@ -102,7 +102,7 @@ export default function ExploreScreen() {
   }, [books]);
 
   // Voice count stat
-  const voiceCount = voices?.length ?? 0;
+  const voiceCount = voices?.count ?? voices?.voices?.length ?? 0;
 
   const renderBookCard = (book: BookMetadata, idx: number) => (
     <TouchableOpacity

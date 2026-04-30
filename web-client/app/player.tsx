@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +23,8 @@ import {
 import { usePlayback } from '../src/store/playbackStore';
 import { useAudioPlayer } from '../src/hooks/useAudioPlayer';
 import { ChapterList } from '../src/components/ChapterList';
+import { VoiceMappingModal } from '../src/components/VoiceMappingModal';
+import { getDownloadUrl } from '../src/api/client';
 
 export default function PlayerScreen() {
   const theme = useColorScheme();
@@ -45,6 +48,7 @@ export default function PlayerScreen() {
   } = usePlayback();
 
   const [chapterListVisible, setChapterListVisible] = useState(false);
+  const [voiceMappingVisible, setVoiceMappingVisible] = useState(false);
 
   // Use stream segments (includes audio_url + timestamps)
   const segments = streamSegments ?? [];
@@ -79,6 +83,17 @@ export default function PlayerScreen() {
     ['uploaded', 'parsing', 'segmenting', 'synthesizing', 'voice_mapping'].includes(
       status.status,
     );
+  const isWaitingForMapping = status?.status === 'voice_mapping';
+  const hasBookError = status?.status === 'error' || status?.status === 'synthesis_error';
+
+  const handleDownload = useCallback(() => {
+    if (!bookId) return;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.open(getDownloadUrl(bookId), '_blank');
+      return;
+    }
+    Alert.alert('Download ready', getDownloadUrl(bookId));
+  }, [bookId]);
 
   // ── Word-level highlighting ──────────────────────────────────────────
   const renderSegmentText = useCallback(
@@ -173,9 +188,32 @@ export default function PlayerScreen() {
       >
         {isProcessing && (
           <View style={[styles.processingBanner, { backgroundColor: colors.surface }]}>
-            <MaterialIcons name="hourglass-top" size={20} color={colors.accent} />
+            <MaterialIcons
+              name={isWaitingForMapping ? 'record-voice-over' : 'hourglass-top'}
+              size={20}
+              color={isWaitingForMapping ? '#F59E0B' : colors.accent}
+            />
             <Text style={{ color: colors.textSecondary, marginLeft: 8, flex: 1 }}>
-              {status?.stage ?? 'Processing'}... {Math.round(status?.progress ?? 0)}%
+              {isWaitingForMapping
+                ? 'Voice mapping required before synthesis can continue.'
+                : `${status?.stage ?? 'Processing'}... ${Math.round(status?.progress ?? 0)}%`}
+            </Text>
+            {isWaitingForMapping && (
+              <TouchableOpacity
+                onPress={() => setVoiceMappingVisible(true)}
+                style={[styles.bannerButton, { backgroundColor: colors.accent }]}
+              >
+                <Text style={styles.bannerButtonText}>Map</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {hasBookError && (
+          <View style={[styles.processingBanner, { backgroundColor: colors.surface }]}>
+            <MaterialIcons name="error-outline" size={20} color="#EF4444" />
+            <Text style={{ color: colors.textSecondary, marginLeft: 8, flex: 1 }}>
+              Book processing failed. Check server logs or retry with another file.
             </Text>
           </View>
         )}
@@ -323,14 +361,22 @@ export default function PlayerScreen() {
 
         {/* Bottom actions */}
         <View style={styles.bottomActions}>
-          <TouchableOpacity style={styles.bottomAction}>
+          <TouchableOpacity
+            onPress={() => setVoiceMappingVisible(true)}
+            disabled={!bookId}
+            style={styles.bottomAction}
+          >
             <View
               style={[
                 styles.voiceAvatarSmall,
-                { backgroundColor: colors.card },
+                { backgroundColor: isWaitingForMapping ? colors.accent : colors.card },
               ]}
             >
-              <MaterialIcons name="person" size={16} color={colors.textMuted} />
+              <MaterialIcons
+                name="record-voice-over"
+                size={16}
+                color={isWaitingForMapping ? '#FFFFFF' : colors.textMuted}
+              />
             </View>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setChapterListVisible(true)}>
@@ -347,11 +393,11 @@ export default function PlayerScreen() {
               color={colors.textMuted}
             />
           </TouchableOpacity>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={handleDownload} disabled={!bookId}>
             <MaterialIcons
-              name="picture-as-pdf"
+              name="archive"
               size={24}
-              color={colors.textMuted}
+              color={bookId ? colors.textMuted : colors.border}
             />
           </TouchableOpacity>
         </View>
@@ -367,6 +413,11 @@ export default function PlayerScreen() {
           seekToSegment(idx);
           setChapterListVisible(false);
         }}
+      />
+      <VoiceMappingModal
+        bookId={bookId}
+        visible={voiceMappingVisible}
+        onClose={() => setVoiceMappingVisible(false)}
       />
     </SafeAreaView>
   );
@@ -441,6 +492,16 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     marginBottom: 20,
+  },
+  bannerButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  bannerButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
   // AI Fab
   aiFab: {

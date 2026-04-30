@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "summary_id": "2026-04-30T20-40-23Z",
+  "generated_at": "2026-04-30T20:40:23Z",
+  "current_phase": "phase-1",
+  "active_run_ids": [],
+  "processed_feedback_ids": [],
+  "newly_completed_item_ids": [],
+  "blocked_item_ids": [],
+  "recommended_next_action": "customize_bootstrap_files"
+}
