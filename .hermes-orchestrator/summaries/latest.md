@@ -4,6 +4,7 @@ Generated: 2026-04-30T21:49:00Z
 
 ## Current state
 - Branch: `ui`.
+- Latest commit: `ffc5c46` (`fix(provider): add bounded retries for OpenAI-compatible calls`).
 - UI MVP remains validated.
 - Latest bounded run: `wr_20260430_005` for backend provider timeout/retry hardening.
 - OpenCode was attempted with exactly `opencode-go/glm-5.1`; it timed out after partial edits, so Hermes completed the bounded task directly and recorded the fallback.
@@ -33,4 +34,4 @@ Generated: 2026-04-30T21:49:00Z
 - Live-backend/browser validation for upload, voice mapping, and active pipeline behavior.
 
 ## Next action
-- Commit accepted implementation/state changes, then continue the next highest-priority ready backend follow-up if time remains.
+- Continue `blg_backend_requeue_failed_segments` only after selecting it as a separate bounded task; Go validation should run first on a host with Go installed.

@@ -5,3 +5,4 @@
 {"event": "backlog_updated", "run_id": "sup_20260430_213413", "at": "2026-04-30T21:49:00Z", "notes": "provider retry task marked done; persistent requeue follow-up split out"}
 {"event": "supervisor_completed", "run_id": "sup_20260430_213413", "at": "2026-04-30T21:49:00Z", "status": "completed"}
 {"event": "lock_released", "run_id": "sup_20260430_213413", "at": "2026-04-30T21:49:00Z"}
+{"event": "commit_created", "run_id": "sup_20260430_213413", "worker_run_id": "wr_20260430_005", "commit_sha": "ffc5c46", "at": "2026-04-30T21:51:00Z"}

@@ -53,7 +53,7 @@
   "git": {
     "commit_requested": true,
     "commit_message_suggestion": "fix(provider): add bounded retries for OpenAI-compatible calls",
-    "commit_sha": null
+    "commit_sha": "ffc5c46"
   },
   "artifacts": [],
   "blockers": [

@@ -15,7 +15,7 @@
   "git": {
     "repo_initialized": true,
     "current_branch": "ui",
-    "last_commit_sha": "38d58e8",
+    "last_commit_sha": "ffc5c46",
     "working_tree_dirty": false
   },
   "escalation": {
@@ -24,10 +24,10 @@
     "target_tier": null
   },
   "last_supervisor_action": {
-    "at": "2026-04-30T21:49:00Z",
-    "action": "review_result",
-    "target_id": "rv_20260430_005",
-    "notes": "Approved provider retry hardening implemented by Hermes fallback after OpenCode glm-5.1 timeout; Go tests remain blocked by missing go binary."
+    "at": "2026-04-30T21:51:00Z",
+    "action": "commit_created",
+    "target_id": "ffc5c46",
+    "notes": "Committed accepted provider retry implementation and orchestrator records."
   },
   "counters": {
     "total_tasks": 12,
@@ -40,5 +40,5 @@
     "review_revisions": 0,
     "premium_escalations": 0
   },
-  "updated_at": "2026-04-30T21:49:00Z"
+  "updated_at": "2026-04-30T21:51:00Z"
 }
