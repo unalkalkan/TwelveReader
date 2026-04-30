@@ -13,3 +13,9 @@
 {"ts":"2026-04-30T22:16:00Z","event":"summary_written","run_id":"wr_20260430_006","path":".hermes-orchestrator/summaries/latest.md"}
 {"ts":"2026-04-30T22:17:00Z","event":"lock_released","run_id":"wr_20260430_006","owner":"hermes-cron-supervisor"}
 {"ts":"2026-04-30T22:17:00Z","event":"commit_created","run_id":"wr_20260430_006","commit_sha":"674e7a6"}
+{"ts": "2026-04-30T22:26:00Z", "event": "lock_acquired", "run_id": "wr_20260430_007", "owner": "hermes-cron-supervisor", "backlog_item_id": "blg_character_voice_kb"}
+{"ts": "2026-04-30T22:26:00Z", "event": "worker_spawned", "run_id": "wr_20260430_007", "backlog_item_id": "blg_character_voice_kb", "worker": "opencode-go/glm-5.1"}
+{"ts": "2026-04-30T22:40:00Z", "event": "review_written", "run_id": "wr_20260430_007", "review_id": "rv_20260430_007", "verdict": "approve_with_follow_up"}
+{"ts": "2026-04-30T22:40:00Z", "event": "backlog_updated", "run_id": "wr_20260430_007", "backlog_item_id": "blg_character_voice_kb", "status": "done"}
+{"ts": "2026-04-30T22:40:00Z", "event": "summary_written", "run_id": "wr_20260430_007", "path": ".hermes-orchestrator/summaries/latest.md"}
+{"ts": "2026-04-30T22:42:00Z", "event": "lock_released", "run_id": "wr_20260430_007", "owner": "hermes-cron-supervisor"}

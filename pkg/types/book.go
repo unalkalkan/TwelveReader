@@ -119,6 +119,16 @@ type ProcessingStatus struct {
 	SynthesizedSegments int `json:"synthesized_segments"` // Segments with audio generated
 }
 
+// PersonaProfile holds an aggregate persona voice profile for a book
+type PersonaProfile struct {
+	BookID           string    `json:"book_id"`
+	PersonaID        string    `json:"persona_id"`
+	DisplayName      string    `json:"display_name"`
+	VoiceDescription string    `json:"voice_description"`
+	SegmentCount     int       `json:"segment_count"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
 // PersonaDiscovery represents discovered personas with their mapping status
 type PersonaDiscovery struct {
 	Discovered      []string          `json:"discovered"`       // All discovered personas

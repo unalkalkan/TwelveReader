@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "run_id": "wr_20260430_007",
+  "backlog_item_id": "blg_character_voice_kb",
+  "worker_role": "builder",
+  "worker": {
+    "type": "opencode_then_hermes_reconciliation",
+    "model": "opencode-go/glm-5.1",
+    "fallback_from": null,
+    "notes": "Required OpenCode GLM-5.1 implementation run made useful bounded edits but the command timed out before final summary. Hermes reviewed, fixed a mock-interface compile issue, tightened repository error handling/locking, and completed validation directly."
+  },
+  "status": "completed",
+  "completed_at": "2026-04-30T22:40:00Z",
+  "summary": "Added persistent persona profile storage for book repositories. Persona profiles can be saved, loaded, and merged from segment personas into books/<bookID>/personas.json with per-book locking, stable persona/display fields, aggregate voice descriptions, segment counts, and deterministic output ordering.",
+  "outcome": "review_required",
+  "files_changed": [
+    "pkg/types/book.go",
+    "internal/book/repository.go",
+    "internal/book/repository_test.go",
+    "internal/pipeline/orchestrator_hybrid_test.go"
+  ],
+  "tests": [
+    {
+      "command": "opencode run --model opencode-go/glm-5.1 --format json <bounded implementation task>",
+      "status": "partial",
+      "notes": "OpenCode used exactly the required model; it reported passing Go tests using an internal path override, but the supervisor environment has no go binary and the OpenCode command timed out before final completion."
+    },
+    {
+      "command": "opencode run --model opencode-go/glm-5.1 --format json <read-only review>",
+      "status": "passed",
+      "notes": "Review returned revise due swallowed storage errors and idempotency/test-gap notes. Hermes fixed swallowed storage errors and added invalid JSON coverage. Idempotency remains documented as net-new segment merge semantics for this narrow slice."
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed",
+      "notes": "No whitespace errors."
+    },
+    {
+      "command": "cd web-client && npx tsc --noEmit",
+      "status": "passed",
+      "notes": "Frontend TypeScript gate passed."
+    },
+    {
+      "command": "cd web-client && npm run build",
+      "status": "passed",
+      "notes": "Expo web export passed with existing expo-av deprecation warning."
+    },
+    {
+      "command": "go test ./internal/book",
+      "status": "blocked",
+      "notes": "The go binary is not installed in this Hermes environment; OpenCode reported an internal go run, but Hermes supervisor could not independently verify Go tests."
+    }
+  ],
+  "git": {
+    "commit_requested": true,
+    "commit_message_suggestion": "feat(book): persist persona voice profiles",
+    "commit_sha": null
+  },
+  "artifacts": [],
+  "blockers": [
+    "Go tests unavailable to Hermes because go is not installed."
+  ],
+  "risks": [
+    "UpdatePersonaProfilesFromSegments is additive for net-new segment batches; if a caller replays the same batch, counts can inflate until segment-ID-level idempotency is added in a future task."
+  ],
+  "follow_up_suggestions": [
+    "Hook UpdatePersonaProfilesFromSegments into segmentation pipeline after Go tests are available.",
+    "Consider segment-ID-level idempotency if pipeline replay semantics require it.",
+    "Run go test ./internal/book ./internal/pipeline on a Go 1.24.12 host."
+  ],
+  "review_request": {
+    "required": true,
+    "type": "implementation_gate",
+    "questions": [
+      "Are repository persona profiles persisted safely under books/<bookID>/personas.json?",
+      "Is additive segment merge acceptable for the first bounded KB slice?"
+    ]
+  }
+}

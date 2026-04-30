@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
 	"sync"
+	"time"
 
 	"github.com/unalkalkan/TwelveReader/internal/storage"
 	"github.com/unalkalkan/TwelveReader/pkg/types"
@@ -51,6 +53,15 @@ type Repository interface {
 	// GetVoiceMap retrieves voice mapping for a book
 	GetVoiceMap(ctx context.Context, bookID string) (*types.VoiceMap, error)
 
+	// SavePersonaProfiles stores persona profiles for a book
+	SavePersonaProfiles(ctx context.Context, bookID string, profiles []*types.PersonaProfile) error
+
+	// GetPersonaProfiles retrieves persona profiles for a book
+	GetPersonaProfiles(ctx context.Context, bookID string) ([]*types.PersonaProfile, error)
+
+	// UpdatePersonaProfilesFromSegments merges segment personas into stored profiles
+	UpdatePersonaProfilesFromSegments(ctx context.Context, bookID string, segments []*types.Segment) error
+
 	// SaveRawFile stores the uploaded raw file
 	SaveRawFile(ctx context.Context, bookID string, data []byte, format string) error
 
@@ -69,6 +80,117 @@ func NewRepository(storageAdapter storage.Adapter) Repository {
 	return &StorageRepository{
 		storage: storageAdapter,
 	}
+}
+
+// SavePersonaProfiles stores persona profiles for a book
+func (r *StorageRepository) SavePersonaProfiles(ctx context.Context, bookID string, profiles []*types.PersonaProfile) error {
+	lockInterface, _ := r.bookLock.LoadOrStore(bookID, &sync.Mutex{})
+	mu := lockInterface.(*sync.Mutex)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	return r.savePersonaProfilesUnlocked(ctx, bookID, profiles)
+}
+
+func (r *StorageRepository) savePersonaProfilesUnlocked(ctx context.Context, bookID string, profiles []*types.PersonaProfile) error {
+	data, err := json.Marshal(profiles)
+	if err != nil {
+		return fmt.Errorf("failed to marshal persona profiles: %w", err)
+	}
+
+	path := filepath.Join("books", bookID, "personas.json")
+	return r.storage.Put(ctx, path, bytesReader(data))
+}
+
+// GetPersonaProfiles retrieves persona profiles for a book
+func (r *StorageRepository) GetPersonaProfiles(ctx context.Context, bookID string) ([]*types.PersonaProfile, error) {
+	lockInterface, _ := r.bookLock.LoadOrStore(bookID, &sync.Mutex{})
+	mu := lockInterface.(*sync.Mutex)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	return r.getPersonaProfilesUnlocked(ctx, bookID)
+}
+
+func (r *StorageRepository) getPersonaProfilesUnlocked(ctx context.Context, bookID string) ([]*types.PersonaProfile, error) {
+	path := filepath.Join("books", bookID, "personas.json")
+	reader, err := r.storage.Get(ctx, path)
+	if err != nil {
+		exists, existsErr := r.storage.Exists(ctx, path)
+		if existsErr != nil {
+			return nil, fmt.Errorf("failed to check persona profiles existence: %w", existsErr)
+		}
+		if !exists {
+			return []*types.PersonaProfile{}, nil
+		}
+		return nil, fmt.Errorf("failed to get persona profiles: %w", err)
+	}
+	defer reader.Close()
+
+	var profiles []*types.PersonaProfile
+	if err := json.NewDecoder(reader).Decode(&profiles); err != nil {
+		return nil, fmt.Errorf("failed to decode persona profiles: %w", err)
+	}
+
+	return profiles, nil
+}
+
+// UpdatePersonaProfilesFromSegments merges segment personas into stored profiles
+func (r *StorageRepository) UpdatePersonaProfilesFromSegments(ctx context.Context, bookID string, segments []*types.Segment) error {
+	lockInterface, _ := r.bookLock.LoadOrStore(bookID, &sync.Mutex{})
+	mu := lockInterface.(*sync.Mutex)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	existing, err := r.getPersonaProfilesUnlocked(ctx, bookID)
+	if err != nil {
+		return fmt.Errorf("failed to get existing persona profiles: %w", err)
+	}
+
+	profileMap := make(map[string]*types.PersonaProfile)
+	for _, p := range existing {
+		if p == nil || p.PersonaID == "" {
+			continue
+		}
+		profileMap[p.PersonaID] = p
+	}
+	now := time.Now().UTC()
+
+	for _, seg := range segments {
+		if seg == nil || seg.Person == "" {
+			continue
+		}
+
+		if p, ok := profileMap[seg.Person]; ok {
+			p.SegmentCount++
+			if p.VoiceDescription == "" && seg.VoiceDescription != "" {
+				p.VoiceDescription = seg.VoiceDescription
+			}
+			p.UpdatedAt = now
+		} else {
+			profileMap[seg.Person] = &types.PersonaProfile{
+				BookID:           bookID,
+				PersonaID:        seg.Person,
+				DisplayName:      seg.Person,
+				VoiceDescription: seg.VoiceDescription,
+				SegmentCount:     1,
+				UpdatedAt:        now,
+			}
+		}
+	}
+
+	profiles := make([]*types.PersonaProfile, 0, len(profileMap))
+	for _, p := range profileMap {
+		profiles = append(profiles, p)
+	}
+	sort.Slice(profiles, func(i, j int) bool {
+		return profiles[i].PersonaID < profiles[j].PersonaID
+	})
+
+	return r.savePersonaProfilesUnlocked(ctx, bookID, profiles)
 }
 
 // SaveBook stores book metadata atomically

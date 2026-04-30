@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "updated_at": "2026-04-30T22:16:00Z",
+  "updated_at": "2026-04-30T22:40:00Z",
   "items": [
     {
       "id": "blg_bootstrap_orchestrator",
@@ -201,7 +201,7 @@
       "id": "blg_character_voice_kb",
       "title": "Persistent character voice knowledge base",
       "description": "Persist character/persona traits from segmentation and attach stable VoiceDescription for TTS.",
-      "status": "idea",
+      "status": "done",
       "priority": 40,
       "role_hint": "builder",
       "phase": "phase-5",
@@ -211,9 +211,9 @@
       ],
       "retry_count": 0,
       "max_retries": 2,
-      "last_run_id": null,
+      "last_run_id": "wr_20260430_007",
       "created_at": "2026-04-30T20:43:00Z",
-      "updated_at": "2026-04-30T20:43:00Z"
+      "updated_at": "2026-04-30T22:40:00Z"
     },
     {
       "id": "blg_backend_requeue_failed_segments",

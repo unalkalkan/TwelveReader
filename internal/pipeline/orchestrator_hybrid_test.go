@@ -338,6 +338,15 @@ func (r *pipelineTestRepository) SaveVoiceMap(ctx context.Context, voiceMap *typ
 func (r *pipelineTestRepository) GetVoiceMap(ctx context.Context, bookID string) (*types.VoiceMap, error) {
 	return nil, fmt.Errorf("voice map not found")
 }
+func (r *pipelineTestRepository) SavePersonaProfiles(ctx context.Context, bookID string, profiles []*types.PersonaProfile) error {
+	return nil
+}
+func (r *pipelineTestRepository) GetPersonaProfiles(ctx context.Context, bookID string) ([]*types.PersonaProfile, error) {
+	return []*types.PersonaProfile{}, nil
+}
+func (r *pipelineTestRepository) UpdatePersonaProfilesFromSegments(ctx context.Context, bookID string, segments []*types.Segment) error {
+	return nil
+}
 func (r *pipelineTestRepository) SaveRawFile(ctx context.Context, bookID string, data []byte, format string) error {
 	return nil
 }
