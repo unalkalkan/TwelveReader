@@ -7,7 +7,7 @@ Generated: 2026-04-30T22:58:40Z
 - Latest bounded run: `wr_20260430_008` for `blg_backend_parser_ocr`.
 - Worker: OpenCode was invoked with exactly `opencode-go/glm-5.1` for implementation and read-only review.
 - Review: `rv_20260430_008` approved with follow-up.
-- Commit: pending at summary-write time; expected message `feat(parser): add bounded pdf and epub extraction`.
+- Accepted implementation commit: `01c64ec` (`feat(parser): add bounded pdf and epub extraction`).
 
 ## Implemented this cycle
 - Replaced PDF parser placeholder output with bounded extraction for simple uncompressed PDF content streams.

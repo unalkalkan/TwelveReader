@@ -54,7 +54,7 @@
   "git": {
     "commit_requested": true,
     "commit_message_suggestion": "feat(parser): add bounded pdf and epub extraction",
-    "commit_sha": null
+    "commit_sha": "01c64ec"
   },
   "artifacts": [],
   "blockers": [
