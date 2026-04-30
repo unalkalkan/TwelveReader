@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/unalkalkan/TwelveReader/internal/book"
@@ -14,6 +15,8 @@ import (
 	"github.com/unalkalkan/TwelveReader/internal/storage"
 	"github.com/unalkalkan/TwelveReader/pkg/types"
 )
+
+const defaultSegmentSynthesisMaxRetries = 3
 
 // HybridOrchestrator manages the hybrid LLM->TTS->Playback pipeline
 // with incremental voice mapping as personas are discovered
@@ -63,9 +66,12 @@ type hybridPipelineState struct {
 	closeInitialMappingOnce sync.Once     // Ensures initialMappingReceived is closed exactly once
 
 	// TTS state
-	ttsMu            sync.RWMutex
-	synthesizedCount int
-	ttsWorkers       sync.WaitGroup
+	ttsMu                  sync.RWMutex
+	synthesizedCount       int
+	permanentlyFailedCount int
+	ttsWorkers             sync.WaitGroup
+	maxRetries             int
+	activeSynthesis        int32
 }
 
 // PersonaDiscoveryEvent signals that new personas need voice mapping
@@ -126,6 +132,7 @@ func (o *HybridOrchestrator) StartPipeline(
 		initialMappingReceived: make(chan struct{}),
 		progressCallback:       progressCallback,
 		cancelFunc:             cancel,
+		maxRetries:             defaultSegmentSynthesisMaxRetries,
 	}
 
 	// Calculate total paragraphs
@@ -704,10 +711,14 @@ func (o *HybridOrchestrator) ttsWorker(ctx context.Context, state *hybridPipelin
 			return
 		}
 
-		// Dequeue next segment
+		// Reserve an active slot before dequeue so a dequeued segment is never
+		// invisible to other idle workers' completion checks.
+		atomic.AddInt32(&state.activeSynthesis, 1)
+
 		segment := state.segmentQueue.DequeueNext()
 		if segment == nil {
-			// No segments available, check if we're done
+			atomic.AddInt32(&state.activeSynthesis, -1)
+
 			state.segmentsMu.RLock()
 			segmentationDone := state.segmentationComplete
 			totalSegments := len(state.allSegments)
@@ -715,53 +726,65 @@ func (o *HybridOrchestrator) ttsWorker(ctx context.Context, state *hybridPipelin
 
 			mappedCount := state.segmentQueue.MappedCount()
 			unmappedCount := state.segmentQueue.UnmappedCount()
+			activeCount := atomic.LoadInt32(&state.activeSynthesis)
 
-			// Only exit if segmentation is complete AND all queues are empty
-			if segmentationDone && mappedCount == 0 && unmappedCount == 0 {
+			if segmentationDone && mappedCount == 0 && unmappedCount == 0 && activeCount == 0 {
 				state.ttsMu.RLock()
 				synthesizedCount := state.synthesizedCount
+				permanentlyFailed := state.permanentlyFailedCount
 				state.ttsMu.RUnlock()
 
-				log.Printf("[ttsWorker-%d] All segments processed (synthesized: %d/%d), exiting",
-					workerID, synthesizedCount, totalSegments)
+				log.Printf("[ttsWorker-%d] All segments processed (synthesized: %d, failed: %d/%d), exiting",
+					workerID, synthesizedCount, permanentlyFailed, totalSegments)
 				return
 			}
 
-			// Wait a bit and try again
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 
-		// Get voice ID for segment
 		state.personaMu.RLock()
 		voiceID := state.mappedPersonas[segment.Person]
 		state.personaMu.RUnlock()
 
 		if voiceID == "" {
+			atomic.AddInt32(&state.activeSynthesis, -1)
 			log.Printf("[ttsWorker-%d] Warning: Segment %s has no voice mapping for persona %s, re-queueing as unmapped",
 				workerID, segment.ID, segment.Person)
-			// Re-queue as unmapped - it will wait for PromotePendingSegments to be called
 			state.segmentQueue.Enqueue(segment, false)
-			// Small sleep to prevent potential CPU spinning if there's a logic error
 			time.Sleep(50 * time.Millisecond)
 			continue
 		}
 
-		// Synthesize audio
 		log.Printf("[ttsWorker-%d] Synthesizing segment %s (persona: %s, voice: %s)",
 			workerID, segment.ID, segment.Person, voiceID)
 		err := o.synthesizeSegment(ctx, state.bookID, segment, voiceID)
 		if err != nil {
-			log.Printf("[ttsWorker-%d] Failed to synthesize segment %s: %v", workerID, segment.ID, err)
-			// TODO: Add to retry queue
+			retryCount := state.segmentQueue.RecordFailure(segment.ID)
+			if retryCount <= state.maxRetries {
+				state.segmentQueue.Enqueue(segment, true)
+				log.Printf("[ttsWorker-%d] Requeued segment %s for retry (attempt %d/%d): %v",
+					workerID, segment.ID, retryCount, state.maxRetries, err)
+			} else {
+				state.segmentQueue.MarkPermanentlyFailed(segment.ID)
+				state.ttsMu.Lock()
+				state.permanentlyFailedCount++
+				state.ttsMu.Unlock()
+				log.Printf("[ttsWorker-%d] Segment %s permanently failed after %d retries: %v",
+					workerID, segment.ID, state.maxRetries, err)
+			}
+			atomic.AddInt32(&state.activeSynthesis, -1)
 			continue
 		}
 
-		// Update progress
+		state.segmentQueue.ClearRetryTracker(segment.ID)
+
 		state.ttsMu.Lock()
 		state.synthesizedCount++
 		currentCount := state.synthesizedCount
 		state.ttsMu.Unlock()
+
+		atomic.AddInt32(&state.activeSynthesis, -1)
 
 		state.segmentsMu.RLock()
 		totalSegments := len(state.allSegments)
@@ -793,7 +816,6 @@ func (o *HybridOrchestrator) ttsWorker(ctx context.Context, state *hybridPipelin
 		})
 		o.notifyProgress(state)
 
-		// Update book asynchronously
 		go func(count int) {
 			book, err := o.repo.GetBook(ctx, state.bookID)
 			if err == nil && book != nil {
@@ -1100,25 +1122,64 @@ func (o *HybridOrchestrator) CancelPipeline(bookID string) error {
 func (o *HybridOrchestrator) completePipeline(state *hybridPipelineState) {
 	ctx := context.Background()
 
-	// Mark ready stage as complete
-	now := time.Now()
-	o.updateStageProgress(state, "ready", func(stage *StageProgress) {
-		stage.Status = "completed"
-		stage.Percentage = 100
-		stage.Message = "Book ready for playback"
-		stage.CompletedAt = &now
-	})
-	o.notifyProgress(state)
+	state.segmentsMu.RLock()
+	totalSegments := len(state.allSegments)
+	state.segmentsMu.RUnlock()
 
-	// Update book status
-	book, err := o.repo.GetBook(ctx, state.bookID)
-	if err == nil && book != nil {
-		book.Status = "synthesized"
-		book.WaitingForMapping = false
-		o.repo.UpdateBook(ctx, book)
+	state.ttsMu.RLock()
+	synthesizedCount := state.synthesizedCount
+	state.ttsMu.RUnlock()
+
+	permanentlyFailed := state.segmentQueue.PermanentlyFailedCount()
+	incompleteSegments := totalSegments - synthesizedCount - permanentlyFailed
+	if incompleteSegments < 0 {
+		incompleteSegments = 0
 	}
 
-	// Clean up pipeline state
+	if permanentlyFailed > 0 || incompleteSegments > 0 {
+		message := fmt.Sprintf("TTS synthesis failed for %d segment(s) after max retries", permanentlyFailed)
+		if incompleteSegments > 0 {
+			message = fmt.Sprintf("TTS synthesis incomplete: %d segment(s) did not finish", incompleteSegments)
+		}
+
+		now := time.Now()
+		o.updateStageProgress(state, "synthesizing", func(stage *StageProgress) {
+			stage.Status = "error"
+			stage.Message = message
+			stage.CompletedAt = &now
+		})
+		o.updateStageProgress(state, "ready", func(stage *StageProgress) {
+			stage.Status = "error"
+			stage.Message = message
+			stage.CompletedAt = &now
+		})
+		o.notifyProgress(state)
+
+		book, err := o.repo.GetBook(ctx, state.bookID)
+		if err == nil && book != nil {
+			book.Status = "error"
+			book.Error = message
+			book.WaitingForMapping = false
+			o.repo.UpdateBook(ctx, book)
+		}
+	} else {
+		now := time.Now()
+		o.updateStageProgress(state, "ready", func(stage *StageProgress) {
+			stage.Status = "completed"
+			stage.Percentage = 100
+			stage.Message = "Book ready for playback"
+			stage.CompletedAt = &now
+		})
+		o.notifyProgress(state)
+
+		book, err := o.repo.GetBook(ctx, state.bookID)
+		if err == nil && book != nil {
+			book.Status = "synthesized"
+			book.WaitingForMapping = false
+			o.repo.UpdateBook(ctx, book)
+		}
+	}
+
 	o.mu.Lock()
 	delete(o.pipelines, state.bookID)
 	o.mu.Unlock()

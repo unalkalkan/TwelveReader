@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "run_id": "wr_20260430_006",
+  "backlog_item_id": "blg_backend_requeue_failed_segments",
+  "worker_role": "builder",
+  "worker": {
+    "type": "direct_hermes_fallback",
+    "model": null,
+    "fallback_from": {
+      "type": "opencode",
+      "model": "opencode-go/glm-5.1",
+      "reason": "Required non-PTY OpenCode implementation attempt timed out after partial edits. A PTY OpenCode follow-up was used only for read-only review, and Hermes completed/reconciled the accepted implementation directly."
+    }
+  },
+  "status": "completed",
+  "completed_at": "2026-04-30T22:16:00Z",
+  "summary": "Implemented bounded in-memory TTS segment retry/requeue handling in the hybrid pipeline. Failed mapped segments now record failure counts, requeue up to the configured retry budget, clear retry state on later success, and become permanent failures after budget exhaustion. Pipeline completion now marks the book error when permanent failures or incomplete synthesis remain instead of silently setting synthesized.",
+  "outcome": "review_required",
+  "files_changed": [
+    "internal/pipeline/queue.go",
+    "internal/pipeline/orchestrator_hybrid.go",
+    "internal/pipeline/orchestrator_hybrid_test.go"
+  ],
+  "tests": [
+    {
+      "command": "opencode run --model opencode-go/glm-5.1 --format json '<bounded implementation task>'",
+      "status": "failed",
+      "notes": "OpenCode used exactly the required model but the foreground non-PTY implementation attempt timed out after partial edits."
+    },
+    {
+      "command": "opencode run --model opencode-go/glm-5.1 --format json '<read-only review>' with PTY/background",
+      "status": "passed",
+      "notes": "Read-only review found bounded retry semantics and error handling acceptable, with one race note that Hermes fixed by reserving activeSynthesis before dequeue."
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed",
+      "notes": "No whitespace errors."
+    },
+    {
+      "command": "cd web-client && npx tsc --noEmit",
+      "status": "passed",
+      "notes": "Frontend TypeScript gate passed."
+    },
+    {
+      "command": "cd web-client && npm run build",
+      "status": "passed",
+      "notes": "Expo web export passed with the existing expo-av deprecation warning."
+    },
+    {
+      "command": "go test ./internal/pipeline",
+      "status": "blocked",
+      "notes": "The go binary is not installed in this Hermes environment."
+    }
+  ],
+  "git": {
+    "commit_requested": true,
+    "commit_message_suggestion": "fix(pipeline): requeue failed hybrid TTS segments",
+    "commit_sha": null
+  },
+  "artifacts": [],
+  "blockers": [
+    "Go tests unavailable because go is not installed."
+  ],
+  "risks": [
+    "New Go tests are static-reviewed only in this environment until Go 1.24.12 is available."
+  ],
+  "follow_up_suggestions": [
+    "Run go test ./internal/pipeline on a host with Go installed.",
+    "Continue with parser/OCR implementation or persistent character voice knowledge base as separate bounded tasks."
+  ],
+  "review_request": {
+    "required": true,
+    "type": "implementation_gate",
+    "questions": [
+      "Does the activeSynthesis guard prevent premature worker completion around requeued failures?",
+      "Does completePipeline avoid marking a book synthesized when segment retries are exhausted or synthesis remains incomplete?"
+    ]
+  }
+}

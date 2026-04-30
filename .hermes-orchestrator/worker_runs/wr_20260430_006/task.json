@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "run_id": "wr_20260430_006",
+  "backlog_item_id": "blg_backend_requeue_failed_segments",
+  "role": "builder",
+  "worker": {
+    "type": "opencode",
+    "model": "opencode-go/glm-5.1"
+  },
+  "status": "in_progress",
+  "created_at": "2026-04-30T21:59:00Z",
+  "updated_at": "2026-04-30T21:59:00Z",
+  "task": {
+    "title": "Requeue failed TTS segments in the hybrid pipeline",
+    "objective": "Replace the hybrid pipeline TODO that drops failed TTS synthesis work with a bounded in-memory retry/requeue path so transient segment synthesis failures can be retried before the book is finalized.",
+    "scope": [
+      "internal/pipeline/orchestrator_hybrid.go",
+      "internal/pipeline/queue.go",
+      "internal/pipeline/orchestrator_hybrid_test.go"
+    ],
+    "acceptance_criteria": [
+      "Add a strict TDD test in internal/pipeline that proves a segment whose first TTS synthesis fails is requeued and later synthesized successfully.",
+      "Add bounded retry tracking in the hybrid pipeline only; do not change provider interfaces or parser/OCR behavior.",
+      "Failed segments are requeued ahead of later idle completion checks and do not cause completePipeline to mark the book synthesized until retried work is exhausted or successful.",
+      "If a segment exhausts the bounded retry budget, mark pipeline/book state as error rather than silently claiming synthesized completion.",
+      "No secrets or remote changes."
+    ],
+    "stop_condition": "Stop after this narrow hybrid TTS segment requeue behavior and summary; do not implement parser/OCR or character KB.",
+    "retry_budget": 1,
+    "validation": [
+      "git diff --check",
+      "cd web-client && npx tsc --noEmit",
+      "cd web-client && npm run build",
+      "If go exists: go test ./internal/pipeline; otherwise record blocked"
+    ]
+  }
+}
