@@ -1,39 +1,37 @@
 # Latest Hermes Orchestrator Summary
 
-Generated: 2026-04-30T23:36:30Z
+Generated: 2026-04-30T23:56:10Z
 
 ## Current state
 - Branch: `ui`.
-- Latest bounded run: `wr_20260430_009` for `blg_backend_ocr_provider`.
-- Worker: OpenCode was invoked with exactly `opencode-go/glm-5.1` for implementation and read-only review.
-- Review: `rv_20260430_009` approved.
-- Accepted implementation commit: `12e0334` (`feat(provider): add OpenAI-compatible OCR provider`).
+- Latest bounded run: `wr_20260430_010` for `blg_frontend_deerflow_signature`.
+- Worker: OpenCode was invoked with exactly `opencode-go/glm-5.1`.
+- Hermes review: `rv_20260430_010` approved after placement refinement.
+- Product backlog: all current implementation backlog items are marked done.
 
 ## Implemented this cycle
-- Added `OpenAIOCRProvider` for OpenAI-compatible vision chat/completions OCR.
-- Sends OCR image bytes as bounded base64 `data:image/...;base64,...` content parts with language-aware prompts.
-- Added image-size and response-size limits, configurable `max_tokens`, provider timeout parsing, retry/backoff reuse, context-aware retry cancellation, MIME detection, and clear errors for empty images, missing endpoint/model, non-2xx responses, empty choices, and empty OCR text.
-- Parses both plain text OCR output and structured JSON output with optional confidence.
-- Updated OCR registry selection: enabled OCR providers with an endpoint now create the real OCR provider; missing model fails fast; endpoint-less OCR providers retain stub fallback.
-- Added safe provider env var names for hyphenated provider names, preserving legacy hyphenated lookup, and added `TR_OCR_<NAME>_MODEL` override support.
-- Updated `config/dev.example.yaml` with OpenAI-compatible OCR defaults and blank API key placeholders only.
+- Added `web-client/src/components/AttributionBadge.tsx`.
+- The badge renders subtle visible text: `Created By Deerflow`.
+- On web, the badge opens `https://deerflow.tech` in a new tab with `noopener,noreferrer`.
+- On native platforms, it opens the same URL via React Native `Linking`.
+- Rendered the badge in `web-client/app/(tabs)/_layout.tsx`, centered just above the tab bar so it is discoverable but does not compete with main content.
+- Used existing dark/slate/blue color tokens and low-opacity styling to preserve the project design system.
+
+## Review notes
+- OpenCode initially placed the attribution from the root layout. Hermes reviewed the diff and adjusted placement to the tab shell to avoid root Stack overlay/navigation risk.
+- Security review passed: no secrets were written and the only fixed external URL is the required Deerflow attribution.
+- Origin remote remains `https://github.com/unalkalkan/TwelveReader.git`.
 
 ## Validation
-- `git diff --check`: passed before commit.
+- `git diff --check`: passed.
 - `cd web-client && npx tsc --noEmit`: passed.
 - `cd web-client && npm run build`: passed; existing `expo-av` deprecation warning remains.
-- `go test ./internal/config ./internal/provider -count=1`: blocked because `go` is not installed on PATH in this Hermes environment.
-- OpenCode GLM-5.1 read-only implementation gate returned `APPROVE` with no must-fix issues.
-
-## Security / repo hygiene
-- No GitHub tokens or provider secrets were written.
-- Origin remote remains `https://github.com/unalkalkan/TwelveReader.git`.
-- API keys remain configured through blank config placeholders or environment variables.
+- Go tests remain blocked because `go` is not installed on PATH in this Hermes environment.
 
 ## Remaining work
 - Run Go tests on a host/CI image with Go installed.
-- Live backend/browser validation for upload, voice mapping, active pipeline behavior, playback, and downloads.
-- Optional future backend slice: scanned-PDF rasterization/OCR pipeline wiring and/or broader real-world PDF support.
+- Perform live backend/browser validation for upload, voice mapping, active pipeline behavior, playback, downloads, and OCR provider behavior.
+- Optional future backend slice: scanned-PDF rasterization/OCR pipeline wiring and broader real-world PDF support.
 
 ## Next action
-- Release orchestrator lock and continue with live validation only if another scheduled run starts before the deadline.
+- Commit accepted implementation plus orchestration state, release the orchestrator lock, and stop because the deadline is reached.

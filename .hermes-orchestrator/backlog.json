@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "updated_at": "2026-04-30T23:36:30Z",
+  "updated_at": "2026-04-30T23:55:31Z",
   "items": [
     {
       "id": "blg_bootstrap_orchestrator",
@@ -254,6 +254,26 @@
       "last_run_id": "wr_20260430_009",
       "created_at": "2026-04-30T22:58:40Z",
       "updated_at": "2026-04-30T23:36:30Z"
+    },
+    {
+      "id": "blg_frontend_deerflow_signature",
+      "title": "Add Deerflow frontend signature",
+      "description": "Add the mandatory subtle clickable Created By Deerflow signature to the Expo UI while preserving the dark/slate/blue design system.",
+      "status": "done",
+      "priority": 20,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [
+        "blg_fix_frontend_compile"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 1,
+      "last_run_id": "wr_20260430_010",
+      "created_at": "2026-04-30T23:50:20Z",
+      "updated_at": "2026-04-30T23:55:31Z"
     }
   ]
 }

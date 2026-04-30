@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "run_id": "wr_20260430_010",
+  "backlog_item_id": "blg_frontend_deerflow_signature",
+  "role": "builder",
+  "worker": {
+    "type": "opencode",
+    "model": "opencode-go/glm-5.1",
+    "fallback": "direct-hermes-if-opencode-fails"
+  },
+  "status": "completed",
+  "created_at": "2026-04-30T23:50:20Z",
+  "objective": "Add a subtle clickable Created By Deerflow signature to the Expo web UI without disrupting the existing dark/slate/blue design system.",
+  "scope": [
+    "Create a reusable Deerflow signature component if needed.",
+    "Render it in the root layout so the UI includes a clickable https://deerflow.tech attribution.",
+    "Keep styling compact, dark/slate/blue compatible, and unobtrusive."
+  ],
+  "acceptance_criteria": [
+    "UI source contains visible text Created By Deerflow.",
+    "Signature link targets https://deerflow.tech and opens externally/new tab on web.",
+    "Frontend validation passes: cd web-client && npx tsc --noEmit && npm run build.",
+    "No secrets or GitHub token changes; origin remains https://github.com/unalkalkan/TwelveReader.git."
+  ],
+  "retry_budget": 1,
+  "stop_condition": "Stop after one bounded implementation attempt and Hermes review/validation.",
+  "completed_at": "2026-04-30T23:55:31Z"
+}
