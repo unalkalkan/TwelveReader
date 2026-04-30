@@ -3,7 +3,7 @@
   "project_id": "twelvereader",
   "orchestrator_status": "running",
   "current_phase": "phase-5",
-  "current_goal": "remaining backend follow-up backlog: parser/OCR implementation and live backend/browser validation",
+  "current_goal": "remaining backend follow-up backlog: OCR provider implementation and live backend/browser validation",
   "active_run_ids": [],
   "pending_review_ids": [],
   "active_feedback_ids": [
@@ -16,7 +16,7 @@
     "repo_initialized": true,
     "current_branch": "ui",
     "last_commit_sha": "1381394",
-    "working_tree_dirty": false
+    "working_tree_dirty": true
   },
   "escalation": {
     "required": false,
@@ -24,21 +24,21 @@
     "target_tier": null
   },
   "last_supervisor_action": {
-    "at": "2026-04-30T22:37:27Z",
-    "action": "state_normalized",
-    "target_id": "1381394",
-    "notes": "State records the last accepted implementation commit for persona profile persistence; not chasing subsequent orchestrator-only commit hashes."
+    "at": "2026-04-30T22:58:40Z",
+    "action": "implementation_review_approved",
+    "target_id": "wr_20260430_008",
+    "notes": "Approved bounded PDF/ePUB parser extraction after review fixes; OCR split to follow-up backlog item."
   },
   "counters": {
-    "total_tasks": 12,
-    "completed": 11,
+    "total_tasks": 13,
+    "completed": 12,
     "in_progress": 0,
     "failed": 0,
-    "total_runs": 7,
-    "successful_runs": 7,
+    "total_runs": 8,
+    "successful_runs": 8,
     "failed_runs": 0,
     "review_revisions": 0,
     "premium_escalations": 0
   },
-  "updated_at": "2026-04-30T22:37:27Z"
+  "updated_at": "2026-04-30T22:58:40Z"
 }

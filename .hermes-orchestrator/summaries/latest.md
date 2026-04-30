@@ -1,38 +1,39 @@
 # Latest Hermes Orchestrator Summary
 
-Generated: 2026-04-30T22:36:48Z
+Generated: 2026-04-30T22:58:40Z
 
 ## Current state
 - Branch: `ui`.
-- Latest bounded run: `wr_20260430_007` for `blg_character_voice_kb`.
-- Worker: OpenCode was invoked with exactly `opencode-go/glm-5.1`; it made partial useful edits but the implementation command timed out before final summary, so Hermes reviewed and reconciled directly.
-- Review: `rv_20260430_007` approved with follow-up.
-- Accepted implementation commit: `1381394` (`feat(book): persist persona voice profiles`).
+- Latest bounded run: `wr_20260430_008` for `blg_backend_parser_ocr`.
+- Worker: OpenCode was invoked with exactly `opencode-go/glm-5.1` for implementation and read-only review.
+- Review: `rv_20260430_008` approved with follow-up.
+- Commit: pending at summary-write time; expected message `feat(parser): add bounded pdf and epub extraction`.
 
 ## Implemented this cycle
-- Added `types.PersonaProfile` for persistent persona/voice profile metadata.
-- Extended `book.Repository` with persona profile save/get/update-from-segments methods.
-- Persisted persona profiles under `books/<bookID>/personas.json` with per-book locking.
-- Added additive merge behavior from segments: deduplicates by `segment.Person`, ignores empty persona IDs, preserves existing non-empty voice descriptions, fills empty descriptions from segments, increments segment counts, and emits deterministic ordering.
-- Added repository coverage for save/get, missing files, invalid JSON, new merges, preserving descriptions, and empty persona filtering.
-- Updated the hybrid pipeline test repository double for the expanded interface.
+- Replaced PDF parser placeholder output with bounded extraction for simple uncompressed PDF content streams.
+- Added literal-string parsing with escaped parentheses, newline/tab/backslash escapes, octal escape handling, and safer `BT`/`ET` operator boundary detection.
+- Replaced EPUB parser placeholder output with ZIP-based extraction using OPF spine order when available.
+- Added EPUB fallback to sorted HTML/XHTML files when OPF/container data is missing or unusable.
+- Added script/style stripping, HTML tag removal, entity decoding, stable chapter IDs/TOC paths, and decompressed entry/total size limits to reduce zip-bomb risk.
+- Added parser tests for EPUB spine order, fallback behavior, sanitization, entity decoding, nested OPF href paths, invalid input, stable IDs, simple PDF text extraction, escaped literal strings, placeholder removal, and invalid PDFs.
+- Split remaining OCR work to `blg_backend_ocr_provider`.
 
 ## Validation
 - `git diff --check`: passed.
 - `cd web-client && npx tsc --noEmit`: passed.
 - `cd web-client && npm run build`: passed; existing `expo-av` deprecation warning remains.
-- `go test ./internal/book`: blocked because `go` is not installed in this Hermes environment.
+- `go test ./internal/parser`: blocked because `go` is not installed on PATH in this Hermes environment.
+- Supplemental only: `/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.12.linux-amd64/bin/go test ./internal/parser -v` passed.
 
 ## Review
-- OpenCode GLM-5.1 read-only review requested revisions for swallowed storage errors and idempotency risk.
-- Hermes fixed swallowed storage/decode errors and added invalid JSON coverage.
-- Remaining accepted follow-up: `UpdatePersonaProfilesFromSegments` is additive for net-new segment batches; segment-ID-level idempotency should be considered when wiring into replay/recovery paths.
+- OpenCode GLM-5.1 read-only review returned `REVISE` for zip-bomb risk, PDF octal/operator handling, missing escaped literal/nested OPF href tests, and regex recompilation.
+- Hermes fixed the required findings directly and reran validation.
 - No secrets or token-bearing remotes observed. Origin remote remains `https://github.com/unalkalkan/TwelveReader.git`.
 
 ## Remaining backlog
-- Backend parser/OCR implementation.
-- Wire persona profile updates into the segmentation/pipeline path after Go tests are available.
+- `blg_backend_ocr_provider`: real OCR provider integration for scanned PDFs/images.
+- Add compressed/encoded real-world PDF handling, e.g. FlateDecode support or an audited parser dependency if dependency policy allows.
 - Live-backend/browser validation for upload, voice mapping, and active pipeline behavior.
 
 ## Next action
-- Continue parser/OCR as a separate bounded task if time remains; otherwise run Go tests on a Go 1.24.12 host/CI when available.
+- Commit accepted parser and orchestration state changes, then continue OCR provider implementation or live validation if time remains.

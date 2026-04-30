@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "updated_at": "2026-04-30T22:36:48Z",
+  "updated_at": "2026-04-30T22:58:40Z",
   "items": [
     {
       "id": "blg_bootstrap_orchestrator",
@@ -181,9 +181,9 @@
     },
     {
       "id": "blg_backend_parser_ocr",
-      "title": "Backend parser/OCR implementation",
-      "description": "Replace PDF/ePUB stubs and add OCR support.",
-      "status": "idea",
+      "title": "Backend PDF/ePUB parser implementation",
+      "description": "Replace PDF/ePUB parser stubs with bounded standard-library extraction. OCR provider implementation was split to blg_backend_ocr_provider.",
+      "status": "done",
       "priority": 35,
       "role_hint": "builder",
       "phase": "phase-5",
@@ -193,9 +193,9 @@
       ],
       "retry_count": 0,
       "max_retries": 2,
-      "last_run_id": null,
+      "last_run_id": "wr_20260430_008",
       "created_at": "2026-04-30T20:43:00Z",
-      "updated_at": "2026-04-30T20:43:00Z"
+      "updated_at": "2026-04-30T22:58:40Z"
     },
     {
       "id": "blg_character_voice_kb",
@@ -234,6 +234,26 @@
       "last_run_id": "wr_20260430_006",
       "created_at": "2026-04-30T21:49:00Z",
       "updated_at": "2026-04-30T22:16:00Z"
+    },
+    {
+      "id": "blg_backend_ocr_provider",
+      "title": "Backend OCR provider implementation",
+      "description": "Add real OCR provider integration for scanned PDFs/images while preserving configurable provider behavior and no committed secrets.",
+      "status": "idea",
+      "priority": 34,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [
+        "blg_backend_parser_ocr"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-04-30T22:58:40Z",
+      "updated_at": "2026-04-30T22:58:40Z"
     }
   ]
 }

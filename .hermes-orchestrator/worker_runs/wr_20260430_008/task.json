@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "run_id": "wr_20260430_008",
+  "backlog_item_id": "blg_backend_parser_ocr",
+  "role": "builder",
+  "worker": {
+    "type": "opencode",
+    "model": "opencode-go/glm-5.1"
+  },
+  "status": "started",
+  "created_at": "2026-04-30T22:49:27Z",
+  "updated_at": "2026-04-30T22:49:27Z",
+  "task": {
+    "title": "Replace parser stubs with bounded real PDF and EPUB text extraction",
+    "objective": "Improve backend ingestion by replacing obvious PDF/ePUB placeholder chapters with best-effort standard-library parsers that extract real readable text from simple PDFs and EPUB archives without adding external dependencies.",
+    "scope": [
+      "internal/parser/pdf.go",
+      "internal/parser/pdf_test.go",
+      "internal/parser/epub.go",
+      "internal/parser/epub_test.go"
+    ],
+    "acceptance_criteria": [
+      "Use strict TDD: add parser tests first for real EPUB chapter extraction and simple PDF literal text extraction, plus empty/invalid input errors.",
+      "EPUB parser must read the ZIP container, prefer OPF spine order when available, fall back to sorted XHTML/HTML files, strip scripts/styles/tags, decode basic HTML entities, and return chapter paragraphs with stable IDs and TOC paths.",
+      "PDF parser must not return placeholder not-implemented text; it should extract readable literal-string text from simple uncompressed text streams and return a clear error if no text can be extracted.",
+      "Keep implementation bounded: no new external dependencies, no provider interface changes, no frontend changes, no OCR provider implementation in this slice.",
+      "Run frontend validation from Hermes terminal: cd web-client && npx tsc --noEmit && npm run build. Run Go tests only if go exists; otherwise record blocked."
+    ],
+    "stop_condition": "Stop after the parser stub replacement slice is complete, reviewed, validated, and summarized; do not implement OCR provider APIs or add third-party parser libraries.",
+    "retry_budget": 1,
+    "validation": [
+      "git diff --check",
+      "cd web-client && npx tsc --noEmit",
+      "cd web-client && npm run build",
+      "If go exists: go test ./internal/parser; otherwise record blocked"
+    ]
+  }
+}

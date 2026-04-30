@@ -23,3 +23,7 @@
 {"ts": "2026-04-30T22:36:48Z", "event": "state_timestamp_corrected", "run_id": "wr_20260430_007", "notes": "Normalized future hardcoded timestamps to current UTC."}
 {"ts": "2026-04-30T22:36:57Z", "event": "commit_created", "run_id": "wr_20260430_007", "commit_sha": "0053771", "notes": "timestamp normalization checkpoint"}
 {"ts": "2026-04-30T22:37:27Z", "event": "state_updated", "run_id": "wr_20260430_007", "notes": "Recorded accepted implementation commit SHA without chasing orchestrator-only commits."}
+{"at":"2026-04-30T22:49:27Z","event":"lock_acquired","run_id":"wr_20260430_008","owner":"hermes-cron-supervisor","backlog_item_id":"blg_backend_parser_ocr"}
+{"at":"2026-04-30T22:58:40Z","event":"worker_completed","run_id":"wr_20260430_008","backlog_item_id":"blg_backend_parser_ocr","worker":"opencode-go/glm-5.1"}
+{"at":"2026-04-30T22:58:40Z","event":"review_written","run_id":"wr_20260430_008","review_id":"rv_20260430_008","verdict":"approve_with_follow_up"}
+{"at":"2026-04-30T22:58:40Z","event":"backlog_updated","run_id":"wr_20260430_008","completed":"blg_backend_parser_ocr","created":"blg_backend_ocr_provider"}

@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "run_id": "wr_20260430_008",
+  "backlog_item_id": "blg_backend_parser_ocr",
+  "worker_role": "builder",
+  "worker": {
+    "type": "opencode_then_hermes_reconciliation",
+    "model": "opencode-go/glm-5.1",
+    "fallback_from": null,
+    "notes": "OpenCode GLM-5.1 completed the bounded parser implementation and tests. Hermes reviewed the diff, requested/fixed review findings directly, and completed validation from the supervisor terminal."
+  },
+  "status": "completed",
+  "completed_at": "2026-04-30T22:58:40Z",
+  "summary": "Replaced PDF/ePUB parser placeholder output with bounded no-dependency extraction. EPUB now reads ZIP containers, resolves OPF spine order, falls back to sorted HTML/XHTML files, sanitizes script/style/tags, decodes HTML entities, enforces decompressed size limits, and returns structured chapters. PDF now validates headers, extracts text from simple uncompressed content streams, parses literal strings with escapes and octal sequences, and returns errors when no text is extractable.",
+  "outcome": "review_required",
+  "files_changed": [
+    "internal/parser/epub.go",
+    "internal/parser/epub_test.go",
+    "internal/parser/pdf.go",
+    "internal/parser/pdf_test.go"
+  ],
+  "tests": [
+    {
+      "command": "opencode run --model opencode-go/glm-5.1 --format json <bounded implementation task>",
+      "status": "passed",
+      "notes": "OpenCode used exactly opencode-go/glm-5.1 and produced implementation plus tests."
+    },
+    {
+      "command": "opencode run --model opencode-go/glm-5.1 --format json <read-only review>",
+      "status": "revise_then_fixed",
+      "notes": "Review flagged zip size limits, PDF octal/operator handling, missing escaped literal and nested OPF href tests, and regex recompilation. Hermes fixed these findings directly."
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed",
+      "notes": "No whitespace errors."
+    },
+    {
+      "command": "cd web-client && npx tsc --noEmit",
+      "status": "passed",
+      "notes": "Frontend TypeScript gate passed."
+    },
+    {
+      "command": "cd web-client && npm run build",
+      "status": "passed",
+      "notes": "Expo web export passed; existing expo-av deprecation warning remains."
+    },
+    {
+      "command": "go test ./internal/parser",
+      "status": "blocked",
+      "notes": "The go binary is not available on PATH in the Hermes supervisor environment; a supplemental parser test run via the cached Go toolchain path passed, but the required Go test gate remains recorded as blocked per environment prerequisite."
+    }
+  ],
+  "git": {
+    "commit_requested": true,
+    "commit_message_suggestion": "feat(parser): add bounded pdf and epub extraction",
+    "commit_sha": null
+  },
+  "artifacts": [],
+  "blockers": [
+    "The go binary is not available on PATH for standard Go validation.",
+    "OCR provider implementation remains split into blg_backend_ocr_provider."
+  ],
+  "risks": [
+    "PDF support is intentionally limited to simple uncompressed content streams; common compressed/encoded real-world PDFs may still return no extractable text until a full parser or decompression layer is added."
+  ],
+  "follow_up_suggestions": [
+    "Implement OCR provider integration for scanned PDFs/images.",
+    "Add FlateDecode PDF stream handling or an audited PDF parser dependency when dependency policy allows."
+  ],
+  "review_request": {
+    "required": true,
+    "type": "implementation_gate",
+    "questions": [
+      "Are bounded parser stub replacements acceptable without external dependencies?",
+      "Is OCR split into a follow-up backlog item acceptable for this cycle?"
+    ]
+  }
+}
