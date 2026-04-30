@@ -10,7 +10,7 @@
     "notes": "Required OpenCode GLM-5.1 implementation run made useful bounded edits but the command timed out before final summary. Hermes reviewed, fixed a mock-interface compile issue, tightened repository error handling/locking, and completed validation directly."
   },
   "status": "completed",
-  "completed_at": "2026-04-30T22:40:00Z",
+  "completed_at": "2026-04-30T22:36:48Z",
   "summary": "Added persistent persona profile storage for book repositories. Persona profiles can be saved, loaded, and merged from segment personas into books/<bookID>/personas.json with per-book locking, stable persona/display fields, aggregate voice descriptions, segment counts, and deterministic output ordering.",
   "outcome": "review_required",
   "files_changed": [
