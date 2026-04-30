@@ -15,7 +15,7 @@
   "git": {
     "repo_initialized": true,
     "current_branch": "ui",
-    "last_commit_sha": "ffc5c46",
+    "last_commit_sha": "674e7a6",
     "working_tree_dirty": false
   },
   "escalation": {
@@ -24,10 +24,10 @@
     "target_tier": null
   },
   "last_supervisor_action": {
-    "at": "2026-04-30T22:16:00Z",
-    "action": "implementation_accepted_pending_commit",
-    "target_id": "blg_backend_requeue_failed_segments",
-    "notes": "Hybrid TTS segment retry/requeue handling accepted after Hermes review and frontend validation; Go tests blocked by missing go binary."
+    "at": "2026-04-30T22:17:00Z",
+    "action": "commit_created",
+    "target_id": "674e7a6",
+    "notes": "Committed accepted hybrid TTS segment retry/requeue implementation and orchestrator records."
   },
   "counters": {
     "total_tasks": 12,
@@ -40,5 +40,5 @@
     "review_revisions": 0,
     "premium_escalations": 0
   },
-  "updated_at": "2026-04-30T22:16:00Z"
+  "updated_at": "2026-04-30T22:17:00Z"
 }

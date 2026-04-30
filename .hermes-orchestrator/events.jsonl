@@ -12,3 +12,4 @@
 {"ts":"2026-04-30T22:16:00Z","event":"backlog_updated","run_id":"wr_20260430_006","backlog_item_id":"blg_backend_requeue_failed_segments","status":"done"}
 {"ts":"2026-04-30T22:16:00Z","event":"summary_written","run_id":"wr_20260430_006","path":".hermes-orchestrator/summaries/latest.md"}
 {"ts":"2026-04-30T22:17:00Z","event":"lock_released","run_id":"wr_20260430_006","owner":"hermes-cron-supervisor"}
+{"ts":"2026-04-30T22:17:00Z","event":"commit_created","run_id":"wr_20260430_006","commit_sha":"674e7a6"}

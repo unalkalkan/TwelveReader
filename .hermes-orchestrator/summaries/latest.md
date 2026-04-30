@@ -5,6 +5,7 @@ Generated: 2026-04-30T22:16:00Z
 ## Current state
 - Branch: `ui`.
 - Latest bounded run: `wr_20260430_006` for `blg_backend_requeue_failed_segments`.
+- Accepted implementation commit: `674e7a6` (`fix(pipeline): requeue failed hybrid TTS segments`).
 - OpenCode was attempted with exactly `opencode-go/glm-5.1`; the non-PTY implementation attempt timed out after partial edits.
 - Hermes completed/reconciled the implementation directly and used a PTY OpenCode GLM-5.1 run for read-only review.
 

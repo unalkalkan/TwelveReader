@@ -56,7 +56,7 @@
   "git": {
     "commit_requested": true,
     "commit_message_suggestion": "fix(pipeline): requeue failed hybrid TTS segments",
-    "commit_sha": null
+    "commit_sha": "674e7a6"
   },
   "artifacts": [],
   "blockers": [
