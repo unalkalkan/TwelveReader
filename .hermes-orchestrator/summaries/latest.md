@@ -36,4 +36,4 @@ Generated: 2026-04-30T22:58:40Z
 - Live-backend/browser validation for upload, voice mapping, and active pipeline behavior.
 
 ## Next action
-- Commit accepted parser and orchestration state changes, then continue OCR provider implementation or live validation if time remains.
+- Continue OCR provider implementation or live-backend/browser validation if time remains.
