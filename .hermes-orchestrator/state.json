@@ -16,7 +16,7 @@
     "repo_initialized": true,
     "current_branch": "ui",
     "last_commit_sha": "01c64ec",
-    "working_tree_dirty": true
+    "working_tree_dirty": false
   },
   "escalation": {
     "required": false,
@@ -24,10 +24,10 @@
     "target_tier": null
   },
   "last_supervisor_action": {
-    "at": "2026-04-30T23:00:10Z",
-    "action": "lock_released",
-    "target_id": "wr_20260430_008",
-    "notes": "Released project lock after committing accepted parser work."
+    "at": "2026-04-30T23:00:35Z",
+    "action": "state_normalized",
+    "target_id": "01c64ec",
+    "notes": "State records the last accepted implementation commit for parser extraction; not chasing subsequent orchestrator-only commit hashes."
   },
   "counters": {
     "total_tasks": 13,
@@ -40,5 +40,5 @@
     "review_revisions": 0,
     "premium_escalations": 0
   },
-  "updated_at": "2026-04-30T23:00:10Z"
+  "updated_at": "2026-04-30T23:00:35Z"
 }
