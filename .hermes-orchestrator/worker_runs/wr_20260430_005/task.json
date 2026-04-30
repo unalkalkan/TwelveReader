@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "run_id": "wr_20260430_005",
+  "backlog_item_id": "blg_backend_timeout_retry",
+  "role": "builder",
+  "worker": {
+    "type": "direct_hermes_fallback",
+    "model": null,
+    "fallback_from": {
+      "type": "opencode",
+      "model": "opencode-go/glm-5.1",
+      "reason": "non-PTY opencode run timed out after one reasonable bounded attempt with only partial edits"
+    }
+  },
+  "status": "completed",
+  "created_at": "2026-04-30T21:35:00Z",
+  "updated_at": "2026-04-30T21:48:00Z",
+  "task": {
+    "title": "Backend provider timeout and bounded retry hardening",
+    "objective": "Add narrow, configurable retry behavior for OpenAI-compatible LLM and TTS HTTP provider calls so transient timeout/5xx/429 failures get retried with bounded backoff instead of failing an entire segmentation or synthesis immediately.",
+    "scope": [
+      "internal/provider/openai_llm.go",
+      "internal/provider/openai_tts.go",
+      "internal/provider/openai_llm_test.go",
+      "internal/provider/openai_tts_test.go"
+    ],
+    "acceptance_criteria": [
+      "LLM and TTS providers parse optional max_retries and retry_backoff_ms values from provider options with safe defaults.",
+      "HTTP requests are retried only for transient transport errors, context deadline/client timeout errors, HTTP 429, and HTTP 5xx responses.",
+      "HTTP 4xx API errors other than 429 are not retried and still return provider error payload details.",
+      "Retry logic rebuilds request bodies safely for each attempt and does not log API keys or secrets.",
+      "Focused provider tests are added for retry success after a transient failure and no-retry behavior on non-retryable 4xx where feasible.",
+      "No unrelated frontend or backend architecture changes are made."
+    ],
+    "stop_condition": "Stop after this bounded provider retry implementation and concise result summary; do not implement parser/OCR, segment cache, character KB, or unrelated UI changes.",
+    "retry_budget": 1,
+    "validation": [
+      "If go exists: go test ./internal/provider ./internal/tts ./internal/pipeline",
+      "If go does not exist: record Go validation as blocked without installing Go."
+    ]
+  }
+}

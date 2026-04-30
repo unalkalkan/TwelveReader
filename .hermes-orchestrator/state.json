@@ -3,13 +3,9 @@
   "project_id": "twelvereader",
   "orchestrator_status": "running",
   "current_phase": "phase-5",
-  "current_goal": "continue remaining backend follow-up backlog if time remains; UI MVP compatibility work is validated",
+  "current_goal": "continue remaining backend follow-up backlog; provider retries are implemented and persistent requeue/resume work remains",
   "active_run_ids": [],
-  "pending_review_ids": [
-    "rv_20260430_001",
-    "rv_20260430_003",
-    "rv_20260430_004"
-  ],
+  "pending_review_ids": [],
   "active_feedback_ids": [
     "fb_20260430_001"
   ],
@@ -19,7 +15,7 @@
   "git": {
     "repo_initialized": true,
     "current_branch": "ui",
-    "last_commit_sha": "a2fce4a",
+    "last_commit_sha": "38d58e8",
     "working_tree_dirty": false
   },
   "escalation": {
@@ -28,21 +24,21 @@
     "target_tier": null
   },
   "last_supervisor_action": {
-    "at": "2026-04-30T21:20:00Z",
+    "at": "2026-04-30T21:49:00Z",
     "action": "review_result",
-    "target_id": "rv_20260430_004",
-    "notes": "Approved typed text upload web/native compatibility improvement after Hermes diff review and frontend validation; next commit will checkpoint accepted implementation and state."
+    "target_id": "rv_20260430_005",
+    "notes": "Approved provider retry hardening implemented by Hermes fallback after OpenCode glm-5.1 timeout; Go tests remain blocked by missing go binary."
   },
   "counters": {
-    "total_tasks": 11,
-    "completed": 8,
+    "total_tasks": 12,
+    "completed": 9,
     "in_progress": 0,
     "failed": 0,
-    "total_runs": 4,
-    "successful_runs": 4,
+    "total_runs": 5,
+    "successful_runs": 5,
     "failed_runs": 0,
     "review_revisions": 0,
     "premium_escalations": 0
   },
-  "updated_at": "2026-04-30T21:20:00Z"
+  "updated_at": "2026-04-30T21:49:00Z"
 }

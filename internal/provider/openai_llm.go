@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,9 +16,11 @@ import (
 
 // OpenAILLMProvider implements LLMProvider using OpenAI-compatible APIs
 type OpenAILLMProvider struct {
-	name       string
-	config     types.LLMProviderConfig
-	httpClient *http.Client
+	name           string
+	config         types.LLMProviderConfig
+	httpClient     *http.Client
+	maxRetries     int
+	retryBackoffMs int
 }
 
 // NewOpenAILLMProvider creates a new OpenAI-compatible LLM provider
@@ -40,12 +41,14 @@ func NewOpenAILLMProvider(config types.LLMProviderConfig) (*OpenAILLMProvider, e
 		}
 	}
 
+	maxRetries, retryBackoffMs := parseRetryOptions(config.Options)
+
 	return &OpenAILLMProvider{
-		name:   config.Name,
-		config: config,
-		httpClient: &http.Client{
-			Timeout: timeout,
-		},
+		name:           config.Name,
+		config:         config,
+		httpClient:     &http.Client{Timeout: timeout},
+		maxRetries:     maxRetries,
+		retryBackoffMs: retryBackoffMs,
 	}, nil
 }
 
@@ -227,39 +230,48 @@ func (o *OpenAILLMProvider) callChatCompletion(ctx context.Context, messages []m
 		log.Printf("[LLM-%s] Request prompt (truncated): %s", o.name, truncateForLog(messages[len(messages)-1].Content, 500))
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewBuffer(jsonData))
-	if err != nil {
-		log.Printf("[LLM-%s] Failed to create request: %v", o.name, err)
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
+	var body []byte
+	for attempt := 0; attempt <= o.maxRetries; attempt++ {
+		httpReq, err := newJSONPostRequest(ctx, endpoint, jsonData, o.config.APIKey)
+		if err != nil {
+			log.Printf("[LLM-%s] Failed to create request: %v", o.name, err)
+			return "", fmt.Errorf("failed to create request: %w", err)
+		}
+		startTime := time.Now()
+		resp, err := o.httpClient.Do(httpReq)
+		duration := time.Since(startTime)
+		if err != nil {
+			log.Printf("[LLM-%s] Request attempt %d/%d failed after %v: %v", o.name, attempt+1, o.maxRetries+1, duration, err)
+			if attempt < o.maxRetries {
+				if waitErr := sleepBeforeRetry(ctx, computeBackoff(attempt, o.retryBackoffMs)); waitErr != nil {
+					return "", fmt.Errorf("failed to execute request: %w", err)
+				}
+				continue
+			}
+			return "", fmt.Errorf("failed to execute request: %w", err)
+		}
 
-	// Set headers
-	httpReq.Header.Set("Content-Type", "application/json")
-	if o.config.APIKey != "" {
-		httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", o.config.APIKey))
-	}
+		log.Printf("[LLM-%s] Response attempt %d/%d: %d %s (took %v)", o.name, attempt+1, o.maxRetries+1, resp.StatusCode, resp.Status, duration)
 
-	// Execute request
-	startTime := time.Now()
-	resp, err := o.httpClient.Do(httpReq)
-	duration := time.Since(startTime)
-	if err != nil {
-		log.Printf("[LLM-%s] Request failed after %v: %v", o.name, duration, err)
-		return "", fmt.Errorf("failed to execute request: %w", err)
-	}
-	defer resp.Body.Close()
+		body, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			log.Printf("[LLM-%s] Failed to read response body: %v", o.name, err)
+			return "", fmt.Errorf("failed to read response: %w", err)
+		}
 
-	log.Printf("[LLM-%s] Response: %d %s (took %v)", o.name, resp.StatusCode, resp.Status, duration)
+		if resp.StatusCode == http.StatusOK {
+			break
+		}
 
-	// Read response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Printf("[LLM-%s] Failed to read response body: %v", o.name, err)
-		return "", fmt.Errorf("failed to read response: %w", err)
-	}
+		if isRetryableStatusCode(resp.StatusCode) && attempt < o.maxRetries {
+			log.Printf("[LLM-%s] Retryable API status %d; retrying after backoff", o.name, resp.StatusCode)
+			if waitErr := sleepBeforeRetry(ctx, computeBackoff(attempt, o.retryBackoffMs)); waitErr != nil {
+				return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+			}
+			continue
+		}
 
-	// Check for errors
-	if resp.StatusCode != http.StatusOK {
 		var errResp apiErrorResponse
 		if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
 			log.Printf("[LLM-%s] API error: %s (type: %s, code: %s)", o.name, errResp.Error.Message, errResp.Error.Type, errResp.Error.Code)

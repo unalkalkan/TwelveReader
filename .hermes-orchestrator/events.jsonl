@@ -1,0 +1,7 @@
+{"event": "lock_acquired", "run_id": "sup_20260430_213413", "project_id": "twelvereader", "at": "2026-04-30T21:34:13Z", "owner": "hermes-cron", "reason": "bounded supervisor cycle for blg_backend_timeout_retry"}
+{"event": "worker_spawned", "run_id": "wr_20260430_005", "supervisor_run_id": "sup_20260430_213413", "backlog_item_id": "blg_backend_timeout_retry", "at": "2026-04-30T21:35:00Z", "worker": "opencode-go/glm-5.1"}
+{"event": "worker_completed", "run_id": "wr_20260430_005", "supervisor_run_id": "sup_20260430_213413", "backlog_item_id": "blg_backend_timeout_retry", "at": "2026-04-30T21:48:00Z", "worker": "direct_hermes_fallback"}
+{"event": "review_written", "run_id": "wr_20260430_005", "review_id": "rv_20260430_005", "at": "2026-04-30T21:49:00Z", "verdict": "approve"}
+{"event": "backlog_updated", "run_id": "sup_20260430_213413", "at": "2026-04-30T21:49:00Z", "notes": "provider retry task marked done; persistent requeue follow-up split out"}
+{"event": "supervisor_completed", "run_id": "sup_20260430_213413", "at": "2026-04-30T21:49:00Z", "status": "completed"}
+{"event": "lock_released", "run_id": "sup_20260430_213413", "at": "2026-04-30T21:49:00Z"}

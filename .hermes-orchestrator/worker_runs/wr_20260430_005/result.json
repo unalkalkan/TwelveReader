@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "run_id": "wr_20260430_005",
+  "backlog_item_id": "blg_backend_timeout_retry",
+  "worker_role": "builder",
+  "worker": {
+    "type": "direct_hermes_fallback",
+    "model": null,
+    "fallback_from": {
+      "type": "opencode",
+      "model": "opencode-go/glm-5.1",
+      "reason": "non-PTY opencode run timed out after one reasonable bounded attempt with only partial edits"
+    }
+  },
+  "status": "completed",
+  "completed_at": "2026-04-30T21:48:00Z",
+  "summary": "OpenCode was invoked with exactly opencode-go/glm-5.1 but timed out after partial provider edits. Hermes completed the bounded backend provider retry task directly: LLM/TTS providers now parse max_retries and retry_backoff_ms options, rebuild POST requests for each retry attempt, retry transient transport/429/5xx failures with bounded exponential backoff, and preserve non-retryable 4xx API error details.",
+  "outcome": "review_required",
+  "files_changed": [
+    "internal/provider/retry.go",
+    "internal/provider/openai_llm.go",
+    "internal/provider/openai_tts.go",
+    "internal/provider/openai_llm_test.go",
+    "internal/provider/openai_tts_test.go"
+  ],
+  "tests": [
+    {
+      "command": "opencode run --model opencode-go/glm-5.1 --format json '<bounded task>'",
+      "status": "failed",
+      "notes": "OpenCode used the required model but the foreground non-PTY command timed out after partial edits; Hermes preserved useful edits and completed directly."
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed",
+      "notes": "No whitespace errors."
+    },
+    {
+      "command": "cd web-client && npx tsc --noEmit",
+      "status": "passed",
+      "notes": "Hermes frontend validation passed with no TypeScript output."
+    },
+    {
+      "command": "cd web-client && npm run build",
+      "status": "passed",
+      "notes": "Expo web export passed; existing expo-av deprecation warning remains."
+    },
+    {
+      "command": "go test ./internal/provider ./internal/tts ./internal/pipeline",
+      "status": "blocked",
+      "notes": "The go binary is not installed in this Hermes environment, per prerequisite check."
+    }
+  ],
+  "git": {
+    "commit_requested": true,
+    "commit_message_suggestion": "fix(provider): add bounded retries for OpenAI-compatible calls",
+    "commit_sha": null
+  },
+  "artifacts": [],
+  "blockers": [
+    "Go tests unavailable because go is not installed."
+  ],
+  "risks": [
+    "Go provider tests were added but could not be executed in this environment; review was static plus frontend validation."
+  ],
+  "follow_up_suggestions": [
+    "Run the new Go provider tests in CI or a host with Go 1.24.12 installed.",
+    "Implement persistent requeue/resume handling for failed segmentation and synthesis segments as a separate backend task."
+  ],
+  "review_request": {
+    "required": true,
+    "type": "implementation_gate",
+    "questions": [
+      "Does the retry helper preserve request bodies and secret handling across retry attempts?",
+      "Are non-retryable API errors still surfaced without repeated calls?"
+    ]
+  }
+}

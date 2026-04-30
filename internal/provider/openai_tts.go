@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,10 +15,12 @@ import (
 
 // OpenAITTSProvider implements TTSProvider using OpenAI-compatible TTS APIs
 type OpenAITTSProvider struct {
-	name       string
-	config     types.TTSProviderConfig
-	httpClient *http.Client
-	model      string
+	name           string
+	config         types.TTSProviderConfig
+	httpClient     *http.Client
+	model          string
+	maxRetries     int
+	retryBackoffMs int
 }
 
 // NewOpenAITTSProvider creates a new OpenAI-compatible TTS provider
@@ -43,13 +44,15 @@ func NewOpenAITTSProvider(config types.TTSProviderConfig) (*OpenAITTSProvider, e
 		}
 	}
 
+	maxRetries, retryBackoffMs := parseRetryOptions(config.Options)
+
 	return &OpenAITTSProvider{
-		name:   config.Name,
-		config: config,
-		httpClient: &http.Client{
-			Timeout: timeout,
-		},
-		model: model,
+		name:           config.Name,
+		config:         config,
+		httpClient:     &http.Client{Timeout: timeout},
+		model:          model,
+		maxRetries:     maxRetries,
+		retryBackoffMs: retryBackoffMs,
 	}, nil
 }
 
@@ -242,40 +245,49 @@ func (o *OpenAITTSProvider) callTTSAPI(ctx context.Context, req ttsAPIRequest) (
 	log.Printf("[TTS-%s] Request payload: model=%s, voice=%s, input_length=%d chars", o.name, req.Model, req.Voice, len(req.Input))
 	log.Printf("[TTS-%s] Request input (truncated): %s", o.name, truncateString(req.Input, 200))
 
-	// Create HTTP request
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewBuffer(jsonData))
-	if err != nil {
-		log.Printf("[TTS-%s] Failed to create request: %v", o.name, err)
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
+	var body []byte
+	for attempt := 0; attempt <= o.maxRetries; attempt++ {
+		httpReq, err := newJSONPostRequest(ctx, endpoint, jsonData, o.config.APIKey)
+		if err != nil {
+			log.Printf("[TTS-%s] Failed to create request: %v", o.name, err)
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
 
-	// Set headers
-	httpReq.Header.Set("Content-Type", "application/json")
-	if o.config.APIKey != "" {
-		httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", o.config.APIKey))
-	}
+		startTime := time.Now()
+		resp, err := o.httpClient.Do(httpReq)
+		duration := time.Since(startTime)
+		if err != nil {
+			log.Printf("[TTS-%s] Request attempt %d/%d failed after %v: %v", o.name, attempt+1, o.maxRetries+1, duration, err)
+			if attempt < o.maxRetries {
+				if waitErr := sleepBeforeRetry(ctx, computeBackoff(attempt, o.retryBackoffMs)); waitErr != nil {
+					return nil, fmt.Errorf("failed to execute request: %w", err)
+				}
+				continue
+			}
+			return nil, fmt.Errorf("failed to execute request: %w", err)
+		}
 
-	// Execute request
-	startTime := time.Now()
-	resp, err := o.httpClient.Do(httpReq)
-	duration := time.Since(startTime)
-	if err != nil {
-		log.Printf("[TTS-%s] Request failed after %v: %v", o.name, duration, err)
-		return nil, fmt.Errorf("failed to execute request: %w", err)
-	}
-	defer resp.Body.Close()
+		log.Printf("[TTS-%s] Response attempt %d/%d: %d %s (took %v)", o.name, attempt+1, o.maxRetries+1, resp.StatusCode, resp.Status, duration)
 
-	log.Printf("[TTS-%s] Response: %d %s (took %v)", o.name, resp.StatusCode, resp.Status, duration)
+		body, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			log.Printf("[TTS-%s] Failed to read response body: %v", o.name, err)
+			return nil, fmt.Errorf("failed to read response: %w", err)
+		}
 
-	// Read response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Printf("[TTS-%s] Failed to read response body: %v", o.name, err)
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
+		if resp.StatusCode == http.StatusOK {
+			break
+		}
 
-	// Check for errors
-	if resp.StatusCode != http.StatusOK {
+		if isRetryableStatusCode(resp.StatusCode) && attempt < o.maxRetries {
+			log.Printf("[TTS-%s] Retryable API status %d; retrying after backoff", o.name, resp.StatusCode)
+			if waitErr := sleepBeforeRetry(ctx, computeBackoff(attempt, o.retryBackoffMs)); waitErr != nil {
+				return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+			}
+			continue
+		}
+
 		// Try to parse as error response
 		var errResp ttsAPIErrorResponse
 		if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {

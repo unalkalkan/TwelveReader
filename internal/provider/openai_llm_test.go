@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/unalkalkan/TwelveReader/pkg/types"
 )
@@ -296,6 +297,151 @@ func TestOpenAILLMProvider_Segment(t *testing.T) {
 			t.Errorf("Expected fallback person 'narrator', got '%s'", resp.Segments[0].Person)
 		}
 	})
+}
+
+func TestOpenAILLMProvider_RetryOptions(t *testing.T) {
+	cfg := types.LLMProviderConfig{
+		Name:     "test-openai",
+		Enabled:  true,
+		Endpoint: "https://api.openai.com/v1",
+		APIKey:   "test-key",
+		Model:    "gpt-4",
+		Options: map[string]string{
+			"max_retries":      "2",
+			"retry_backoff_ms": "25",
+		},
+	}
+
+	provider, err := NewOpenAILLMProvider(cfg)
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
+
+	if provider.maxRetries != 2 {
+		t.Errorf("Expected maxRetries 2, got %d", provider.maxRetries)
+	}
+	if provider.retryBackoffMs != 25 {
+		t.Errorf("Expected retryBackoffMs 25, got %d", provider.retryBackoffMs)
+	}
+}
+
+func TestOpenAILLMProvider_RetryOnTransientStatus(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts == 1 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			w.Write([]byte(`{"error":{"message":"rate limited"}}`))
+			return
+		}
+
+		resp := chatCompletionResponse{
+			Choices: []choice{{
+				Message: message{Role: "assistant", Content: `[{"text":"Hello","person":"narrator","language":"en","voice_description":"neutral"}]`},
+			}},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	provider, err := NewOpenAILLMProvider(types.LLMProviderConfig{
+		Name:     "test-openai",
+		Enabled:  true,
+		Endpoint: server.URL,
+		APIKey:   "test-key",
+		Model:    "gpt-4",
+		Options: map[string]string{
+			"max_retries":      "1",
+			"retry_backoff_ms": "1",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
+
+	resp, err := provider.Segment(context.Background(), SegmentRequest{Text: "Hello"})
+	if err != nil {
+		t.Fatalf("Segment failed after retry: %v", err)
+	}
+	if attempts != 2 {
+		t.Fatalf("Expected 2 attempts, got %d", attempts)
+	}
+	if len(resp.Segments) != 1 || resp.Segments[0].Text != "Hello" {
+		t.Fatalf("Unexpected segment response: %+v", resp.Segments)
+	}
+}
+
+func TestOpenAILLMProvider_DoesNotRetryNonRetryableStatus(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error":{"message":"bad prompt"}}`))
+	}))
+	defer server.Close()
+
+	provider, err := NewOpenAILLMProvider(types.LLMProviderConfig{
+		Name:     "test-openai",
+		Enabled:  true,
+		Endpoint: server.URL,
+		APIKey:   "test-key",
+		Model:    "gpt-4",
+		Options: map[string]string{
+			"max_retries":      "2",
+			"retry_backoff_ms": "1",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
+
+	_, err = provider.Segment(context.Background(), SegmentRequest{Text: "Hello"})
+	if err == nil {
+		t.Fatal("Expected non-retryable API error")
+	}
+	if attempts != 1 {
+		t.Fatalf("Expected 1 attempt, got %d", attempts)
+	}
+	if !strings.Contains(err.Error(), "bad prompt") {
+		t.Fatalf("Expected error to include API message, got %v", err)
+	}
+}
+
+func TestOpenAILLMProvider_ContextStopsRetryBackoff(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("temporarily unavailable"))
+	}))
+	defer server.Close()
+
+	provider, err := NewOpenAILLMProvider(types.LLMProviderConfig{
+		Name:     "test-openai",
+		Enabled:  true,
+		Endpoint: server.URL,
+		APIKey:   "test-key",
+		Model:    "gpt-4",
+		Options: map[string]string{
+			"max_retries":      "3",
+			"retry_backoff_ms": "1000",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	_, err = provider.Segment(ctx, SegmentRequest{Text: "Hello"})
+	if err == nil {
+		t.Fatal("Expected context/backoff error")
+	}
+	if attempts != 1 {
+		t.Fatalf("Expected retry backoff to stop after first attempt, got %d", attempts)
+	}
 }
 
 func TestOpenAILLMProvider_Close(t *testing.T) {

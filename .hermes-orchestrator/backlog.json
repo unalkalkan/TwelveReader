@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "updated_at": "2026-04-30T21:20:00Z",
+  "updated_at": "2026-04-30T21:49:00Z",
   "items": [
     {
       "id": "blg_bootstrap_orchestrator",
@@ -163,9 +163,9 @@
     },
     {
       "id": "blg_backend_timeout_retry",
-      "title": "Backend timeout and retry improvements",
-      "description": "Raise provider deadlines and requeue failed segmentation/synthesis segments per TASKS.md.",
-      "status": "idea",
+      "title": "Backend provider timeout and retry hardening",
+      "description": "Add configurable bounded retries/backoff for OpenAI-compatible LLM/TTS provider calls; persistent segment requeue work was split to blg_backend_requeue_failed_segments.",
+      "status": "done",
       "priority": 50,
       "role_hint": "builder",
       "phase": "phase-5",
@@ -175,9 +175,9 @@
       ],
       "retry_count": 0,
       "max_retries": 2,
-      "last_run_id": null,
+      "last_run_id": "wr_20260430_005",
       "created_at": "2026-04-30T20:43:00Z",
-      "updated_at": "2026-04-30T20:43:00Z"
+      "updated_at": "2026-04-30T21:49:00Z"
     },
     {
       "id": "blg_backend_parser_ocr",
@@ -214,6 +214,26 @@
       "last_run_id": null,
       "created_at": "2026-04-30T20:43:00Z",
       "updated_at": "2026-04-30T20:43:00Z"
+    },
+    {
+      "id": "blg_backend_requeue_failed_segments",
+      "title": "Requeue failed segmentation and synthesis work",
+      "description": "Persist and requeue errored segmentation/TTS segments so long audiobook jobs can continue after transient failures instead of ending with partial synthesis errors.",
+      "status": "idea",
+      "priority": 49,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [
+        "blg_backend_timeout_retry"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-04-30T21:49:00Z",
+      "updated_at": "2026-04-30T21:49:00Z"
     }
   ]
 }
