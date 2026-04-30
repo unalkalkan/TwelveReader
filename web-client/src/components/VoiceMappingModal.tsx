@@ -20,6 +20,7 @@ interface VoiceMappingModalProps {
   bookId: string | undefined;
   visible: boolean;
   onClose: () => void;
+  initialMapping?: boolean;
 }
 
 function formatVoiceLabel(voice: Voice): string {
@@ -44,6 +45,7 @@ export function VoiceMappingModal({
   bookId,
   visible,
   onClose,
+  initialMapping = true,
 }: VoiceMappingModalProps) {
   const theme = useColorScheme();
   const colors = Colors[theme];
@@ -104,7 +106,7 @@ export function VoiceMappingModal({
             provider_voice: selected[persona],
           })),
         },
-        options: { initial: true },
+        options: initialMapping ? { initial: true } : { update: true },
       });
       Alert.alert('Voice mapping saved', 'TwelveReader will continue synthesis with these voices.');
       onClose();

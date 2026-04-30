@@ -34,3 +34,7 @@ Commit accepted changes, then continue with API resilience/live validation until
 ## Additional checkpoint — 2026-04-30T20:52:10Z
 - Commit `dc5c6b6` (`fix(ui): separate mini player styles declaration`) added after another successful `npx tsc --noEmit` and `npm run build`.
 - Working tree is clean; branch `ui` is ahead of origin by 2 commits.
+
+## API resilience checkpoint — 2026-04-30T20:54:25Z
+- `VoiceMappingModal` now distinguishes initial mapping from later voice-map updates.
+- `npx tsc --noEmit` and `npm run build` passed.

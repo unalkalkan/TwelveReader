@@ -417,6 +417,7 @@ export default function PlayerScreen() {
       <VoiceMappingModal
         bookId={bookId}
         visible={voiceMappingVisible}
+        initialMapping={isWaitingForMapping}
         onClose={() => setVoiceMappingVisible(false)}
       />
     </SafeAreaView>
