@@ -35,3 +35,4 @@
 {"ts":"2026-04-30T23:36:30Z","event":"backlog_updated","run_id":"wr_20260430_009","backlog_item_id":"blg_backend_ocr_provider","status":"done"}
 {"ts":"2026-04-30T23:36:30Z","event":"summary_written","run_id":"wr_20260430_009","path":".hermes-orchestrator/summaries/latest.md"}
 {"ts":"2026-04-30T23:36:30Z","event":"commit_created","run_id":"wr_20260430_009","commit_sha":"12e0334","message":"feat(provider): add OpenAI-compatible OCR provider"}
+{"ts":"2026-04-30T23:38:00Z","event":"lock_released","run_id":"wr_20260430_009","owner":"hermes-cron-supervisor"}
