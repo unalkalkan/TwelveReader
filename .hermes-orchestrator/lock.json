@@ -5,8 +5,8 @@
   "started_at": null,
   "owner": null,
   "reason": null,
-  "heartbeat_at": null,
+  "heartbeat_at": "2026-04-30T23:58:05Z",
   "stale_after_seconds": 3600,
-  "updated_at": "2026-04-30T23:38:00Z",
+  "updated_at": "2026-04-30T23:58:05Z",
   "status": "idle"
 }

@@ -42,3 +42,5 @@
 {"ts": "2026-04-30T23:55:31Z", "event": "review_written", "review_id": "rv_20260430_010", "run_id": "wr_20260430_010", "decision": "approved"}
 {"ts": "2026-04-30T23:55:31Z", "event": "backlog_updated", "backlog_item_id": "blg_frontend_deerflow_signature", "status": "done"}
 {"ts": "2026-04-30T23:56:10Z", "event": "summary_written", "run_id": "wr_20260430_010", "path": ".hermes-orchestrator/summaries/latest.md"}
+{"ts": "2026-04-30T23:58:05Z", "event": "commit_created", "run_id": "wr_20260430_010", "commit": "1f6c209", "message": "feat(web): add Deerflow attribution badge"}
+{"ts": "2026-04-30T23:58:05Z", "event": "lock_released", "run_id": "wr_20260430_010", "status": "idle"}

@@ -15,8 +15,8 @@
   "git": {
     "repo_initialized": true,
     "current_branch": "ui",
-    "last_commit_sha": "12e0334",
-    "working_tree_dirty": true
+    "last_commit_sha": "1f6c209",
+    "working_tree_dirty": false
   },
   "escalation": {
     "required": false,
@@ -24,10 +24,10 @@
     "target_tier": null
   },
   "last_supervisor_action": {
-    "at": "2026-04-30T23:56:10Z",
-    "action": "implementation_accepted",
+    "at": "2026-04-30T23:58:05Z",
+    "action": "commit_created",
     "target_id": "blg_frontend_deerflow_signature",
-    "notes": "Attribution signature approved; frontend validation passed; commit pending."
+    "notes": "Committed attribution badge implementation at 1f6c209. Frontend validation passed after commit."
   },
   "counters": {
     "total_tasks": 14,
@@ -40,5 +40,5 @@
     "review_revisions": 0,
     "premium_escalations": 0
   },
-  "updated_at": "2026-04-30T23:56:10Z"
+  "updated_at": "2026-04-30T23:58:05Z"
 }
