@@ -54,7 +54,7 @@
   "git": {
     "commit_requested": true,
     "commit_message_suggestion": "feat(book): persist persona voice profiles",
-    "commit_sha": null
+    "commit_sha": "1381394"
   },
   "artifacts": [],
   "blockers": [

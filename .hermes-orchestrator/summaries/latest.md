@@ -7,6 +7,7 @@ Generated: 2026-04-30T22:40:00Z
 - Latest bounded run: `wr_20260430_007` for `blg_character_voice_kb`.
 - Worker: OpenCode was invoked with exactly `opencode-go/glm-5.1`; it made partial useful edits but the implementation command timed out before final summary, so Hermes reviewed and reconciled directly.
 - Review: `rv_20260430_007` approved with follow-up.
+- Accepted implementation commit: `1381394` (`feat(book): persist persona voice profiles`).
 
 ## Implemented this cycle
 - Added `types.PersonaProfile` for persistent persona/voice profile metadata.
@@ -34,4 +35,4 @@ Generated: 2026-04-30T22:40:00Z
 - Live-backend/browser validation for upload, voice mapping, and active pipeline behavior.
 
 ## Next action
-- Commit accepted persona profile implementation and orchestrator records, then continue parser/OCR only if time remains.
+- Continue parser/OCR as a separate bounded task if time remains; otherwise run Go tests on a Go 1.24.12 host/CI when available.
