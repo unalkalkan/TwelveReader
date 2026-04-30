@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "updated_at": "2026-04-30T20:50:00Z",
+  "updated_at": "2026-04-30T20:52:10Z",
   "items": [
     {
       "id": "blg_bootstrap_orchestrator",
@@ -100,6 +100,26 @@
       "last_run_id": "wr_20260430_001",
       "created_at": "2026-04-30T20:43:00Z",
       "updated_at": "2026-04-30T20:50:00Z"
+    },
+    {
+      "id": "blg_mini_player_syntax_cleanup",
+      "title": "Clean up MiniPlayer style declaration",
+      "description": "Separate component closing brace and StyleSheet declaration for readability and safer future edits.",
+      "status": "done",
+      "priority": 70,
+      "role_hint": "builder",
+      "phase": "phase-3",
+      "dependencies": [
+        "blg_fix_frontend_compile"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 1,
+      "last_run_id": "wr_20260430_002",
+      "created_at": "2026-04-30T20:52:10Z",
+      "updated_at": "2026-04-30T20:52:10Z"
     },
     {
       "id": "blg_api_resilience",
