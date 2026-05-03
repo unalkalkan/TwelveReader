@@ -297,6 +297,58 @@ func TestOpenAITTSProvider_Synthesize(t *testing.T) {
 	})
 }
 
+func TestAudioFormatFromBytes(t *testing.T) {
+	tests := []struct {
+		name string
+		body []byte
+		want string
+	}{
+		{name: "wav", body: []byte("RIFF\x24\x00\x00\x00WAVEfmt "), want: "wav"},
+		{name: "mp3-id3", body: []byte("ID3\x04\x00\x00"), want: "mp3"},
+		{name: "mp3-frame", body: []byte{0xFF, 0xFB, 0x90, 0x64}, want: "mp3"},
+		{name: "ogg", body: []byte("OggS\x00\x02"), want: "ogg"},
+		{name: "flac", body: []byte("fLaC\x00\x00"), want: "flac"},
+		{name: "unknown-default", body: []byte("???"), want: "mp3"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := audioFormatFromBytes(tt.body); got != tt.want {
+				t.Fatalf("audioFormatFromBytes() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestOpenAITTSProvider_DetectsWAVResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "audio/wav")
+		w.Write([]byte("RIFF\x24\x00\x00\x00WAVEfmt "))
+	}))
+	defer server.Close()
+
+	provider, err := NewOpenAITTSProvider(types.TTSProviderConfig{
+		Name:     "test-openai-tts",
+		Enabled:  true,
+		Endpoint: server.URL,
+		APIKey:   "test-key",
+		Options: map[string]string{
+			"model": "gpt-4o-mini-tts",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
+
+	resp, err := provider.Synthesize(context.Background(), TTSRequest{Text: "Hello", VoiceID: "coral"})
+	if err != nil {
+		t.Fatalf("Synthesize failed: %v", err)
+	}
+	if resp.Format != "wav" {
+		t.Fatalf("Expected wav response format, got %q", resp.Format)
+	}
+}
+
 func TestOpenAITTSProvider_RetryOptions(t *testing.T) {
 	cfg := types.TTSProviderConfig{
 		Name:     "test-openai-tts",

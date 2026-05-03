@@ -3,7 +3,7 @@
   "project_id": "twelvereader",
   "orchestrator_status": "running",
   "current_phase": "phase-5",
-  "current_goal": "Unrequested Deerflow watermark removed; frontend validation passed; push remains blocked by missing GitHub authentication",
+  "current_goal": "Short-book voice mapping stall fixed, deployed, and verified; push remains blocked by missing GitHub authentication",
   "active_run_ids": [],
   "pending_review_ids": [],
   "active_feedback_ids": [
@@ -16,7 +16,7 @@
     "repo_initialized": true,
     "current_branch": "ui",
     "last_commit_sha": "d37bbcc",
-    "working_tree_dirty": false
+    "working_tree_dirty": true
   },
   "escalation": {
     "required": false,
@@ -24,14 +24,14 @@
     "target_tier": null
   },
   "last_supervisor_action": {
-    "at": "2026-05-03T17:04:17Z",
-    "action": "watermark_removed_validated",
-    "target_id": "blg_frontend_deerflow_signature",
-    "notes": "Removed unrequested attribution component, references, and E2E expectations; frontend typecheck/build passed. Commit created in this supervised batch; see git log for exact SHA."
+    "at": "2026-05-03T18:03:39Z",
+    "action": "short_book_voice_mapping_fixed",
+    "target_id": "blg_short_book_voice_mapping_unblock",
+    "notes": "Implemented and verified short-book initial mapping fallback, voice_mapping polling, TTS format detection, and Qwen3 low-VRAM voice list fix."
   },
   "counters": {
-    "total_tasks": 16,
-    "completed": 14,
+    "total_tasks": 17,
+    "completed": 15,
     "in_progress": 0,
     "failed": 0,
     "total_runs": 10,
@@ -40,5 +40,5 @@
     "review_revisions": 0,
     "premium_escalations": 0
   },
-  "updated_at": "2026-05-03T17:04:17Z"
+  "updated_at": "2026-05-03T18:03:39Z"
 }

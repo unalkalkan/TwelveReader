@@ -76,7 +76,7 @@ export function useBookStatus(bookId: string | undefined) {
       const status = query.state.data?.status;
       if (
         status &&
-        ['uploaded', 'parsing', 'segmenting', 'synthesizing'].includes(status)
+        ['uploaded', 'parsing', 'segmenting', 'synthesizing', 'voice_mapping'].includes(status)
       ) {
         return 2_000;
       }

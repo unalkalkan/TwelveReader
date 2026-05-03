@@ -42,12 +42,12 @@ type hybridPipelineState struct {
 	wg               sync.WaitGroup
 
 	// Segmentation state
-	segmentsMu            sync.RWMutex
-	allSegments           []*types.Segment
-	segmentCounter        int
-	totalParagraphs       int
-	processedParagraphs   int
-	segmentationComplete  bool // Signals when all segments have been processed and queued
+	segmentsMu           sync.RWMutex
+	allSegments          []*types.Segment
+	segmentCounter       int
+	totalParagraphs      int
+	processedParagraphs  int
+	segmentationComplete bool // Signals when all segments have been processed and queued
 
 	// Persona tracking
 	personaMu          sync.RWMutex
@@ -234,6 +234,8 @@ func (o *HybridOrchestrator) runSegmentationStage(ctx context.Context, state *hy
 	})
 	o.notifyProgress(state)
 
+	o.ensureInitialMappingRequested(ctx, state)
+
 	// Update book metadata
 	book, err := o.repo.GetBook(ctx, state.bookID)
 	if err == nil && book != nil {
@@ -242,10 +244,56 @@ func (o *HybridOrchestrator) runSegmentationStage(ctx context.Context, state *hy
 		state.segmentsMu.RUnlock()
 		// Only update status if we're still in a state where this makes sense
 		// Don't overwrite if already synthesized or in error state
-		if book.Status == "segmenting" || book.Status == "voice_mapping" {
+		if book.Status == "segmenting" {
 			book.Status = "synthesizing"
 		}
 		o.repo.UpdateBook(ctx, book)
+	}
+}
+
+// ensureInitialMappingRequested handles short books that complete segmentation before
+// reaching MinSegmentsBeforeTTS. Without this fallback, TTS waits forever for the
+// initialMappingReceived signal while the UI can remain stuck at synthesizing 0%.
+func (o *HybridOrchestrator) ensureInitialMappingRequested(ctx context.Context, state *hybridPipelineState) {
+	state.personaMu.Lock()
+	if state.initialMappingDone {
+		state.personaMu.Unlock()
+		return
+	}
+	state.initialMappingDone = true
+	personas := make([]string, 0, len(state.discoveredPersonas))
+	for p := range state.discoveredPersonas {
+		personas = append(personas, p)
+	}
+	state.personaMu.Unlock()
+
+	if len(personas) == 0 {
+		log.Printf("[ensureInitialMappingRequested] No personas discovered for book %s", state.bookID)
+		return
+	}
+
+	select {
+	case state.voiceMappingNeeded <- PersonaDiscoveryEvent{Personas: personas, IsInitial: true}:
+	default:
+		log.Printf("[ensureInitialMappingRequested] Warning: voiceMappingNeeded channel full")
+	}
+
+	book, err := o.repo.GetBook(ctx, state.bookID)
+	if err == nil && book != nil {
+		book.Status = "voice_mapping"
+		book.WaitingForMapping = true
+		book.DiscoveredPersonas = personas
+		book.UnmappedPersonas = personas
+		book.PendingSegmentCount = state.segmentQueue.UnmappedCount()
+		o.repo.UpdateBook(ctx, book)
+	}
+
+	log.Printf("[ensureInitialMappingRequested] Waiting for initial voice mapping for short book %s", state.bookID)
+	select {
+	case <-state.initialMappingReceived:
+		log.Printf("[ensureInitialMappingRequested] Initial voice mapping received for short book %s", state.bookID)
+	case <-ctx.Done():
+		log.Printf("[ensureInitialMappingRequested] Context cancelled while waiting for voice mapping")
 	}
 }
 

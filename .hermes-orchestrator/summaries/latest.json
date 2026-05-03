@@ -1,17 +1,8 @@
 {
   "version": 1,
-  "summary_id": "2026-04-30T23-36-30Z",
-  "generated_at": "2026-04-30T23:36:30Z",
-  "current_phase": "phase-5",
-  "active_run_ids": [],
-  "processed_feedback_ids": [
-    "fb_20260430_001"
-  ],
-  "newly_completed_item_ids": [
-    "blg_backend_ocr_provider"
-  ],
-  "blocked_item_ids": [
-    "go_tests_unavailable"
-  ],
-  "recommended_next_action": "run live backend/browser validation and optional scanned-PDF OCR pipeline wiring on a Go-capable host"
+  "project_id": "twelvereader",
+  "updated_at": "2026-05-03T18:03:39Z",
+  "status": "verified",
+  "latest_run_id": "wr_20260503_short_voice_mapping",
+  "latest_review_id": "rv_20260503_short_voice_mapping"
 }
