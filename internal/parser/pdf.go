@@ -2,8 +2,10 @@ package parser
 
 import (
 	"bytes"
+	"compress/zlib"
 	"context"
 	"fmt"
+	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,6 +18,8 @@ type PDFParser struct{}
 var (
 	pdfStreamRe    = regexp.MustCompile(`(?m)(?:^|\r?\n)stream\r?\n`)
 	pdfEndStreamRe = regexp.MustCompile(`\r?\nendstream`)
+	flateDecodeRe  = regexp.MustCompile(`/FlateDecode`)
+	filterRe       = regexp.MustCompile(`/Filter\s*/FlateDecode`)
 )
 
 func NewPDFParser() *PDFParser {
@@ -71,10 +75,49 @@ func extractStreams(data []byte) [][]byte {
 			continue
 		}
 		end := start + endMatch[0]
-		streams = append(streams, data[start:end])
+		rawStream := data[start:end]
+
+		// Check if this stream uses FlateDecode by looking at the
+		// stream dictionary (the object bytes before the "stream" keyword)
+		streamDictStart := pos[0] - 500
+		if streamDictStart < 0 {
+			streamDictStart = 0
+		}
+		streamDict := data[streamDictStart:pos[0]]
+
+		if usesFlateDecode(streamDict) {
+			decompressed, err := decompressFlate(rawStream)
+			if err == nil && len(decompressed) > 0 {
+				streams = append(streams, decompressed)
+				continue
+			}
+			// On decompression failure, include raw data as fallback
+		}
+
+		streams = append(streams, rawStream)
 	}
 
 	return streams
+}
+
+// usesFlateDecode checks if the stream dictionary contains a FlateDecode filter
+func usesFlateDecode(dict []byte) bool {
+	return filterRe.Match(dict) || flateDecodeRe.Match(dict)
+}
+
+// decompressFlate decompresses a zlib/deflate (FlateDecode) compressed stream
+func decompressFlate(data []byte) ([]byte, error) {
+	reader, err := zlib.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("zlib decompression failed: %w", err)
+	}
+	defer reader.Close()
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, reader); err != nil {
+		return nil, fmt.Errorf("reading decompressed data failed: %w", err)
+	}
+	return buf.Bytes(), nil
 }
 
 func extractTextFromStream(stream []byte) []string {

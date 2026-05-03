@@ -22,7 +22,8 @@ Current scope includes:
 
 ## Non-goals
 - Native Android/Kotlin implementation.
-- Full OCR/PDF/ePUB quality work beyond existing parser contracts.
+- Full OCR quality (scanned PDF image-to-text) beyond existing parser contracts.
+- EPUB enhancement beyond current paragraph-level extraction.
 - Provider-specific credential management UI.
 - Social/community discovery features unless later requested.
 - A separate orchestration service inside the app; project orchestration remains in `.hermes-orchestrator/`.

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "updated_at": "2026-04-30T20:50:00Z",
+  "updated_at": "2026-05-03T19:42:00Z",
   "entries": [
     {
       "id": "fb_20260430_001",
@@ -60,6 +60,42 @@
           "from": "in_progress",
           "to": "implemented",
           "note": "First direct implementation cycle completed and reviewed."
+        }
+      ]
+    },
+    {
+      "id": "fb_20260503_002",
+      "created_at": "2026-05-03T19:42:00Z",
+      "created_by": "human",
+      "source": "telegram",
+      "state": "in_progress",
+      "title": "PDF parser cannot extract text from compressed streams (FlateDecode)",
+      "body_file": "feedback/fb_20260503_002.md",
+      "category": "backend",
+      "priority": "high",
+      "affects_design": true,
+      "linked_design_sections": [
+        "Non-goals"
+      ],
+      "linked_backlog_items": [
+        "blg_pdf_flatedecode_support"
+      ],
+      "linked_worker_runs": [],
+      "resolution": null,
+      "history": [
+        {
+          "at": "2026-05-03T19:42:00Z",
+          "actor": "human",
+          "from": null,
+          "to": "new",
+          "note": "User reported PDF upload fails with 'no extractable text found'. fpdf2-generated PDF uses FlateDecode compression which the parser does not handle."
+        },
+        {
+          "at": "2026-05-03T19:42:00Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "in_progress",
+          "note": "High priority — PDF is the primary upload format. Adding FlateDecode decompression to extractStreams."
         }
       ]
     }
