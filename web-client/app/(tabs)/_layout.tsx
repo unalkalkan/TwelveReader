@@ -6,7 +6,6 @@ import { Tabs, useRouter } from 'expo-router';
 import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../src/hooks/useColorScheme';
 import { MiniPlayer } from '../../src/components/MiniPlayer';
-import { AttributionBadge } from '../../src/components/AttributionBadge';
 
 export default function TabLayout() {
   const theme = useColorScheme();
@@ -18,10 +17,6 @@ export default function TabLayout() {
       {/* Persistent mini-player above tabs */}
       <View style={styles.miniPlayerWrapper}>
         <MiniPlayer />
-      </View>
-
-      <View style={styles.attributionWrapper} pointerEvents="box-none">
-        <AttributionBadge />
       </View>
 
       <Tabs
@@ -119,14 +114,6 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     zIndex: 40,
-  },
-  attributionWrapper: {
-    position: 'absolute',
-    bottom: 72,
-    left: 0,
-    right: 0,
-    zIndex: 30,
-    alignItems: 'center',
   },
   addButton: {
     width: 56,

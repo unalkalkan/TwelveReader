@@ -43,7 +43,7 @@
 3. **Browser E2E through the frontend container**
    - Serve frontend with nginx on `localhost:3000`.
    - Use Playwright against `http://localhost:3000`.
-   - Cover: landing/library visibility, add/upload flow, voices page, voice mapping modal/state, player state, download link, Deerflow attribution badge.
+   - Cover: landing/library visibility, add/upload flow, voices page, voice mapping modal/state, player state, and download link.
 
 4. **Provider-backed E2E profile**
    - Use only when secrets/endpoints are configured.
@@ -242,7 +242,6 @@ Expected: smoke script exits 0 and prints endpoint-by-endpoint results.
 **Recommended tests:**
 - app loads at `/`
 - tabs render: Library, Add, Explore/Voices as applicable
-- Deerflow attribution is visible and links to `https://deerflow.tech`
 - Add screen can submit typed text or upload fixture file
 - Library shows uploaded book/progress
 - Voices screen renders stub voices
