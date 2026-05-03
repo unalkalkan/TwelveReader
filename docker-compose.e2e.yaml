@@ -1,0 +1,48 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: twelvereader-e2e-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config/e2e.stub.yaml:/app/config/config.yaml:ro
+      - twelvereader-e2e-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    networks:
+      - twelvereader-e2e
+
+  frontend:
+    build:
+      context: ./web-client
+      dockerfile: Dockerfile
+    container_name: twelvereader-e2e-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    networks:
+      - twelvereader-e2e
+
+volumes:
+  twelvereader-e2e-data:
+    driver: local
+
+networks:
+  twelvereader-e2e:
+    driver: bridge

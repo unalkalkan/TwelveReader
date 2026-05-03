@@ -1,0 +1,51 @@
+# TwelveReader deterministic E2E configuration
+# Uses in-process stub providers so container smoke tests do not need
+# external LLM/TTS/OCR services, GPU access, or provider secrets.
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30
+  write_timeout: 30
+
+storage:
+  adapter: "local"
+  local:
+    base_path: "/app/data"
+
+providers:
+  llm:
+    - name: "stub-llm"
+      enabled: true
+      endpoint: ""
+      api_key: ""
+      model: ""
+      context_window: 4096
+      concurrency: 1
+      rate_limit_qps: 10.0
+      options: {}
+
+  tts:
+    - name: "stub-tts"
+      enabled: true
+      endpoint: ""
+      api_key: ""
+      max_segment_size: 500
+      concurrency: 1
+      rate_limit_qps: 10.0
+      timestamp_precision: "word"
+      options: {}
+
+  ocr:
+    - name: "stub-ocr"
+      enabled: true
+      endpoint: ""
+      api_key: ""
+      concurrency: 1
+      options: {}
+
+pipeline:
+  worker_pool_size: 1
+  max_retries: 1
+  retry_backoff_ms: 100
+  temp_dir: "/tmp/twelvereader-e2e"

@@ -1,4 +1,4 @@
-.PHONY: help build test lint clean run install-tools
+.PHONY: help build test test-container lint clean run install-tools
 
 # Default target
 .DEFAULT_GOAL := help
@@ -28,6 +28,9 @@ build: ## Build the server binary
 test: ## Run all tests
 	@echo "Running tests..."
 	$(GOTEST) -v -race -coverprofile=coverage.out ./...
+
+test-container: ## Run Go tests inside Docker, no host Go required
+	./scripts/container-go-test.sh
 
 test-coverage: test ## Run tests with coverage report
 	@echo "Generating coverage report..."
