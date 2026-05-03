@@ -44,3 +44,5 @@
 {"ts": "2026-04-30T23:56:10Z", "event": "summary_written", "run_id": "wr_20260430_010", "path": ".hermes-orchestrator/summaries/latest.md"}
 {"ts": "2026-04-30T23:58:05Z", "event": "commit_created", "run_id": "wr_20260430_010", "commit": "1f6c209", "message": "feat(web): add Deerflow attribution badge"}
 {"ts": "2026-04-30T23:58:05Z", "event": "lock_released", "run_id": "wr_20260430_010", "status": "idle"}
+{"at": "2026-05-03T13:50:00Z", "event": "commit_created", "target_id": "blg_e2e_container_smoke_stack", "commit": "d37bbcc", "notes": "Container E2E smoke stack committed locally after validation."}
+{"at": "2026-05-03T13:50:00Z", "event": "push_blocked", "target_id": "blg_push_ui_branch", "reason": "missing_github_auth", "notes": "No gh, no GITHUB_TOKEN in shell, no ~/.git-credentials. Remote remains sanitized."}
