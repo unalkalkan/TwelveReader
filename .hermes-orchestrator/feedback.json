@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "updated_at": "2026-05-03T19:42:00Z",
+  "updated_at": "2026-05-03T19:48:00Z",
   "entries": [
     {
       "id": "fb_20260430_001",
@@ -68,7 +68,7 @@
       "created_at": "2026-05-03T19:42:00Z",
       "created_by": "human",
       "source": "telegram",
-      "state": "in_progress",
+      "state": "verified",
       "title": "PDF parser cannot extract text from compressed streams (FlateDecode)",
       "body_file": "feedback/fb_20260503_002.md",
       "category": "backend",
@@ -80,8 +80,10 @@
       "linked_backlog_items": [
         "blg_pdf_flatedecode_support"
       ],
-      "linked_worker_runs": [],
-      "resolution": null,
+      "linked_worker_runs": [
+        "wr_20260503_pdf_flate"
+      ],
+      "resolution": "Added FlateDecode (zlib/deflate) decompression to extractStreams in internal/parser/pdf.go. Stream dictionaries are inspected for /Filter /FlateDecode and decompressed before text extraction. Verified with fpdf2-generated PDF: previously returned 'no extractable text found', now extracts 47 paragraphs across 4 pages. All existing parser tests pass plus new FlateDecode-specific test. Backend container rebuilt and deployed.",
       "history": [
         {
           "at": "2026-05-03T19:42:00Z",
@@ -96,6 +98,13 @@
           "from": "new",
           "to": "in_progress",
           "note": "High priority — PDF is the primary upload format. Adding FlateDecode decompression to extractStreams."
+        },
+        {
+          "at": "2026-05-03T19:48:00Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "verified",
+          "note": "Implementation complete. FlateDecode decompression added to extractStreams, tested with fpdf2 PDF (47 paragraphs extracted), all tests pass, container rebuilt and deployed. PDF upload confirmed working via frontend proxy."
         }
       ]
     }
