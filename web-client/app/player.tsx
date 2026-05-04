@@ -19,6 +19,7 @@ import {
   useBookStatus,
   usePipelineStatus,
   useBookStreamSegments,
+  useDeleteBook,
 } from '../src/api/hooks';
 import { usePlayback } from '../src/store/playbackStore';
 import { useAudioPlayer } from '../src/hooks/useAudioPlayer';
@@ -36,6 +37,7 @@ export default function PlayerScreen() {
   const { data: streamSegments } = useBookStreamSegments(bookId);
   const { data: status } = useBookStatus(bookId);
   const { data: pipeline } = usePipelineStatus(bookId);
+  const deleteMutation = useDeleteBook();
 
   const {
     state,
@@ -45,10 +47,12 @@ export default function PlayerScreen() {
     play,
     pause,
     cycleSpeed,
+    reset,
   } = usePlayback();
 
   const [chapterListVisible, setChapterListVisible] = useState(false);
   const [voiceMappingVisible, setVoiceMappingVisible] = useState(false);
+  const [moreMenuVisible, setMoreMenuVisible] = useState(false);
 
   // Use stream segments (includes audio_url + timestamps)
   const segments = streamSegments ?? [];
@@ -85,6 +89,43 @@ export default function PlayerScreen() {
     );
   const isWaitingForMapping = status?.status === 'voice_mapping';
   const hasBookError = status?.status === 'error' || status?.status === 'synthesis_error';
+
+  const handleDelete = useCallback(() => {
+    if (!bookId) return;
+
+    if (Platform.OS === 'web') {
+      if (!window.confirm('Delete this book? This action cannot be undone.')) return;
+      pause();
+      reset();
+      deleteMutation.mutate(bookId, {
+        onSuccess: () => {
+          router.back();
+        },
+      });
+      return;
+    }
+
+    Alert.alert(
+      'Delete Book',
+      'This action cannot be undone. Delete this book and all associated audio?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            pause();
+            reset();
+            deleteMutation.mutate(bookId, {
+              onSuccess: () => {
+                router.back();
+              },
+            });
+          },
+        },
+      ],
+    );
+  }, [bookId, pause, reset, deleteMutation, router]);
 
   const handleDownload = useCallback(() => {
     if (!bookId) return;
@@ -174,6 +215,7 @@ export default function PlayerScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.topBtn, { backgroundColor: colors.surface }]}
+            onPress={() => setMoreMenuVisible((v) => !v)}
           >
             <MaterialIcons name="more-horiz" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -420,6 +462,35 @@ export default function PlayerScreen() {
         initialMapping={isWaitingForMapping}
         onClose={() => setVoiceMappingVisible(false)}
       />
+
+      {/* ─── More Menu Dropdown ─── */}
+      {moreMenuVisible && (
+        <TouchableOpacity
+          style={styles.dropdownBackdrop}
+          activeOpacity={1}
+          onPress={() => setMoreMenuVisible(false)}
+        >
+          <View
+            style={[
+              styles.dropdownMenu,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.dropdownItem}
+              onPress={() => {
+                setMoreMenuVisible(false);
+                handleDelete();
+              }}
+            >
+              <MaterialIcons name="delete-outline" size={18} color="#EF4444" />
+              <Text style={[styles.dropdownItemText, { color: '#EF4444' }]}>
+                Delete Book
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -580,5 +651,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+  },
+  dropdownBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 100,
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    minWidth: 180,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
 });

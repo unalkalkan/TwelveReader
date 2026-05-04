@@ -1,21 +1,19 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "orchestrator_status": "running",
+  "orchestrator_status": "idle",
   "current_phase": "phase-5",
-  "current_goal": "Short-book voice mapping stall fixed, deployed, and verified; push remains blocked by missing GitHub authentication",
+  "current_goal": "Delete Books feedback implemented and verified; GitHub push remains blocked by missing authentication.",
   "active_run_ids": [],
   "pending_review_ids": [],
-  "active_feedback_ids": [
-    "fb_20260430_001"
-  ],
+  "active_feedback_ids": [],
   "blocked_item_ids": [
     "github_auth_missing"
   ],
   "git": {
     "repo_initialized": true,
     "current_branch": "ui",
-    "last_commit_sha": "d37bbcc",
+    "last_commit_sha": "bd34cbb",
     "working_tree_dirty": true
   },
   "escalation": {
@@ -24,21 +22,21 @@
     "target_tier": null
   },
   "last_supervisor_action": {
-    "at": "2026-05-03T18:03:39Z",
-    "action": "short_book_voice_mapping_fixed",
-    "target_id": "blg_short_book_voice_mapping_unblock",
-    "notes": "Implemented and verified short-book initial mapping fallback, voice_mapping polling, TTS format detection, and Qwen3 low-VRAM voice list fix."
+    "at": "2026-05-04T18:58:49Z",
+    "action": "delete_books_feedback_verified",
+    "target_id": "blg_delete_books_feedback",
+    "notes": "Implemented and verified Delete Book actions using OpenCode DeepSeek R4 Pro worker plus supervisor reconciliation."
   },
   "counters": {
-    "total_tasks": 17,
-    "completed": 15,
-    "in_progress": 0,
+    "total_tasks": 19,
+    "completed": 16,
+    "in_progress": 1,
     "failed": 0,
-    "total_runs": 10,
-    "successful_runs": 10,
+    "total_runs": 11,
+    "successful_runs": 11,
     "failed_runs": 0,
     "review_revisions": 0,
     "premium_escalations": 0
   },
-  "updated_at": "2026-05-03T18:03:39Z"
+  "updated_at": "2026-05-04T18:58:49Z"
 }

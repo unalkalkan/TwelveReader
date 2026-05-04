@@ -130,6 +130,18 @@ func (l *LocalAdapter) List(ctx context.Context, prefix string) ([]string, error
 	return paths, nil
 }
 
+// DeleteAll removes all data under the given prefix (including the prefix directory)
+func (l *LocalAdapter) DeleteAll(ctx context.Context, prefix string) error {
+	fullPath := l.fullPath(prefix)
+	if err := os.RemoveAll(fullPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to delete path: %w", err)
+	}
+	return nil
+}
+
 // Close cleans up any resources
 func (l *LocalAdapter) Close() error {
 	// No cleanup needed for local adapter

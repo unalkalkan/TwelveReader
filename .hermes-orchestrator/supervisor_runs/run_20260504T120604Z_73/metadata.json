@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "run_id": "run_20260504T120604Z_73",
+  "project_root": "/workspace/TwelveReader",
+  "feedback_ids": [
+    "fb_20260504_001"
+  ],
+  "pid": 74,
+  "command": [
+    "/opt/hermes-venv/bin/hermes",
+    "chat",
+    "<prompt omitted>",
+    "--skills",
+    "hermes-orchestrator,opencode",
+    "--toolsets",
+    "terminal,file,skills,todo",
+    "--source",
+    "hermes-orchestrator-supervisor",
+    "--max-turns",
+    "90",
+    "--yolo"
+  ],
+  "prompt_path": "/workspace/TwelveReader/.hermes-orchestrator/supervisor_runs/run_20260504T120604Z_73/prompt.md",
+  "log_path": "/workspace/TwelveReader/.hermes-orchestrator/supervisor_runs/run_20260504T120604Z_73/output.log",
+  "status": "spawned",
+  "created_at": "2026-05-04T12:06:04Z"
+}

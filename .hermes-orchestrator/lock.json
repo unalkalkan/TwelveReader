@@ -2,11 +2,11 @@
   "version": 1,
   "locked": false,
   "run_id": null,
+  "status": "idle",
   "started_at": null,
   "owner": null,
   "reason": null,
-  "heartbeat_at": "2026-04-30T23:58:05Z",
+  "heartbeat_at": "2026-05-04T18:58:49Z",
   "stale_after_seconds": 3600,
-  "updated_at": "2026-04-30T23:58:05Z",
-  "status": "idle"
+  "updated_at": "2026-05-04T18:58:49Z"
 }

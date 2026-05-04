@@ -424,6 +424,17 @@ func (r *pipelineTestRepository) SaveRawFile(ctx context.Context, bookID string,
 func (r *pipelineTestRepository) GetRawFile(ctx context.Context, bookID string) ([]byte, string, error) {
 	return nil, "", fmt.Errorf("raw file not found")
 }
+func (r *pipelineTestRepository) DeleteBook(ctx context.Context, bookID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.books, bookID)
+	for segmentID, segment := range r.segments {
+		if segment.BookID == bookID {
+			delete(r.segments, segmentID)
+		}
+	}
+	return nil
+}
 
 type pipelineTestStorage struct {
 	mu   sync.RWMutex
@@ -475,6 +486,16 @@ func (s *pipelineTestStorage) List(ctx context.Context, prefix string) ([]string
 		}
 	}
 	return paths, nil
+}
+func (s *pipelineTestStorage) DeleteAll(ctx context.Context, prefix string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for path := range s.data {
+		if strings.HasPrefix(path, prefix) {
+			delete(s.data, path)
+		}
+	}
+	return nil
 }
 func (s *pipelineTestStorage) Close() error { return nil }
 

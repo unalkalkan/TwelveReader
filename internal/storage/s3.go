@@ -126,6 +126,22 @@ func (s *S3Adapter) Delete(ctx context.Context, path string) error {
 	return nil
 }
 
+// DeleteAll removes all data under the given prefix.
+func (s *S3Adapter) DeleteAll(ctx context.Context, prefix string) error {
+	paths, err := s.List(ctx, prefix)
+	if err != nil {
+		return fmt.Errorf("failed to list objects for delete: %w", err)
+	}
+
+	for _, path := range paths {
+		if err := s.Delete(ctx, path); err != nil {
+			return fmt.Errorf("failed to delete object %s: %w", path, err)
+		}
+	}
+
+	return nil
+}
+
 // Exists checks if data exists at the given path
 func (s *S3Adapter) Exists(ctx context.Context, path string) (bool, error) {
 	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{

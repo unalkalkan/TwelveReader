@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "run_id": "wr_20260504_delete_books",
+  "supervisor_run_id": "sup_20260504_delete_books",
+  "backlog_item_id": "blg_delete_books_feedback",
+  "feedback_ids": [
+    "fb_20260504_001"
+  ],
+  "role": "builder",
+  "model": "opencode-go/deepseek-v4-pro",
+  "status": "completed",
+  "created_at": "2026-05-04T18:36:30Z",
+  "task": "Implement Delete Book dropdown/action for TwelveReader player and Continue Listening.",
+  "acceptance_criteria": [
+    "Backend exposes DELETE /api/v1/books/{bookId} and removes book metadata plus stored book artifacts idempotently enough for UI use.",
+    "Frontend API client exposes deleteBook(bookId).",
+    "Player top-bar three-dot button opens a native in-app dropdown/menu with Delete Book.",
+    "Continue Listening three-dot button opens the same kind of dropdown/menu with Delete Book without triggering card navigation.",
+    "Deletion asks for confirmation, calls backend, invalidates/refetches book queries, clears playback if needed, and navigates away from deleted player.",
+    "Go tests and web build/type checks pass or any failure is documented with cause."
+  ],
+  "files_of_interest": [
+    "cmd/server/main.go",
+    "internal/api/book_handler.go",
+    "internal/book/repository.go",
+    "internal/storage/adapter.go",
+    "web-client/src/api/client.ts",
+    "web-client/src/api/hooks.ts",
+    "web-client/app/player.tsx",
+    "web-client/app/(tabs)/index.tsx"
+  ],
+  "completed_at": "2026-05-04T18:58:49Z"
+}

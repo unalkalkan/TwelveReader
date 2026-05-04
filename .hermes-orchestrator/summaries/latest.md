@@ -2,33 +2,26 @@
 
 **Project:** TwelveReader
 **Branch:** `ui`
-**Updated At:** 2026-05-03T18:03:39Z
+**Updated At:** 2026-05-04T18:58:49Z
 
 ## Current state
-- The affected short sample book no longer needs manual segmentation; it needed voice/persona mapping.
-- `book_1777829925814889525` is now `synthesized` with 1 segment.
-- Persona `narrator` is mapped to voice `serena`.
-- Live audio endpoint returns `audio/wav` and the player route serves HTML on port 3002.
+- Delete Books feedback `fb_20260504_001` is implemented and verified.
+- Backlog item `blg_delete_books_feedback` is done.
+- Worker run `wr_20260504_delete_books` used OpenCode model `opencode-go/deepseek-v4-pro`; supervisor reconciled missing edge cases before acceptance.
 
 ## Fixes completed
-- Backend hybrid pipeline now requests initial voice mapping even when a short book finishes segmentation before `MinSegmentsBeforeTTS`.
-- Backend no longer overwrites `voice_mapping` back to `synthesizing` while waiting for the initial mapping.
-- Web client status polling now continues during `voice_mapping`.
-- OpenAI-compatible TTS provider now detects actual audio bytes (`wav`, `mp3`, `ogg`, `flac`) instead of always storing responses as `.mp3`.
-- Qwen3-TTS submodule now lists custom voices from cached config without loading the 1.7B model just to serve `/v1/voices`, reducing 4GB GPU OOM risk.
+- Added backend `DELETE /api/v1/books/{bookId}` routing and handler.
+- Added repository/storage deletion support for local storage and S3-compatible storage.
+- Added frontend `deleteBook` API helper and `useDeleteBook` mutation with query invalidation.
+- Added Delete Book dropdown actions to the `/player?bookId=...` top-bar menu and Continue Listening three-dot menu.
+- Deletion confirms first, clears playback state when deleting the active book, and navigates away from the deleted player.
 
 ## Validation passed
-- `docker run --rm -v "$PWD":/src -w /src golang:1.24-alpine /usr/local/go/bin/go test ./internal/pipeline ./internal/provider`
+- `docker run --rm -v "$PWD":/src -w /src golang:1.24-alpine sh -c 'go version && gofmt -w ... && go test ./...'`
 - `cd web-client && npm run build`
 - `git diff --check`
-- Live backend health check passed.
-- Live status/personas/audio endpoints passed.
-- Live frontend `/player?bookId=book_1777829925814889525` served HTML.
+- Production redeploy: rebuilt `twelvereader:latest` and `twelvereader-frontend:latest`, recreated prod containers, verified backend `/health/live` and frontend `/player?bookId=smoke`
+- Delete smoke: app-owned test book returned GET 200, DELETE `{"status":"deleted"}`, storage directory removed, second DELETE 404
 
-## Deployment
-- Rebuilt `twelvereader-backend` and `twelvereader-frontend` images.
-- Recreated `twelvereader-backend-prod` on port 8085 and `twelvereader-frontend-prod` on port 3002.
-
-## Push blocker
-- Local code is not yet committed/pushed in the root repo.
-- Existing environment still lacks GitHub push authentication.
+## Remaining blocker
+- GitHub push remains blocked by missing authentication, but local accepted work is ready for commit.

@@ -67,6 +67,9 @@ type Repository interface {
 
 	// GetRawFile retrieves the uploaded raw file
 	GetRawFile(ctx context.Context, bookID string) ([]byte, string, error)
+
+	// DeleteBook removes a book and all associated data
+	DeleteBook(ctx context.Context, bookID string) error
 }
 
 // StorageRepository implements Repository using a storage adapter
@@ -450,4 +453,10 @@ func (r *StorageRepository) GetRawFile(ctx context.Context, bookID string) ([]by
 // bytesReader wraps a byte slice using standard library bytes.Reader
 func bytesReader(data []byte) io.Reader {
 	return bytes.NewReader(data)
+}
+
+// DeleteBook removes a book and all associated data
+func (r *StorageRepository) DeleteBook(ctx context.Context, bookID string) error {
+	prefix := filepath.Join("books", bookID)
+	return r.storage.DeleteAll(ctx, prefix)
 }

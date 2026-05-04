@@ -6,6 +6,8 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
+  Alert,
+  Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,7 +15,7 @@ import { useRouter } from 'expo-router';
 
 import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../src/hooks/useColorScheme';
-import { useBooks, useVoices, useBookStatus } from '../../src/api/hooks';
+import { useBooks, useVoices, useBookStatus, useDeleteBook } from '../../src/api/hooks';
 import { usePlayback } from '../../src/store/playbackStore';
 import type { BookMetadata } from '../../src/types/api';
 
@@ -36,9 +38,11 @@ export default function HomeScreen() {
   const colors = Colors[theme];
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<string>('For you');
+  const [continueMenuVisible, setContinueMenuVisible] = useState(false);
   const { data: books } = useBooks();
   const { data: voicesData } = useVoices();
-  const { state: playbackState } = usePlayback();
+  const { state: playbackState, pause, reset } = usePlayback();
+  const deleteMutation = useDeleteBook();
 
   // Get the book that's currently in the player (if any)
   const { data: currentBookStatus } = useBookStatus(
@@ -56,6 +60,40 @@ export default function HomeScreen() {
     // Otherwise show most recent
     return books[0];
   }, [books, playbackState.currentBookId]);
+
+  const runContinueDelete = (bookId: string) => {
+    if (playbackState.currentBookId === bookId) {
+      pause();
+      reset();
+    }
+    deleteMutation.mutate(bookId);
+  };
+
+  const handleContinueDelete = (bookId: string) => {
+    setContinueMenuVisible(false);
+
+    if (Platform.OS === 'web') {
+      if (!window.confirm('Delete this book? This action cannot be undone.')) return;
+    } else {
+      Alert.alert(
+        'Delete Book',
+        'This action cannot be undone. Delete this book and all associated audio?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              runContinueDelete(bookId);
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    runContinueDelete(bookId);
+  };
 
   // Compute real progress for continue card
   const totalSegments = currentBookStatus?.total_segments ?? continueBook?.total_segments ?? 0;
@@ -212,6 +250,10 @@ export default function HomeScreen() {
               </View>
               <TouchableOpacity
                 style={[styles.moreBtn, { borderColor: colors.border }]}
+                onPress={(event) => {
+                  event.stopPropagation?.();
+                  setContinueMenuVisible(true);
+                }}
               >
                 <MaterialIcons name="more-vert" size={16} color={colors.textMuted} />
               </TouchableOpacity>
@@ -381,6 +423,32 @@ export default function HomeScreen() {
         {/* Bottom spacer for mini player */}
         <View style={{ height: 160 }} />
       </ScrollView>
+
+      {/* ─── Continue Menu Dropdown ─── */}
+      {continueMenuVisible && continueBook && (
+        <TouchableOpacity
+          style={styles.dropdownBackdrop}
+          activeOpacity={1}
+          onPress={() => setContinueMenuVisible(false)}
+        >
+          <View
+            style={[
+              styles.dropdownMenu,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.dropdownItem}
+              onPress={() => handleContinueDelete(continueBook.id)}
+            >
+              <MaterialIcons name="delete-outline" size={18} color="#EF4444" />
+              <Text style={[styles.dropdownItemText, { color: '#EF4444' }]}>
+                Delete Book
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -518,4 +586,37 @@ const styles = StyleSheet.create({
   },
   voiceName: { fontSize: 16, fontWeight: '700', marginBottom: 2 },
   voiceDesc: { fontSize: 12 },
+  dropdownBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 100,
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    bottom: 200,
+    right: 20,
+    minWidth: 180,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
 });

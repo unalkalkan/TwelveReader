@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "updated_at": "2026-05-03T19:42:00Z",
+  "updated_at": "2026-05-04T18:58:49Z",
   "items": [
     {
       "id": "blg_bootstrap_orchestrator",
@@ -352,6 +352,25 @@
       "last_run_id": null,
       "created_at": "2026-05-03T19:42:00Z",
       "updated_at": "2026-05-03T19:42:00Z"
+    },
+    {
+      "id": "blg_delete_books_feedback",
+      "title": "Implement Delete Book actions from player and Continue Listening menus",
+      "description": "Add native dropdown actions for the player three-dot button and Continue Listening three-dot button. Include a Delete Book option that deletes the selected book through backend API and updates frontend query/cache/navigation state.",
+      "status": "done",
+      "priority": 88,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [],
+      "acceptance_refs": [
+        "feedback/fb_20260504_001.md",
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260504_delete_books",
+      "created_at": "2026-05-04T18:36:30Z",
+      "updated_at": "2026-05-04T18:58:49Z"
     }
   ]
 }

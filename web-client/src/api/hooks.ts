@@ -14,6 +14,7 @@ import {
   setVoiceMap,
   getPipelineStatus,
   getPersonas,
+  deleteBook,
 } from './client';
 import type { FileSource } from './client';
 import type { VoiceMap } from '../types/api';
@@ -119,6 +120,20 @@ export function useVoiceMap(bookId: string | undefined) {
 }
 
 // ── Mutations ───────────────────────────────────────────────────────────
+
+export function useDeleteBook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (bookId: string) => deleteBook(bookId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['books'] });
+      qc.invalidateQueries({ queryKey: ['book'] });
+      qc.invalidateQueries({ queryKey: ['bookStatus'] });
+      qc.invalidateQueries({ queryKey: ['bookSegments'] });
+      qc.invalidateQueries({ queryKey: ['bookStreamSegments'] });
+    },
+  });
+}
 
 export function useUploadBook() {
   const qc = useQueryClient();

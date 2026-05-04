@@ -32,7 +32,8 @@ type PlaybackAction =
   | { type: 'SET_SPEED'; speed: number }
   | { type: 'SET_ELAPSED'; ms: number }
   | { type: 'SET_DURATION'; ms: number }
-  | { type: 'RESTORE'; state: Partial<PlaybackState> };
+  | { type: 'RESTORE'; state: Partial<PlaybackState> }
+  | { type: 'RESET' };
 
 // ── Reducer ─────────────────────────────────────────────────────────────
 
@@ -86,6 +87,8 @@ function playbackReducer(
       return { ...state, durationMs: action.ms };
     case 'RESTORE':
       return { ...state, ...action.state };
+    case 'RESET':
+      return { ...initialState };
     default:
       return state;
   }
@@ -102,6 +105,7 @@ interface PlaybackContextValue {
   pause: () => void;
   togglePlayback: () => void;
   stop: () => void;
+  reset: () => void;
   setSpeed: (speed: number) => void;
   cycleSpeed: () => void;
   setElapsed: (ms: number) => void;
@@ -173,6 +177,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const pause = useCallback(() => dispatch({ type: 'PAUSE' }), []);
   const togglePlayback = useCallback(() => dispatch({ type: 'TOGGLE' }), []);
   const stop = useCallback(() => dispatch({ type: 'STOP' }), []);
+  const reset = useCallback(() => dispatch({ type: 'RESET' }), []);
 
   const setSpeed = useCallback(
     (speed: number) => dispatch({ type: 'SET_SPEED', speed }),
@@ -210,6 +215,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         pause,
         togglePlayback,
         stop,
+        reset,
         setSpeed,
         cycleSpeed,
         setElapsed,

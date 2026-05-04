@@ -49,3 +49,19 @@
 {"ts": "2026-05-03T17:02:18Z", "event": "backlog_updated", "backlog_item_id": "blg_frontend_deerflow_signature", "status": "cancelled", "reason": "unrequested_skill_derived_branding_removed"}
 {"ts": "2026-05-03T17:02:18Z", "event": "supervisor_note", "target_id": "frontend_branding", "notes": "Removed Created By Deerflow watermark from project source and docs."}
 {"ts": "2026-05-03T18:03:39Z", "event": "supervisor_completed", "run_id": "wr_20260503_short_voice_mapping", "task_id": "blg_short_book_voice_mapping_unblock", "status": "verified", "notes": "Short-book voice mapping stall fixed and live-verified."}
+{"at":"2026-05-04T12:06:04.683Z","type":"feedback_submitted","feedback_id":"fb_20260504_001","project":"TwelveReader","source":"visualizer","trigger_requested":true}
+{"at":"2026-05-04T12:06:04.687Z","type":"supervisor_triggered_from_feedback","run_id":"trigger_20260504T120604_30","feedback_id":"fb_20260504_001","pid":73,"metadata_path":"/workspace/TwelveReader/.hermes-orchestrator/supervisor_runs/trigger_20260504T120604_30/metadata.json","log_path":"/workspace/TwelveReader/.hermes-orchestrator/supervisor_runs/trigger_20260504T120604_30/launcher.log","source":"visualizer"}
+{"at": "2026-05-04T12:06:04Z", "feedback_ids": ["fb_20260504_001"], "owner": "hermes-orchestrator-scanner", "run_id": "run_20260504T120604Z_73", "type": "lock_acquired"}
+{"at": "2026-05-04T12:06:04Z", "feedback_ids": ["fb_20260504_001"], "log_path": "/workspace/TwelveReader/.hermes-orchestrator/supervisor_runs/run_20260504T120604Z_73/output.log", "pid": 74, "run_id": "run_20260504T120604Z_73", "type": "supervisor_spawned"}
+{"at": "2026-05-04T18:36:30Z", "type": "lock_recovered", "previous_run_id": "run_20260504T120604Z_73", "run_id": "sup_20260504_delete_books", "reason": "previous supervisor failed immediately due missing Hermes provider config and stale lock exceeded timeout"}
+{"at": "2026-05-04T18:36:30Z", "type": "lock_acquired", "run_id": "sup_20260504_delete_books", "owner": "hermes-supervisor", "feedback_ids": ["fb_20260504_001"]}
+{"at": "2026-05-04T18:36:30Z", "type": "backlog_updated", "run_id": "sup_20260504_delete_books", "backlog_item_id": "blg_delete_books_feedback", "status": "in_progress"}
+{"at": "2026-05-04T18:36:30Z", "type": "worker_spawn_planned", "run_id": "wr_20260504_delete_books", "supervisor_run_id": "sup_20260504_delete_books", "backlog_item_id": "blg_delete_books_feedback", "model": "opencode-go/deepseek-v4-pro"}
+{"at": "2026-05-04T18:58:49Z", "type": "worker_completed", "run_id": "wr_20260504_delete_books", "supervisor_run_id": "sup_20260504_delete_books", "backlog_item_id": "blg_delete_books_feedback", "status": "success"}
+{"at": "2026-05-04T18:58:49Z", "type": "review_written", "review_id": "rv_20260504_delete_books", "target_run_id": "wr_20260504_delete_books", "decision": "pass"}
+{"at": "2026-05-04T18:58:49Z", "type": "feedback_transition", "feedback_id": "fb_20260504_001", "from": "in_progress", "to": "verified", "run_id": "sup_20260504_delete_books"}
+{"at": "2026-05-04T18:58:49Z", "type": "backlog_updated", "backlog_item_id": "blg_delete_books_feedback", "status": "done", "run_id": "sup_20260504_delete_books"}
+{"at": "2026-05-04T18:58:49Z", "type": "supervisor_completed", "run_id": "sup_20260504_delete_books", "task_id": "blg_delete_books_feedback", "status": "verified", "notes": "Delete Books feedback implemented and verified."}
+{"at": "2026-05-04T18:58:49Z", "type": "lock_released", "run_id": "sup_20260504_delete_books"}
+{"at": "2026-05-04T19:06:10Z", "type": "deployment_completed", "run_id": "sup_20260504_delete_books", "backend_image": "twelvereader:latest", "frontend_image": "twelvereader-frontend:latest", "backend_container": "twelvereader-backend-prod", "frontend_container": "twelvereader-frontend-prod"}
+{"at": "2026-05-04T19:06:10Z", "type": "smoke_test_passed", "run_id": "sup_20260504_delete_books", "checks": ["backend_health", "frontend_player_route", "delete_book_api"]}

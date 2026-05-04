@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "updated_at": "2026-05-03T19:48:00Z",
+  "updated_at": "2026-05-04T18:58:49Z",
   "entries": [
     {
       "id": "fb_20260430_001",
@@ -107,6 +107,59 @@
           "note": "Implementation complete. FlateDecode decompression added to extractStreams, tested with fpdf2 PDF (47 paragraphs extracted), all tests pass, container rebuilt and deployed. PDF upload confirmed working via frontend proxy."
         }
       ]
+    },
+    {
+      "id": "fb_20260504_001",
+      "title": "Delete Books",
+      "category": "feature",
+      "priority": "high",
+      "state": "verified",
+      "created_by": "human",
+      "created_at": "2026-05-04T12:06:04.683Z",
+      "updated_at": "2026-05-04T18:58:49Z",
+      "source": "visualizer",
+      "affects_design": false,
+      "body_file": "feedback/fb_20260504_001.md",
+      "linked_design_sections": [],
+      "linked_backlog_items": [
+        "blg_delete_books_feedback"
+      ],
+      "linked_worker_runs": [
+        "wr_20260504_delete_books"
+      ],
+      "resolution": "Implemented Delete Book actions for both /player three-dot menu and Continue Listening. Backend DELETE /api/v1/books/{bookId} removes stored book artifacts; frontend confirms deletion, clears playback state when needed, invalidates book queries, and navigates away from the deleted player. Verified by containerized Go tests and web build.",
+      "history": [
+        {
+          "from": null,
+          "to": "new",
+          "at": "2026-05-04T12:06:04.683Z",
+          "actor": "human",
+          "note": "Created from Hermes Orchestrator Visualizer."
+        },
+        {
+          "at": "2026-05-04T18:36:30Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "in_progress",
+          "note": "Manual Hermes Orchestrator cycle started after stale triggered supervisor failed; backlog item and OpenCode worker run created."
+        },
+        {
+          "at": "2026-05-04T18:58:49Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "verified",
+          "note": "Implementation completed via OpenCode DeepSeek R4 Pro worker, supervisor reconciled fixes, Go tests and web build passed."
+        }
+      ],
+      "orchestrator_trigger": {
+        "status": "spawned",
+        "run_id": "trigger_20260504T120604_30",
+        "feedback_id": "fb_20260504_001",
+        "pid": 73,
+        "command": "'/opt/hermes-venv/bin/python3' '/data/hermes/skills/autonomous-ai-agents/hermes-orchestrator/scripts/orchestrator_supervise_project.py' '/workspace/TwelveReader' '--feedback-id' 'fb_20260504_001' '--hermes-command' '/opt/hermes-venv/bin/hermes' '--supervisor-max-turns' '90'",
+        "metadata_path": "/workspace/TwelveReader/.hermes-orchestrator/supervisor_runs/trigger_20260504T120604_30/metadata.json",
+        "log_path": "/workspace/TwelveReader/.hermes-orchestrator/supervisor_runs/trigger_20260504T120604_30/launcher.log"
+      }
     }
   ]
 }

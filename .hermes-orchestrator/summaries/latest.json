@@ -1,8 +1,8 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "updated_at": "2026-05-03T18:03:39Z",
+  "updated_at": "2026-05-04T18:58:49Z",
   "status": "verified",
-  "latest_run_id": "wr_20260503_short_voice_mapping",
-  "latest_review_id": "rv_20260503_short_voice_mapping"
+  "latest_run_id": "wr_20260504_delete_books",
+  "latest_review_id": "rv_20260504_delete_books"
 }

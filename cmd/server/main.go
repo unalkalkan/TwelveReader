@@ -120,7 +120,9 @@ func main() {
 	})
 	mux.HandleFunc("/api/v1/books/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if strings.HasSuffix(path, "/status") {
+		if r.Method == http.MethodDelete {
+			bookHandler.DeleteBook(w, r)
+		} else if strings.HasSuffix(path, "/status") {
 			bookHandler.GetBookStatus(w, r)
 		} else if strings.HasSuffix(path, "/segments") {
 			bookHandler.ListSegments(w, r)

@@ -599,6 +599,37 @@ func (h *BookHandler) DownloadBook(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, zipReader)
 }
 
+// DeleteBook handles DELETE /api/v1/books/:id
+func (h *BookHandler) DeleteBook(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	bookID := extractIDFromPath(r.URL.Path, "/api/v1/books/")
+	if bookID == "" {
+		respondError(w, "Book ID required", http.StatusBadRequest)
+		return
+	}
+	if bookID == "." || bookID == ".." || strings.ContainsAny(bookID, `/\\`) {
+		respondError(w, "Invalid book ID", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := h.repo.GetBook(r.Context(), bookID); err != nil {
+		respondError(w, "Book not found", http.StatusNotFound)
+		return
+	}
+
+	if err := h.repo.DeleteBook(r.Context(), bookID); err != nil {
+		log.Printf("Failed to delete book %s: %v", bookID, err)
+		respondError(w, "Failed to delete book", http.StatusInternalServerError)
+		return
+	}
+
+	respondJSON(w, map[string]string{"status": "deleted"}, http.StatusOK)
+}
+
 // GetAudio handles GET /api/v1/books/:id/audio/:segmentId
 func (h *BookHandler) GetAudio(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

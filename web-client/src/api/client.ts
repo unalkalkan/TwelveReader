@@ -186,6 +186,19 @@ export async function getBookSegments(bookId: string): Promise<Segment[]> {
   return data.map((item) => SegmentSchema.parse(item));
 }
 
+export async function deleteBook(bookId: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/books/${bookId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({
+      error: 'Delete failed',
+    }));
+    throw new Error(error.error || 'Delete failed');
+  }
+}
+
 // ── Voice Map ───────────────────────────────────────────────────────────
 
 export async function getVoiceMap(bookId: string): Promise<VoiceMap> {
