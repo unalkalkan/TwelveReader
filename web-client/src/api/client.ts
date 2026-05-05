@@ -108,16 +108,28 @@ export type FileSource =
   | { uri: string; name: string; type: string }
   | { blob: Blob; name: string; type: string };
 
-function appendFileToFormData(formData: FormData, source: FileSource): void {
+async function appendFileToFormData(formData: FormData, source: FileSource): Promise<void> {
   if ('blob' in source) {
     formData.append('file', source.blob, source.name);
-  } else {
-    formData.append('file', {
-      uri: source.uri,
-      name: source.name,
-      type: source.type,
-    } as any);
+    return;
   }
+
+  if (typeof window !== 'undefined') {
+    const response = await fetch(source.uri);
+    if (!response.ok) {
+      throw new Error(`Failed to read selected file: ${response.status}`);
+    }
+    const blob = await response.blob();
+    const typedBlob = blob.type === source.type ? blob : blob.slice(0, blob.size, source.type);
+    formData.append('file', typedBlob, source.name);
+    return;
+  }
+
+  formData.append('file', {
+    uri: source.uri,
+    name: source.name,
+    type: source.type,
+  } as any);
 }
 
 function appendMetadata(
@@ -134,7 +146,7 @@ export async function uploadBook(
   metadata?: { title?: string; author?: string; language?: string },
 ): Promise<BookMetadata> {
   const formData = new FormData();
-  appendFileToFormData(formData, fileSource);
+  await appendFileToFormData(formData, fileSource);
   appendMetadata(formData, metadata);
 
   const response = await fetch(`${API_BASE}/books`, {
@@ -326,37 +338,41 @@ export function uploadBookWithProgress(
 ): Promise<BookMetadata> {
   return new Promise((resolve, reject) => {
     const formData = new FormData();
-    appendFileToFormData(formData, fileSource);
-    appendMetadata(formData, metadata);
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${API_BASE}/books`);
+    appendFileToFormData(formData, fileSource)
+      .then(() => {
+        appendMetadata(formData, metadata);
 
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && onProgress) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${API_BASE}/books`);
 
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const data = JSON.parse(xhr.responseText);
-          resolve(BookMetadataSchema.parse(data));
-        } catch (err: any) {
-          reject(new Error('Invalid response from server'));
-        }
-      } else {
-        try {
-          const error = JSON.parse(xhr.responseText);
-          reject(new Error(error.error || 'Upload failed'));
-        } catch {
-          reject(new Error('Upload failed'));
-        }
-      }
-    };
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable && onProgress) {
+            onProgress(Math.round((event.loaded / event.total) * 100));
+          }
+        };
 
-    xhr.onerror = () => reject(new Error('Network error during upload'));
-    xhr.send(formData);
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              resolve(BookMetadataSchema.parse(data));
+            } catch (err: any) {
+              reject(new Error('Invalid response from server'));
+            }
+          } else {
+            try {
+              const error = JSON.parse(xhr.responseText);
+              reject(new Error(error.error || 'Upload failed'));
+            } catch {
+              reject(new Error('Upload failed'));
+            }
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.send(formData);
+      })
+      .catch(reject);
   });
 }

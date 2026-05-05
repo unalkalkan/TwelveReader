@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "updated_at": "2026-05-04T18:58:49Z",
+  "updated_at": "2026-05-05T09:13:01Z",
   "entries": [
     {
       "id": "fb_20260430_001",
@@ -97,7 +97,7 @@
           "actor": "hermes",
           "from": "new",
           "to": "in_progress",
-          "note": "High priority — PDF is the primary upload format. Adding FlateDecode decompression to extractStreams."
+          "note": "High priority \u2014 PDF is the primary upload format. Adding FlateDecode decompression to extractStreams."
         },
         {
           "at": "2026-05-03T19:48:00Z",
@@ -160,6 +160,53 @@
         "metadata_path": "/workspace/TwelveReader/.hermes-orchestrator/supervisor_runs/trigger_20260504T120604_30/metadata.json",
         "log_path": "/workspace/TwelveReader/.hermes-orchestrator/supervisor_runs/trigger_20260504T120604_30/launcher.log"
       }
+    },
+    {
+      "id": "fb_20260505_voice_samples",
+      "title": "Persist reusable test voice samples",
+      "category": "feature",
+      "priority": "high",
+      "state": "verified",
+      "created_by": "human",
+      "created_at": "2026-05-05T09:13:01Z",
+      "updated_at": "2026-05-05T09:13:01Z",
+      "source": "telegram",
+      "affects_design": true,
+      "body_file": "feedback/fb_20260505_voice_samples.md",
+      "linked_design_sections": [
+        "Scope",
+        "Architecture",
+        "Constraints",
+        "Human Steering Incorporated"
+      ],
+      "linked_backlog_items": [
+        "blg_persistent_voice_samples"
+      ],
+      "linked_worker_runs": [],
+      "resolution": "Implemented filesystem-backed reusable voice preview samples under storage path voice-samples/. Backend pre-generates missing samples after startup/TTS voice listing, PreviewVoice serves cached samples instead of synthesizing per click, samples persist in the existing backend data volume across restarts, and responses include cached=true when served from storage.",
+      "history": [
+        {
+          "at": "2026-05-05T09:13:01Z",
+          "actor": "human",
+          "from": null,
+          "to": "new",
+          "note": "User requested Voices tab preview playback to use generated/stored test samples instead of synthesizing every click."
+        },
+        {
+          "at": "2026-05-05T09:13:01Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "in_progress",
+          "note": "Implemented directly with TDD in the Hermes Orchestrator-enabled project."
+        },
+        {
+          "at": "2026-05-05T09:13:01Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "verified",
+          "note": "Containerized Go tests, TypeScript check, web export, Docker rebuild, production backend restart, cache hit, and restart persistence checks passed."
+        }
+      ]
     }
   ]
 }

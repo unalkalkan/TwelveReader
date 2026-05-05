@@ -101,7 +101,14 @@ func main() {
 	mux.HandleFunc("/api/v1/providers", providersHandler(providerRegistry))
 
 	// Voices API endpoint (Milestone 4)
-	voicesHandler := api.NewVoicesHandler(providerRegistry)
+	voicesHandler := api.NewVoicesHandlerWithSampleStorage(providerRegistry, storage.NewAdapterSampleStore(storageAdapter))
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		if err := voicesHandler.PreGenerateVoiceSamples(ctx); err != nil {
+			log.Printf("Failed to pre-generate voice samples: %v", err)
+		}
+	}()
 	mux.HandleFunc("/api/v1/voices", voicesHandler.ListVoices)
 	mux.HandleFunc("/api/v1/voices/preview", voicesHandler.PreviewVoice)
 

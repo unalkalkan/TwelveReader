@@ -229,6 +229,105 @@ func TestPDFParser_Parse_FlateDecode(t *testing.T) {
 	}
 }
 
+func TestPDFParser_Parse_ReflowsWrappedVisualLines(t *testing.T) {
+	p := NewPDFParser()
+	ctx := context.Background()
+
+	pdfData := buildSimplePDF([]pdfPage{
+		{textStrings: []string{
+			"1. The Message",
+			"The old radio crackled to life at exactly three in the morning. Dr. Sarah Chen had been waiting for this",
+			"moment for seven years, ever since she first pointed the array at Proxima Centauri.",
+			"She leaned forward in her chair, coffee forgotten, as the waveform stabilized on her screen. It wasn't random",
+			"noise. The pattern was unmistakable.",
+		}},
+	})
+
+	chapters, err := p.Parse(ctx, pdfData)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	want := []string{
+		"1. The Message",
+		"The old radio crackled to life at exactly three in the morning. Dr. Sarah Chen had been waiting for this moment for seven years, ever since she first pointed the array at Proxima Centauri.",
+		"She leaned forward in her chair, coffee forgotten, as the waveform stabilized on her screen. It wasn't random noise. The pattern was unmistakable.",
+	}
+	if got := chapters[0].Paragraphs; !equalStringSlices(got, want) {
+		t.Fatalf("unexpected paragraphs:\ngot:  %#v\nwant: %#v", got, want)
+	}
+}
+
+func TestPDFParser_Parse_DoesNotMergeTitlesAndChapterHeadings(t *testing.T) {
+	p := NewPDFParser()
+	ctx := context.Background()
+
+	pdfData := buildSimplePDF([]pdfPage{
+		{textStrings: []string{
+			"The Signal",
+			"A Short Story by A. N. Author",
+			"Chapter One",
+			"1. The Message",
+			"The old radio crackled to life at exactly three in the morning.",
+		}},
+	})
+
+	chapters, err := p.Parse(ctx, pdfData)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	want := []string{
+		"The Signal",
+		"A Short Story by A. N. Author",
+		"Chapter One",
+		"1. The Message",
+		"The old radio crackled to life at exactly three in the morning.",
+	}
+	if got := chapters[0].Paragraphs; !equalStringSlices(got, want) {
+		t.Fatalf("unexpected paragraphs:\ngot:  %#v\nwant: %#v", got, want)
+	}
+}
+
+func TestPDFParser_Parse_ReflowsOpenQuotedDialogue(t *testing.T) {
+	p := NewPDFParser()
+	ctx := context.Background()
+
+	pdfData := buildSimplePDF([]pdfPage{
+		{textStrings: []string{
+			"Sarah's hands trembled as she saved the raw data to three separate drives. \"It's a prime number sequence.",
+			"Someone is saying hello.\"",
+			"\"I think,\" Sarah said slowly, \"it's carrying an answer. To every question we've ever asked about the universe.",
+			"And it wants to deliver it in person.\"",
+		}},
+	})
+
+	chapters, err := p.Parse(ctx, pdfData)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	want := []string{
+		"Sarah's hands trembled as she saved the raw data to three separate drives. \"It's a prime number sequence. Someone is saying hello.\"",
+		"\"I think,\" Sarah said slowly, \"it's carrying an answer. To every question we've ever asked about the universe. And it wants to deliver it in person.\"",
+	}
+	if got := chapters[0].Paragraphs; !equalStringSlices(got, want) {
+		t.Fatalf("unexpected paragraphs:\ngot:  %#v\nwant: %#v", got, want)
+	}
+}
+
+func equalStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 type pdfPage struct {
 	textStrings []string
 }

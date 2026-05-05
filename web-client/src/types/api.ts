@@ -125,6 +125,7 @@ export const VoicePreviewResponseSchema = z.object({
   audio_base64: z.string(),
   mime_type: z.string(),
   format: z.string(),
+  cached: z.boolean().optional(),
 });
 export type VoicePreviewResponse = z.infer<typeof VoicePreviewResponseSchema>;
 

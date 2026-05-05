@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/unalkalkan/TwelveReader/internal/provider"
+	"github.com/unalkalkan/TwelveReader/internal/storage"
 	"github.com/unalkalkan/TwelveReader/pkg/types"
 )
 
@@ -322,5 +323,109 @@ func TestVoicesHandler_PreviewVoiceValidation(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// countingTTSProvider records synthesis calls while returning deterministic audio.
+type countingTTSProvider struct {
+	name            string
+	synthesizeCalls int
+	voices          []provider.Voice
+}
+
+func (c *countingTTSProvider) Name() string { return c.name }
+
+func (c *countingTTSProvider) Synthesize(ctx context.Context, req provider.TTSRequest) (*provider.TTSResponse, error) {
+	c.synthesizeCalls++
+	return &provider.TTSResponse{
+		AudioData: []byte("CACHED_AUDIO_" + req.VoiceID),
+		Format:    "wav",
+	}, nil
+}
+
+func (c *countingTTSProvider) ListVoices(ctx context.Context) ([]provider.Voice, error) {
+	return c.voices, nil
+}
+
+func (c *countingTTSProvider) Close() error { return nil }
+
+func TestVoicesHandler_PreviewVoiceCachesSampleAudio(t *testing.T) {
+	registry := provider.NewRegistry()
+	counting := &countingTTSProvider{
+		name: "counting-tts",
+		voices: []provider.Voice{{
+			ID:          "voice-1",
+			Name:        "Voice 1",
+			Languages:   []string{"en"},
+			Description: "Neutral narrator",
+		}},
+	}
+	if err := registry.RegisterTTS(counting); err != nil {
+		t.Fatalf("Failed to register counting TTS provider: %v", err)
+	}
+
+	handler := NewVoicesHandlerWithSampleStorage(registry, storage.NewMemorySampleStore())
+
+	body := map[string]string{
+		"provider":          "counting-tts",
+		"voice_id":          "voice-1",
+		"text":              "This request text should not affect the reusable voice sample.",
+		"language":          "en",
+		"voice_description": "Neutral narrator",
+	}
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("Failed to marshal request body: %v", err)
+	}
+
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/voices/preview", bytes.NewReader(jsonBody))
+		w := httptest.NewRecorder()
+		handler.PreviewVoice(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("Request %d: expected status 200, got %d", i+1, w.Code)
+		}
+	}
+
+	if counting.synthesizeCalls != 1 {
+		t.Fatalf("Expected preview sample to be synthesized once and then served from cache, got %d calls", counting.synthesizeCalls)
+	}
+}
+
+func TestVoicesHandler_PreGenerateVoiceSamplesStoresEachVoice(t *testing.T) {
+	registry := provider.NewRegistry()
+	counting := &countingTTSProvider{
+		name: "counting-tts",
+		voices: []provider.Voice{
+			{ID: "voice-1", Name: "Voice 1", Languages: []string{"en"}, Description: "Neutral"},
+			{ID: "voice-2", Name: "Voice 2", Languages: []string{"en"}, Description: "Warm"},
+		},
+	}
+	if err := registry.RegisterTTS(counting); err != nil {
+		t.Fatalf("Failed to register counting TTS provider: %v", err)
+	}
+
+	localAdapter, err := storage.NewLocalAdapter(t.TempDir())
+	if err != nil {
+		t.Fatalf("Failed to create local storage adapter: %v", err)
+	}
+	store := storage.NewAdapterSampleStore(localAdapter)
+	handler := NewVoicesHandlerWithSampleStorage(registry, store)
+
+	if err := handler.PreGenerateVoiceSamples(context.Background()); err != nil {
+		t.Fatalf("PreGenerateVoiceSamples failed: %v", err)
+	}
+
+	if counting.synthesizeCalls != 2 {
+		t.Fatalf("Expected one startup synthesis per voice, got %d", counting.synthesizeCalls)
+	}
+
+	// A fresh handler backed by the same filesystem storage should reuse persisted samples after restart.
+	restartedHandler := NewVoicesHandlerWithSampleStorage(registry, storage.NewAdapterSampleStore(localAdapter))
+	if err := restartedHandler.PreGenerateVoiceSamples(context.Background()); err != nil {
+		t.Fatalf("Second PreGenerateVoiceSamples failed: %v", err)
+	}
+	if counting.synthesizeCalls != 2 {
+		t.Fatalf("Expected persisted startup samples to prevent resynthesis, got %d calls", counting.synthesizeCalls)
 	}
 }

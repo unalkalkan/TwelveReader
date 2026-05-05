@@ -2,7 +2,7 @@
 
 **Project Name:** TwelveReader
 **Project ID:** `twelvereader`
-**Updated At:** 2026-04-30T20:43:00Z
+**Updated At:** 2026-05-05T09:13:01Z
 
 This is the canonical design state for TwelveReader on the `ui` branch.
 
@@ -14,7 +14,7 @@ Current scope includes:
 - Book upload from files and typed text.
 - Book metadata collection: title, author, language.
 - Library and exploration views for uploaded/processed books.
-- Voice discovery, search, favorites, recents, and preview playback through `/api/v1/voices` and `/api/v1/voices/preview`.
+- Voice discovery, search, favorites, recents, and cached preview playback through `/api/v1/voices` and `/api/v1/voices/preview`.
 - Player view for synchronized text/audio stream playback through `/api/v1/books/:id/stream` and `/audio/:segmentId`.
 - Processing state visibility through `/status` and `/pipeline/status`.
 - Voice mapping for discovered personas through `/personas`, `/voice-map`, and `POST /voice-map`.
@@ -36,7 +36,7 @@ Prioritize making the WIP UI branch coherent and usable against the existing bac
 - `internal/api/book_handler.go` owns book upload, status, segments, streaming, voice map, personas, audio, download, and pipeline status endpoints.
 - `internal/pipeline` coordinates segmentation, persona discovery, mapping wait states, and synthesis.
 - `internal/provider` abstracts OpenAI-compatible LLM/TTS/OCR providers.
-- `internal/storage` abstracts local/S3 artifact storage.
+- `internal/storage` abstracts local/S3 artifact storage, including reusable voice preview sample files under `voice-samples/`.
 - `web-client/app` contains Expo Router screens and tab navigation.
 - `web-client/src/api` contains typed API functions and TanStack Query hooks.
 - `web-client/src/store` stores playback/favorites state in AsyncStorage.
@@ -47,6 +47,7 @@ Prioritize making the WIP UI branch coherent and usable against the existing bac
 - UI status polling must continue while books are processing or waiting for mapping.
 - Player state should not auto-play after restore.
 - Audio preview/player resources must be unloaded on unmount or switch.
+- Voice preview samples should be generated after backend startup/TTS voice discovery when missing, then reused from storage for subsequent preview clicks and across restarts.
 - Theme should be compact dark/slate/blue: slate backgrounds, blue for primary actions, semantic colors only for status.
 - Do not store GitHub PATs or provider API keys in committed files.
 
@@ -59,6 +60,7 @@ Prioritize making the WIP UI branch coherent and usable against the existing bac
 
 ## Human Steering Incorporated
 - `fb_20260430_001`: Initialize Hermes Orchestrator, assess WIP `ui` branch, create backlog, implement missing pieces directly, and continue until deadline or working product.
+- `fb_20260505_voice_samples`: Voice preview playback must use persisted test samples generated after backend startup/TTS connection instead of synthesizing on every click.
 
 ## Open Questions
 - Which deployment target should be optimized first: static web export behind nginx, Expo dev server, or native mobile preview?
@@ -67,3 +69,4 @@ Prioritize making the WIP UI branch coherent and usable against the existing bac
 
 ## Change Log
 - 2026-04-30T20:43:00Z — Initial real design assessment for the `ui` branch after repository inspection.
+- 2026-05-05T09:13:01Z — Added persistent cached voice preview sample behavior to backend scope/storage constraints.

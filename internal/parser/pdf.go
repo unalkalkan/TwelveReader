@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/unalkalkan/TwelveReader/pkg/types"
 )
@@ -16,10 +18,12 @@ import (
 type PDFParser struct{}
 
 var (
-	pdfStreamRe    = regexp.MustCompile(`(?m)(?:^|\r?\n)stream\r?\n`)
-	pdfEndStreamRe = regexp.MustCompile(`\r?\nendstream`)
-	flateDecodeRe  = regexp.MustCompile(`/FlateDecode`)
-	filterRe       = regexp.MustCompile(`/Filter\s*/FlateDecode`)
+	pdfStreamRe       = regexp.MustCompile(`(?m)(?:^|\r?\n)stream\r?\n`)
+	pdfEndStreamRe    = regexp.MustCompile(`\r?\nendstream`)
+	flateDecodeRe     = regexp.MustCompile(`/FlateDecode`)
+	filterRe          = regexp.MustCompile(`/Filter\s*/FlateDecode`)
+	chapterHeadingRe  = regexp.MustCompile(`(?i)^chapter\s+([0-9]+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b`)
+	numberedHeadingRe = regexp.MustCompile(`^\d{1,3}\.\s+\S`)
 )
 
 func NewPDFParser() *PDFParser {
@@ -52,6 +56,7 @@ func (p *PDFParser) Parse(ctx context.Context, data []byte) ([]*types.Chapter, e
 	if len(allText) == 0 {
 		return nil, fmt.Errorf("pdf: no extractable text found")
 	}
+	allText = reflowExtractedPDFParagraphs(allText)
 
 	chapter := &types.Chapter{
 		ID:         "chapter_001",
@@ -188,6 +193,156 @@ func extractTextFromStream(stream []byte) []string {
 	}
 
 	return paragraphs
+}
+
+func reflowExtractedPDFParagraphs(lines []string) []string {
+	reflowed := make([]string, 0, len(lines))
+	for _, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
+		}
+
+		if len(reflowed) == 0 || shouldStartNewPDFParagraph(reflowed[len(reflowed)-1], line) {
+			reflowed = append(reflowed, line)
+			continue
+		}
+
+		reflowed[len(reflowed)-1] = joinPDFWrappedLines(reflowed[len(reflowed)-1], line)
+	}
+	return reflowed
+}
+
+func shouldStartNewPDFParagraph(previous, current string) bool {
+	previous = strings.TrimSpace(previous)
+	current = strings.TrimSpace(current)
+	if previous == "" || current == "" {
+		return true
+	}
+	if hasUnclosedQuote(previous) {
+		return false
+	}
+	if isPDFHeadingLine(previous) || isPDFHeadingLine(current) {
+		return true
+	}
+	if endsWithSentenceBoundary(previous) {
+		return true
+	}
+	return false
+}
+
+func joinPDFWrappedLines(previous, current string) string {
+	previous = strings.TrimSpace(previous)
+	current = strings.TrimSpace(current)
+	if previous == "" {
+		return current
+	}
+	if current == "" {
+		return previous
+	}
+	if strings.HasSuffix(previous, "-") && !strings.HasSuffix(previous, "--") {
+		return strings.TrimSuffix(previous, "-") + current
+	}
+	return previous + " " + current
+}
+
+func isPDFHeadingLine(line string) bool {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return false
+	}
+	if chapterHeadingRe.MatchString(line) || numberedHeadingRe.MatchString(line) {
+		return true
+	}
+	wordCount := len(strings.Fields(line))
+	if wordCount > 0 && wordCount <= 8 && !endsWithSentenceBoundary(line) && isMostlyTitleCase(line) {
+		return true
+	}
+	return false
+}
+
+func isMostlyTitleCase(line string) bool {
+	words := strings.Fields(line)
+	if len(words) == 0 {
+		return false
+	}
+
+	casedWords := 0
+	titleLikeWords := 0
+	for _, word := range words {
+		trimmed := strings.Trim(word, `"'“”‘’()[]{}.,:;!?`)
+		if trimmed == "" {
+			continue
+		}
+		runes := []rune(trimmed)
+		firstLetter := rune(0)
+		for _, r := range runes {
+			if unicode.IsLetter(r) {
+				firstLetter = r
+				break
+			}
+		}
+		if firstLetter == 0 {
+			continue
+		}
+		casedWords++
+		if unicode.IsUpper(firstLetter) || len([]rune(trimmed)) == 1 {
+			titleLikeWords++
+		}
+	}
+	return casedWords > 0 && titleLikeWords*100/casedWords >= 70
+}
+
+func endsWithSentenceBoundary(line string) bool {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return false
+	}
+
+	for len(line) > 0 {
+		r, size := lastRune(line)
+		if r == '"' || r == '\'' || r == '”' || r == '’' || r == ')' || r == ']' || r == '}' {
+			line = strings.TrimSpace(line[:len(line)-size])
+			continue
+		}
+		break
+	}
+	if line == "" {
+		return false
+	}
+	r, _ := lastRune(line)
+	return r == '.' || r == '!' || r == '?' || r == ':'
+}
+
+func hasUnclosedQuote(line string) bool {
+	straightDoubleQuotes := 0
+	leftDoubleQuotes := 0
+	rightDoubleQuotes := 0
+	for _, r := range line {
+		switch r {
+		case '"':
+			straightDoubleQuotes++
+		case '“':
+			leftDoubleQuotes++
+		case '”':
+			rightDoubleQuotes++
+		}
+	}
+	if straightDoubleQuotes%2 == 1 {
+		return true
+	}
+	return leftDoubleQuotes > rightDoubleQuotes
+}
+
+func lastRune(s string) (rune, int) {
+	for i := len(s); i > 0; {
+		r, size := rune(s[i-1]), 1
+		if r >= utf8.RuneSelf {
+			r, size = utf8.DecodeLastRuneInString(s[:i])
+		}
+		return r, size
+	}
+	return 0, 0
 }
 
 func hasPDFOperatorAt(content string, index int, op string) bool {

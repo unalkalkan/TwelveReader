@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -88,6 +89,7 @@ func (h *BookHandler) UploadBook(w http.ResponseWriter, r *http.Request) {
 
 	// Parse multipart form (max 100MB)
 	if err := r.ParseMultipartForm(100 << 20); err != nil {
+		log.Printf("Upload form parse failed: content_length=%d content_type=%q err=%v", r.ContentLength, r.Header.Get("Content-Type"), err)
 		respondError(w, "Failed to parse form", http.StatusBadRequest)
 		return
 	}
@@ -95,6 +97,7 @@ func (h *BookHandler) UploadBook(w http.ResponseWriter, r *http.Request) {
 	// Get file from form
 	file, header, err := r.FormFile("file")
 	if err != nil {
+		log.Printf("Upload missing file field: content_length=%d content_type=%q form_keys=%v err=%v", r.ContentLength, r.Header.Get("Content-Type"), formKeys(r.MultipartForm), err)
 		respondError(w, "No file provided", http.StatusBadRequest)
 		return
 	}
@@ -894,6 +897,20 @@ func respondJSON(w http.ResponseWriter, data interface{}, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
+}
+
+func formKeys(form *multipart.Form) []string {
+	if form == nil {
+		return nil
+	}
+	keys := make([]string, 0, len(form.Value)+len(form.File))
+	for key := range form.Value {
+		keys = append(keys, key)
+	}
+	for key := range form.File {
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 func respondError(w http.ResponseWriter, message string, status int) {

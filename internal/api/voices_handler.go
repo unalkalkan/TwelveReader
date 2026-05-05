@@ -1,26 +1,47 @@
 package api
 
 import (
-	"encoding/base64"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"log"
 	"net/http"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/unalkalkan/TwelveReader/internal/provider"
+	"github.com/unalkalkan/TwelveReader/internal/storage"
 )
+
+const defaultVoicePreviewText = `In my life, why do I give valuable time
+To people who don't care if I live or die?`
+
+var safeVoiceSamplePartRe = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
 // VoicesHandler handles TTS voice-related API endpoints
 type VoicesHandler struct {
 	providerReg *provider.Registry
+	sampleStore storage.SampleStore
+	sampleLocks sync.Map
 }
 
 // NewVoicesHandler creates a new voices handler
 func NewVoicesHandler(providerReg *provider.Registry) *VoicesHandler {
 	return &VoicesHandler{
 		providerReg: providerReg,
+	}
+}
+
+// NewVoicesHandlerWithSampleStorage creates a voices handler with persistent preview sample storage.
+func NewVoicesHandlerWithSampleStorage(providerReg *provider.Registry, sampleStore storage.SampleStore) *VoicesHandler {
+	return &VoicesHandler{
+		providerReg: providerReg,
+		sampleStore: sampleStore,
 	}
 }
 
@@ -47,6 +68,7 @@ type VoicePreviewResponse struct {
 	AudioBase64 string `json:"audio_base64"`
 	MimeType    string `json:"mime_type"`
 	Format      string `json:"format"`
+	Cached      bool   `json:"cached"`
 }
 
 // ListVoices handles GET /api/v1/voices
@@ -172,24 +194,147 @@ func (h *VoicesHandler) PreviewVoice(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
 
-	ttsResp, err := ttsProvider.Synthesize(ctx, provider.TTSRequest{
-		Text:             req.Text,
-		VoiceID:          req.VoiceID,
-		Language:         req.Language,
-		VoiceDescription: req.VoiceDescription,
-	})
+	sample, err := h.getOrCreateVoiceSample(ctx, ttsProvider, req.Provider, req.VoiceID, req.Language, req.VoiceDescription)
 	if err != nil {
 		respondError(w, fmt.Sprintf("Failed to synthesize preview: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	resp := VoicePreviewResponse{
-		AudioBase64: base64.StdEncoding.EncodeToString(ttsResp.AudioData),
-		MimeType:    audioMimeType(ttsResp.Format),
-		Format:      ttsResp.Format,
+		AudioBase64: base64.StdEncoding.EncodeToString(sample.AudioData),
+		MimeType:    audioMimeType(sample.Format),
+		Format:      sample.Format,
+		Cached:      sample.Cached,
 	}
 
 	respondJSON(w, resp, http.StatusOK)
+}
+
+type voiceSample struct {
+	AudioData []byte
+	Format    string
+	Cached    bool
+}
+
+// PreGenerateVoiceSamples creates missing persistent preview samples for every available TTS voice.
+func (h *VoicesHandler) PreGenerateVoiceSamples(ctx context.Context) error {
+	if h.sampleStore == nil {
+		return nil
+	}
+
+	for _, providerName := range h.providerReg.ListTTS() {
+		ttsProvider, err := h.providerReg.GetTTS(providerName)
+		if err != nil {
+			log.Printf("Failed to get TTS provider %s for sample generation: %v", providerName, err)
+			continue
+		}
+
+		voices, err := ttsProvider.ListVoices(ctx)
+		if err != nil {
+			log.Printf("Failed to list voices from provider %s for sample generation: %v", providerName, err)
+			continue
+		}
+
+		for _, voice := range voices {
+			language := ""
+			if len(voice.Languages) > 0 {
+				language = voice.Languages[0]
+			}
+			if _, err := h.getOrCreateVoiceSample(ctx, ttsProvider, providerName, voice.ID, language, voice.Description); err != nil {
+				log.Printf("Failed to generate sample for voice %s/%s: %v", providerName, voice.ID, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (h *VoicesHandler) getOrCreateVoiceSample(ctx context.Context, ttsProvider provider.TTSProvider, providerName, voiceID, language, voiceDescription string) (*voiceSample, error) {
+	if h.sampleStore == nil {
+		resp, err := synthesizeVoiceSample(ctx, ttsProvider, voiceID, language, voiceDescription)
+		if err != nil {
+			return nil, err
+		}
+		return &voiceSample{AudioData: resp.AudioData, Format: resp.Format, Cached: false}, nil
+	}
+
+	key := h.voiceSampleKey(providerName, voiceID, language, voiceDescription)
+	lockIface, _ := h.sampleLocks.LoadOrStore(key, &sync.Mutex{})
+	lock := lockIface.(*sync.Mutex)
+	lock.Lock()
+	defer lock.Unlock()
+
+	format, audioData, ok, err := h.loadVoiceSample(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		return &voiceSample{AudioData: audioData, Format: format, Cached: true}, nil
+	}
+
+	resp, err := synthesizeVoiceSample(ctx, ttsProvider, voiceID, language, voiceDescription)
+	if err != nil {
+		return nil, err
+	}
+	path := voiceSamplePathForKey(key, resp.Format)
+	if err := h.sampleStore.Put(ctx, path, resp.AudioData); err != nil {
+		return nil, fmt.Errorf("failed to store voice sample: %w", err)
+	}
+	return &voiceSample{AudioData: resp.AudioData, Format: resp.Format, Cached: false}, nil
+}
+
+func synthesizeVoiceSample(ctx context.Context, ttsProvider provider.TTSProvider, voiceID, language, voiceDescription string) (*provider.TTSResponse, error) {
+	return ttsProvider.Synthesize(ctx, provider.TTSRequest{
+		Text:             defaultVoicePreviewText,
+		VoiceID:          voiceID,
+		Language:         language,
+		VoiceDescription: voiceDescription,
+	})
+}
+
+func (h *VoicesHandler) loadVoiceSample(ctx context.Context, key string) (string, []byte, bool, error) {
+	for _, format := range []string{"wav", "mp3", "ogg", "flac"} {
+		path := voiceSamplePathForKey(key, format)
+		exists, err := h.sampleStore.Exists(ctx, path)
+		if err != nil {
+			return "", nil, false, err
+		}
+		if !exists {
+			continue
+		}
+		data, err := h.sampleStore.Get(ctx, path)
+		if err != nil {
+			return "", nil, false, err
+		}
+		return format, data, true, nil
+	}
+	return "", nil, false, nil
+}
+
+func (h *VoicesHandler) voiceSampleKey(providerName, voiceID, language, voiceDescription string) string {
+	base := fmt.Sprintf("%s_%s_%s", safeVoiceSamplePart(providerName), safeVoiceSamplePart(voiceID), safeVoiceSamplePart(language))
+	hasher := fnv.New32a()
+	_, _ = hasher.Write([]byte(voiceDescription))
+	return fmt.Sprintf("%s_%08x", base, hasher.Sum32())
+}
+
+func safeVoiceSamplePart(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "default"
+	}
+	value = safeVoiceSamplePartRe.ReplaceAllString(value, "_")
+	value = strings.Trim(value, "._-")
+	if value == "" {
+		return "default"
+	}
+	if len(value) > 80 {
+		value = value[:80]
+	}
+	return value
+}
+
+func voiceSamplePathForKey(key, format string) string {
+	return filepath.Join("voice-samples", fmt.Sprintf("%s.%s", key, format))
 }
 
 func audioMimeType(format string) string {
