@@ -172,7 +172,7 @@ func TestHybridTTSWorkerMarksBookErrorAfterRetryBudgetExhausted(t *testing.T) {
 	}
 }
 
-func TestShortBookRequestsInitialMappingAfterSegmentationCompletes(t *testing.T) {
+func TestShortBookRequestsInitialMappingAfterSegmentationCompletesWithoutDefaultVoice(t *testing.T) {
 	repo := newPipelineTestRepository()
 	store := newPipelineTestStorage()
 	registry := provider.NewRegistry()
@@ -236,6 +236,78 @@ func TestShortBookRequestsInitialMappingAfterSegmentationCompletes(t *testing.T)
 	case <-time.After(time.Second):
 		cancel()
 		t.Fatalf("expected short-book mapping wait to unblock")
+	}
+}
+
+func TestShortBookUsesDefaultVoiceInsteadOfRequestingInitialMapping(t *testing.T) {
+	repo := newPipelineTestRepository()
+	store := newPipelineTestStorage()
+	registry := provider.NewRegistry()
+	if err := registry.RegisterTTS(&pipelineTestTTSProvider{}); err != nil {
+		t.Fatalf("register tts provider: %v", err)
+	}
+	repo.defaultVoice = &types.DefaultVoice{Provider: "pipeline-test-tts", VoiceID: "voice-default", Language: "en"}
+
+	book := &types.Book{ID: "book_short_default", Title: "Short Default", Status: "segmenting"}
+	if err := repo.SaveBook(context.Background(), book); err != nil {
+		t.Fatalf("save book: %v", err)
+	}
+	segment := &types.Segment{
+		ID:               "seg_short_default",
+		BookID:           book.ID,
+		Text:             "short text",
+		Language:         "en",
+		Person:           "narrator",
+		VoiceDescription: "neutral",
+	}
+
+	orchestrator := NewHybridOrchestrator(
+		PipelineConfig{TTSConcurrency: 1, MinSegmentsBeforeTTS: 5, SegmentationBatchSize: 1},
+		repo,
+		store,
+		&pipelineTestLLMProvider{},
+		registry,
+	)
+	state := newWorkerTestState(book.ID, segment)
+	state.initialMappingDone = false
+	state.unmappedPersonas = nil
+
+	orchestrator.ensureInitialMappingRequested(context.Background(), state)
+
+	select {
+	case event := <-state.voiceMappingNeeded:
+		t.Fatalf("default voice should avoid short-book mapping event, got %#v", event)
+	default:
+	}
+	select {
+	case <-state.initialMappingReceived:
+	default:
+		t.Fatalf("expected short-book default voice to unblock synthesis")
+	}
+	if got := state.mappedPersonas["narrator"]; got != "voice-default" {
+		t.Fatalf("expected narrator auto-mapped to default voice, got %q", got)
+	}
+	if got := state.segmentQueue.MappedCount(); got != 1 {
+		t.Fatalf("expected short-book segment queued for synthesis, got %d", got)
+	}
+
+	voiceMap, err := repo.GetVoiceMap(context.Background(), book.ID)
+	if err != nil {
+		t.Fatalf("expected persisted short-book voice map: %v", err)
+	}
+	if len(voiceMap.Persons) != 1 || voiceMap.Persons[0].ID != "narrator" || voiceMap.Persons[0].ProviderVoice != "voice-default" {
+		t.Fatalf("unexpected short-book voice map: %#v", voiceMap.Persons)
+	}
+
+	updatedBook, err := repo.GetBook(context.Background(), book.ID)
+	if err != nil {
+		t.Fatalf("get book: %v", err)
+	}
+	if updatedBook.WaitingForMapping || len(updatedBook.UnmappedPersonas) != 0 || updatedBook.PendingSegmentCount != 0 {
+		t.Fatalf("short book should not wait for mapping with default voice, got waiting=%v unmapped=%v pending=%d", updatedBook.WaitingForMapping, updatedBook.UnmappedPersonas, updatedBook.PendingSegmentCount)
+	}
+	if updatedBook.Status != "synthesizing" {
+		t.Fatalf("expected book synthesizing after default fallback, got %q", updatedBook.Status)
 	}
 }
 

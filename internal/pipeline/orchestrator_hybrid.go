@@ -284,7 +284,6 @@ func (o *HybridOrchestrator) ensureInitialMappingRequested(ctx context.Context, 
 		state.personaMu.Unlock()
 		return
 	}
-	state.initialMappingDone = true
 	personas := make([]string, 0, len(state.discoveredPersonas))
 	for p := range state.discoveredPersonas {
 		personas = append(personas, p)
@@ -295,6 +294,50 @@ func (o *HybridOrchestrator) ensureInitialMappingRequested(ctx context.Context, 
 		log.Printf("[ensureInitialMappingRequested] No personas discovered for book %s", state.bookID)
 		return
 	}
+
+	defaultVoice, err := o.repo.GetDefaultVoice(ctx)
+	if err == nil && defaultVoice != nil && defaultVoice.VoiceID != "" {
+		state.personaMu.Lock()
+		for _, persona := range personas {
+			if state.mappedPersonas[persona] == "" {
+				state.mappedPersonas[persona] = defaultVoice.VoiceID
+			}
+			state.unmappedPersonas = removeString(state.unmappedPersonas, persona)
+		}
+		state.initialMappingDone = true
+		state.closeInitialMappingOnce.Do(func() {
+			close(state.initialMappingReceived)
+			log.Printf("[ensureInitialMappingRequested] Short-book initial mapping auto-applied from default voice")
+		})
+		voiceMap := state.voiceMapLocked()
+		state.personaMu.Unlock()
+
+		if err := o.repo.SaveVoiceMap(ctx, voiceMap); err != nil {
+			log.Printf("[ensureInitialMappingRequested] Failed to persist default voice map: %v", err)
+		}
+
+		state.segmentsMu.RLock()
+		segments := make([]*types.Segment, len(state.allSegments))
+		copy(segments, state.allSegments)
+		state.segmentsMu.RUnlock()
+		for _, segment := range segments {
+			state.segmentQueue.Enqueue(segment, true)
+		}
+
+		o.updateBookAfterDefaultVoiceMapping(ctx, state)
+		return
+	}
+	if err != nil {
+		log.Printf("[ensureInitialMappingRequested] Failed to load default voice for short book %s: %v", state.bookID, err)
+	}
+
+	state.personaMu.Lock()
+	if state.initialMappingDone {
+		state.personaMu.Unlock()
+		return
+	}
+	state.initialMappingDone = true
+	state.personaMu.Unlock()
 
 	select {
 	case state.voiceMappingNeeded <- PersonaDiscoveryEvent{Personas: personas, IsInitial: true}:
@@ -784,7 +827,11 @@ func (o *HybridOrchestrator) updateBookAfterDefaultVoiceMapping(ctx context.Cont
 	book.WaitingForMapping = len(unmapped) > 0
 	book.DiscoveredPersonas = discovered
 	book.UnmappedPersonas = unmapped
-	book.PendingSegmentCount = state.segmentQueue.UnmappedCount()
+	pendingCount := state.segmentQueue.UnmappedCount()
+	if len(unmapped) == 0 {
+		pendingCount = 0
+	}
+	book.PendingSegmentCount = pendingCount
 	if err := o.repo.UpdateBook(ctx, book); err != nil {
 		log.Printf("[updateBookAfterDefaultVoiceMapping] Failed to update book: %v", err)
 	}
