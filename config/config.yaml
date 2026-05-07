@@ -26,9 +26,9 @@ providers:
   llm:
     - name: "openai"
       enabled: true
-      endpoint: "http://100.78.7.34:8080/v1"
+      endpoint: "http://100.93.213.25:4141/v1"
       api_key: ""                       # Set via TR_LLM_OPENAI_API_KEY env var
-      model: "Qwen3.5-35B-A3B-UD-Q4_K_XL.gguf"
+      model: "gpt-5-mini"
       context_window: 16384
       concurrency: 5
       rate_limit_qps: 10.0
