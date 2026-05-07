@@ -3,6 +3,8 @@ import {
   getServerInfo,
   getProviders,
   getVoices,
+  getDefaultVoice,
+  setDefaultVoice,
   getBooks,
   uploadBook,
   uploadBookWithProgress,
@@ -63,6 +65,32 @@ export function useVoices(provider?: string) {
     queryKey: ['voices', provider],
     queryFn: () => getVoices(provider),
     staleTime: 5 * 60_000,
+  });
+}
+
+// ── Default Voice ───────────────────────────────────────────────────────
+
+export function useDefaultVoice() {
+  return useQuery({
+    queryKey: ['defaultVoice'],
+    queryFn: getDefaultVoice,
+    staleTime: 60_000,
+  });
+}
+
+export function useSetDefaultVoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      provider: string;
+      voice_id: string;
+      language?: string;
+      voice_description?: string;
+    }) => setDefaultVoice(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['defaultVoice'] });
+      qc.invalidateQueries({ queryKey: ['voices'] });
+    },
   });
 }
 

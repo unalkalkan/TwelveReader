@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "updated_at": "2026-05-05T09:13:01Z",
+  "updated_at": "2026-05-06T19:38:39Z",
   "items": [
     {
       "id": "blg_bootstrap_orchestrator",
@@ -390,6 +390,88 @@
       "last_run_id": null,
       "created_at": "2026-05-05T09:13:01Z",
       "updated_at": "2026-05-05T09:13:01Z"
+    },
+    {
+      "id": "blg_short_step1_core_tts_config",
+      "title": "Short Step 1: harden current Qwen3-TTS provider path",
+      "description": "Keep current OpenAI-compatible qwen3-tts integration stable without vLLM-omni/workstation changes; verify provider/voice defaults and preserve cached voice previews.",
+      "status": "ready",
+      "priority": 92,
+      "role_hint": "builder",
+      "phase": "short-term",
+      "dependencies": [],
+      "acceptance_refs": [
+        "feedback/fb_20260506_short_step1_core_tts_config.md",
+        "acceptance.md#milestone-short-term-core-qwen3-tts-hardening"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-06T18:49:55Z"
+    },
+    {
+      "id": "blg_short_step2_single_user_default_voice",
+      "title": "Short Step 2: add single-user default voice setting",
+      "description": "Persist a default voice for the single current user, expose GET/PUT API and make Voices tab display/change it.",
+      "status": "done",
+      "priority": 91,
+      "role_hint": "builder",
+      "phase": "short-term",
+      "dependencies": [
+        "blg_short_step1_core_tts_config"
+      ],
+      "acceptance_refs": [
+        "feedback/fb_20260506_short_step2_default_voice.md",
+        "acceptance.md#milestone-short-term-core-qwen3-tts-hardening"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260506_step2_default_voice_frontend",
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-06T19:38:39Z"
+    },
+    {
+      "id": "blg_short_step3_default_voice_auto_mapping",
+      "title": "Short Step 3: auto-map discovered personas to default voice",
+      "description": "On upload/pipeline start, apply the default voice as the mapping for discovered personas so segmentation and synthesis start immediately without waiting for manual voice mapping.",
+      "status": "ready",
+      "priority": 90,
+      "role_hint": "builder",
+      "phase": "short-term",
+      "dependencies": [
+        "blg_short_step2_single_user_default_voice"
+      ],
+      "acceptance_refs": [
+        "feedback/fb_20260506_short_step3_immediate_synthesis.md",
+        "acceptance.md#milestone-short-term-core-qwen3-tts-hardening"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-06T18:49:55Z"
+    },
+    {
+      "id": "blg_short_step4_remap_stale_resynthesis",
+      "title": "Short Step 4: remap stale audio and prioritize fresh segments",
+      "description": "When persona mappings change, prioritize future/newer segments with the new voice, mark old audio stale, and regenerate stale segments after current book synthesis completes.",
+      "status": "ready",
+      "priority": 89,
+      "role_hint": "builder",
+      "phase": "short-term",
+      "dependencies": [
+        "blg_short_step3_default_voice_auto_mapping"
+      ],
+      "acceptance_refs": [
+        "feedback/fb_20260506_short_step4_remap_stale_resynthesis.md",
+        "acceptance.md#milestone-short-term-core-qwen3-tts-hardening"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-06T18:49:55Z"
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "updated_at": "2026-05-05T09:13:01Z",
+  "updated_at": "2026-05-06T19:38:39Z",
   "entries": [
     {
       "id": "fb_20260430_001",
@@ -205,6 +205,209 @@
           "from": "in_progress",
           "to": "verified",
           "note": "Containerized Go tests, TypeScript check, web export, Docker rebuild, production backend restart, cache hit, and restart persistence checks passed."
+        }
+      ]
+    },
+    {
+      "id": "fb_20260506_short_step1_core_tts_config",
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-06T18:49:55Z",
+      "created_by": "human",
+      "source": "telegram",
+      "state": "planned",
+      "title": "Short-term Step 1: harden core Qwen3-TTS provider configuration",
+      "body_file": "feedback/fb_20260506_short_step1_core_tts_config.md",
+      "category": "backend",
+      "priority": "high",
+      "affects_design": true,
+      "linked_design_sections": [
+        "Scope",
+        "Current Direction",
+        "Architecture",
+        "Constraints",
+        "Design Decisions",
+        "Human Steering Incorporated"
+      ],
+      "linked_backlog_items": [
+        "blg_short_step1_core_tts_config"
+      ],
+      "linked_worker_runs": [],
+      "resolution": null,
+      "history": [
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "human",
+          "from": null,
+          "to": "new",
+          "note": "Project-owner feedback received via Telegram."
+        },
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "planned",
+          "note": "Triaged into short-term implementation backlog through Step 4."
+        }
+      ]
+    },
+    {
+      "id": "fb_20260506_short_step2_default_voice",
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-06T19:38:39Z",
+      "created_by": "human",
+      "source": "telegram",
+      "state": "verified",
+      "title": "Short-term Step 2: one-user default voice setting",
+      "body_file": "feedback/fb_20260506_short_step2_default_voice.md",
+      "category": "ux",
+      "priority": "high",
+      "affects_design": true,
+      "linked_design_sections": [
+        "Scope",
+        "Current Direction",
+        "Architecture",
+        "Constraints",
+        "Design Decisions",
+        "Human Steering Incorporated"
+      ],
+      "linked_backlog_items": [
+        "blg_short_step2_single_user_default_voice"
+      ],
+      "linked_worker_runs": [
+        "wr_20260506_step2_default_voice_backend",
+        "wr_20260506_step2_default_voice_frontend"
+      ],
+      "resolution": {
+        "status": "implemented",
+        "at": "2026-05-06T19:38:39Z",
+        "note": "Single-user default voice backend and Voices tab UX implemented and verified by tests/typecheck/review."
+      },
+      "history": [
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "human",
+          "from": null,
+          "to": "new",
+          "note": "Project-owner feedback received via Telegram."
+        },
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "planned",
+          "note": "Triaged into short-term implementation backlog through Step 4."
+        },
+        {
+          "at": "2026-05-06T19:16:03Z",
+          "actor": "hermes",
+          "from": "planned",
+          "to": "in_progress",
+          "note": "Backend Step 2 worker implementation completed and entered review."
+        },
+        {
+          "at": "2026-05-06T19:25:06Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "in_progress",
+          "note": "Backend default voice slice reviewed and accepted; frontend Voices tab integration still pending."
+        },
+        {
+          "at": "2026-05-06T19:30:20Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "in_progress",
+          "note": "Frontend default voice UX slice implemented and awaiting review."
+        },
+        {
+          "at": "2026-05-06T19:38:39Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "verified",
+          "note": "Step 2 full implementation passed review; no must-fix issues."
+        }
+      ]
+    },
+    {
+      "id": "fb_20260506_short_step3_immediate_synthesis",
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-06T18:49:55Z",
+      "created_by": "human",
+      "source": "telegram",
+      "state": "planned",
+      "title": "Short-term Step 3: upload starts segmentation and synthesis immediately with default voice",
+      "body_file": "feedback/fb_20260506_short_step3_immediate_synthesis.md",
+      "category": "backend",
+      "priority": "high",
+      "affects_design": true,
+      "linked_design_sections": [
+        "Scope",
+        "Current Direction",
+        "Architecture",
+        "Constraints",
+        "Design Decisions",
+        "Human Steering Incorporated"
+      ],
+      "linked_backlog_items": [
+        "blg_short_step3_default_voice_auto_mapping"
+      ],
+      "linked_worker_runs": [],
+      "resolution": null,
+      "history": [
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "human",
+          "from": null,
+          "to": "new",
+          "note": "Project-owner feedback received via Telegram."
+        },
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "planned",
+          "note": "Triaged into short-term implementation backlog through Step 4."
+        }
+      ]
+    },
+    {
+      "id": "fb_20260506_short_step4_remap_stale_resynthesis",
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-06T18:49:55Z",
+      "created_by": "human",
+      "source": "telegram",
+      "state": "planned",
+      "title": "Short-term Step 4: persona remap marks old audio stale and prioritizes new segments",
+      "body_file": "feedback/fb_20260506_short_step4_remap_stale_resynthesis.md",
+      "category": "backend",
+      "priority": "high",
+      "affects_design": true,
+      "linked_design_sections": [
+        "Scope",
+        "Current Direction",
+        "Architecture",
+        "Constraints",
+        "Design Decisions",
+        "Human Steering Incorporated"
+      ],
+      "linked_backlog_items": [
+        "blg_short_step4_remap_stale_resynthesis"
+      ],
+      "linked_worker_runs": [],
+      "resolution": null,
+      "history": [
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "human",
+          "from": null,
+          "to": "new",
+          "note": "Project-owner feedback received via Telegram."
+        },
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "planned",
+          "note": "Triaged into short-term implementation backlog through Step 4."
         }
       ]
     }

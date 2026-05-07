@@ -136,6 +136,16 @@ export const ServerInfoSchema = z.object({
 });
 export type ServerInfo = z.infer<typeof ServerInfoSchema>;
 
+// ── Default Voice ──────────────────────────────────────────────────────
+export const DefaultVoiceSchema = z.object({
+  provider: z.string(),
+  voice_id: z.string(),
+  language: z.string().optional(),
+  voice_description: z.string().optional(),
+  updated_at: z.string().optional(),
+});
+export type DefaultVoice = z.infer<typeof DefaultVoiceSchema>;
+
 // ── Providers ──────────────────────────────────────────────────────────
 export const ProvidersSchema = z.object({
   llm: z.array(z.string()),

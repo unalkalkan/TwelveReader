@@ -162,6 +162,48 @@ curl http://localhost:8080/api/v1/voices?provider=openai-tts
 
 ---
 
+### GET /api/v1/voices/default
+Returns the single-user default narration voice. If no default voice has been saved yet, the server assigns the first available TTS provider voice and persists it.
+
+**Response:**
+```json
+{
+  "provider": "qwen3-tts",
+  "voice_id": "aiden",
+  "language": "en",
+  "voice_description": "warm and clear",
+  "updated_at": "2026-05-06T18:49:55Z"
+}
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `503 Service Unavailable` - No TTS voices are available or default voice storage is not configured
+
+---
+
+### PUT /api/v1/voices/default
+Sets the single-user default narration voice used by new books and unmapped personas.
+
+**Request Body:**
+```json
+{
+  "provider": "qwen3-tts",
+  "voice_id": "aiden",
+  "language": "en",
+  "voice_description": "warm and clear"
+}
+```
+
+**Response:** Same as `GET /api/v1/voices/default`.
+
+**Status Codes:**
+- `200 OK` - Default voice saved
+- `400 Bad Request` - Invalid payload, provider not found, or voice not found for provider
+- `503 Service Unavailable` - Default voice storage is not configured
+
+---
+
 ### POST /api/v1/voices/preview
 Generates a short TTS preview for a selected voice and returns base64 audio.
 

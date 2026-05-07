@@ -516,3 +516,74 @@ func TestPersonaProfileRepository(t *testing.T) {
 		}
 	})
 }
+
+
+
+func TestDefaultVoiceRepository(t *testing.T) {
+	tempDir := t.TempDir()
+	storageAdapter, err := storage.NewLocalAdapter(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to create storage adapter: %v", err)
+	}
+	defer storageAdapter.Close()
+
+	repo := NewRepository(storageAdapter)
+	ctx := context.Background()
+
+	t.Run("GetMissingDefaultVoiceReturnsNil", func(t *testing.T) {
+		setting, err := repo.GetDefaultVoice(ctx)
+		if err != nil {
+			t.Fatalf("Expected missing default voice to be non-fatal, got: %v", err)
+		}
+		if setting != nil {
+			t.Fatalf("Expected nil missing default voice, got %#v", setting)
+		}
+	})
+
+	t.Run("SaveAndGetDefaultVoice", func(t *testing.T) {
+		setting := &types.DefaultVoice{
+			Provider:         "stub-tts",
+			VoiceID:          "stub-voice-1",
+			Language:         "en",
+			VoiceDescription: "A stub voice for testing",
+			UpdatedAt:        time.Now().UTC().Truncate(time.Millisecond),
+		}
+		if err := repo.SaveDefaultVoice(ctx, setting); err != nil {
+			t.Fatalf("Failed to save default voice: %v", err)
+		}
+
+		retrieved, err := repo.GetDefaultVoice(ctx)
+		if err != nil {
+			t.Fatalf("Failed to get default voice: %v", err)
+		}
+		if retrieved == nil {
+			t.Fatal("Expected default voice, got nil")
+		}
+		if retrieved.Provider != setting.Provider || retrieved.VoiceID != setting.VoiceID {
+			t.Fatalf("Default voice mismatch: got %s/%s want %s/%s", retrieved.Provider, retrieved.VoiceID, setting.Provider, setting.VoiceID)
+		}
+		if retrieved.Language != setting.Language {
+			t.Fatalf("Language mismatch: got %s want %s", retrieved.Language, setting.Language)
+		}
+		if retrieved.VoiceDescription != setting.VoiceDescription {
+			t.Fatalf("VoiceDescription mismatch: got %s want %s", retrieved.VoiceDescription, setting.VoiceDescription)
+		}
+	})
+
+	t.Run("PersistsAcrossRepositoryInstances", func(t *testing.T) {
+		freshAdapter, err := storage.NewLocalAdapter(tempDir)
+		if err != nil {
+			t.Fatalf("Failed to reopen storage adapter: %v", err)
+		}
+		defer freshAdapter.Close()
+		freshRepo := NewRepository(freshAdapter)
+
+		retrieved, err := freshRepo.GetDefaultVoice(ctx)
+		if err != nil {
+			t.Fatalf("Failed to get default voice from fresh repository: %v", err)
+		}
+		if retrieved == nil || retrieved.Provider != "stub-tts" || retrieved.VoiceID != "stub-voice-1" {
+			t.Fatalf("Default voice did not persist across repository instances: %#v", retrieved)
+		}
+	})
+}

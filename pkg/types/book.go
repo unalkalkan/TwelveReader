@@ -2,6 +2,16 @@ package types
 
 import "time"
 
+// DefaultVoice stores the single-user default TTS voice selection.
+// This is intentionally account-like but global until real accounts exist.
+type DefaultVoice struct {
+	Provider         string    `json:"provider"`
+	VoiceID          string    `json:"voice_id"`
+	Language         string    `json:"language,omitempty"`
+	VoiceDescription string    `json:"voice_description,omitempty"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
 // Book represents a book being processed
 type Book struct {
 	ID            string    `json:"id"`

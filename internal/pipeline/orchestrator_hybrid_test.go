@@ -409,6 +409,12 @@ func (r *pipelineTestRepository) SaveVoiceMap(ctx context.Context, voiceMap *typ
 func (r *pipelineTestRepository) GetVoiceMap(ctx context.Context, bookID string) (*types.VoiceMap, error) {
 	return nil, fmt.Errorf("voice map not found")
 }
+func (r *pipelineTestRepository) SaveDefaultVoice(ctx context.Context, setting *types.DefaultVoice) error {
+	return nil
+}
+func (r *pipelineTestRepository) GetDefaultVoice(ctx context.Context) (*types.DefaultVoice, error) {
+	return nil, nil
+}
 func (r *pipelineTestRepository) SavePersonaProfiles(ctx context.Context, bookID string, profiles []*types.PersonaProfile) error {
 	return nil
 }

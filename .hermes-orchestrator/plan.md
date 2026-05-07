@@ -33,3 +33,14 @@
 
 ## Current focus
 Phase 2 then Phase 3: compile fix, voice-mapping UI, and player/library polish.
+
+## Short-term focus — core Qwen3-TTS UX hardening
+1. Harden the current Qwen3-TTS/OpenAI-compatible provider path without vLLM-omni or workstation changes.
+2. Add a single-user default voice setting and expose it in the Voices tab.
+3. Use the default voice to auto-map discovered personas so upload starts segmentation/synthesis immediately.
+4. Support persona remapping by prioritizing new/future synthesis and marking old audio stale for later regeneration.
+
+## Paused for now
+- Quality/production rollout steps.
+- Medium-term enhancements.
+- vLLM-omni/workstation integration.

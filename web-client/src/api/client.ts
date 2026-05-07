@@ -5,6 +5,7 @@ import {
   VoiceMapSchema,
   VoicesResponseSchema,
   VoicePreviewResponseSchema,
+  DefaultVoiceSchema,
   ServerInfoSchema,
   ProvidersSchema,
   PersonaDiscoverySchema,
@@ -15,6 +16,7 @@ import {
   type VoiceMap,
   type VoicesResponse,
   type VoicePreviewResponse,
+  type DefaultVoice,
   type ServerInfo,
   type Providers,
   type PersonaDiscovery,
@@ -99,6 +101,32 @@ export async function previewVoice(params: {
       body: JSON.stringify(params),
     },
     VoicePreviewResponseSchema,
+  );
+}
+
+// ── Default Voice ───────────────────────────────────────────────────────
+
+export async function getDefaultVoice(): Promise<DefaultVoice> {
+  return apiRequest<DefaultVoice>(
+    `${API_BASE}/voices/default`,
+    {},
+    DefaultVoiceSchema,
+  );
+}
+
+export async function setDefaultVoice(payload: {
+  provider: string;
+  voice_id: string;
+  language?: string;
+  voice_description?: string;
+}): Promise<DefaultVoice> {
+  return apiRequest<DefaultVoice>(
+    `${API_BASE}/voices/default`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
+    DefaultVoiceSchema,
   );
 }
 

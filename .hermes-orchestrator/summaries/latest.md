@@ -1,27 +1,25 @@
-# Latest Summary
+# TwelveReader Hermes Orchestrator Summary
 
-**Project:** TwelveReader
-**Branch:** `ui`
-**Updated At:** 2026-05-04T18:58:49Z
+Updated: 2026-05-06T19:38:39Z
 
-## Current state
-- Delete Books feedback `fb_20260504_001` is implemented and verified.
-- Backlog item `blg_delete_books_feedback` is done.
-- Worker run `wr_20260504_delete_books` used OpenCode model `opencode-go/deepseek-v4-pro`; supervisor reconciled missing edge cases before acceptance.
+## Current focus
+Short-term core Qwen3-TTS UX hardening only, through Step 4. Medium-term, production/quality expansion, workstation, and vLLM-omni work are intentionally deferred.
 
-## Fixes completed
-- Added backend `DELETE /api/v1/books/{bookId}` routing and handler.
-- Added repository/storage deletion support for local storage and S3-compatible storage.
-- Added frontend `deleteBook` API helper and `useDeleteBook` mutation with query invalidation.
-- Added Delete Book dropdown actions to the `/player?bookId=...` top-bar menu and Continue Listening three-dot menu.
-- Deletion confirms first, clears playback state when deleting the active book, and navigates away from the deleted player.
+## Completed in this supervisor cycle
+- OpenCode project config set to `opencode-go/deepseek-v4-pro`.
+- Human feedback entries created for Steps 1-4.
+- Design, plan, backlog, and acceptance updated for the new default-voice/remap direction.
+- Step 2 implemented and verified:
+  - backend `GET/PUT /api/v1/voices/default`
+  - persisted single-user default voice at `settings/default-voice.json`
+  - Voices tab default voice banner and Set default action
 
-## Validation passed
-- `docker run --rm -v "$PWD":/src -w /src golang:1.24-alpine sh -c 'go version && gofmt -w ... && go test ./...'`
-- `cd web-client && npm run build`
-- `git diff --check`
-- Production redeploy: rebuilt `twelvereader:latest` and `twelvereader-frontend:latest`, recreated prod containers, verified backend `/health/live` and frontend `/player?bookId=smoke`
-- Delete smoke: app-owned test book returned GET 200, DELETE `{"status":"deleted"}`, storage directory removed, second DELETE 404
+## Verification
+- `git diff --check` passed.
+- `./scripts/container-go-test.sh ./...` passed.
+- `cd web-client && npx tsc --noEmit` passed.
+- Review `rev_20260506_step2_default_voice_full` verdict: pass.
 
-## Remaining blocker
-- GitHub push remains blocked by missing authentication, but local accepted work is ready for commit.
+## Next safe work
+- Step 3: use persisted default voice to auto-map discovered personas so upload processing and synthesis start immediately without waiting for manual voice selection.
+- Step 4: persona remapping should mark old audio stale, prioritize fresh/current segments, then regenerate stale audio after book synthesis finishes.

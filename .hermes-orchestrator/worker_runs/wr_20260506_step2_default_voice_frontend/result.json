@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "run_id": "wr_20260506_step2_default_voice_frontend",
+  "status": "implemented_needs_review",
+  "completed_at": "2026-05-06T19:30:20Z",
+  "summary": "Wired Voices tab to default voice API: added DefaultVoice schema/type, client functions, query/mutation hooks, default voice banner, row selected state, and Set default action.",
+  "files_changed": [
+    "web-client/src/types/api.ts",
+    "web-client/src/api/client.ts",
+    "web-client/src/api/hooks.ts",
+    "web-client/app/(tabs)/voices.tsx"
+  ],
+  "tests_run": [
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    },
+    {
+      "command": "cd web-client && npx tsc --noEmit",
+      "result": "passed"
+    }
+  ],
+  "blockers": [],
+  "risks": [
+    "No browser visual QA run yet; implementation is typechecked only."
+  ],
+  "review_request": "Review UX layout and ensure existing preview/favorites interactions remain intact."
+}

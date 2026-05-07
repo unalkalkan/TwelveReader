@@ -101,7 +101,7 @@ func main() {
 	mux.HandleFunc("/api/v1/providers", providersHandler(providerRegistry))
 
 	// Voices API endpoint (Milestone 4)
-	voicesHandler := api.NewVoicesHandlerWithSampleStorage(providerRegistry, storage.NewAdapterSampleStore(storageAdapter))
+	voicesHandler := api.NewVoicesHandlerWithRepositoryAndSampleStorage(providerRegistry, bookRepo, storage.NewAdapterSampleStore(storageAdapter))
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
@@ -110,6 +110,7 @@ func main() {
 		}
 	}()
 	mux.HandleFunc("/api/v1/voices", voicesHandler.ListVoices)
+	mux.HandleFunc("/api/v1/voices/default", voicesHandler.DefaultVoice)
 	mux.HandleFunc("/api/v1/voices/preview", voicesHandler.PreviewVoice)
 
 	// Book API endpoints (Milestone 3)

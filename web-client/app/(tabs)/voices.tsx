@@ -16,7 +16,7 @@ import { Audio, type AVPlaybackStatus } from 'expo-av';
 
 import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../src/hooks/useColorScheme';
-import { useVoices } from '../../src/api/hooks';
+import { useVoices, useDefaultVoice, useSetDefaultVoice } from '../../src/api/hooks';
 import { useFavorites } from '../../src/store/favoritesStore';
 import { previewVoice } from '../../src/api/client';
 import type { Voice } from '../../src/types/api';
@@ -51,6 +51,8 @@ export default function VoicesScreen() {
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const previewSoundRef = useRef<Audio.Sound | null>(null);
   const { data: voicesData, isLoading, refetch } = useVoices('qwen3-tts');
+  const { data: defaultVoice } = useDefaultVoice();
+  const setDefaultVoiceMutation = useSetDefaultVoice();
   const { favoriteIds, isFavorite, toggleFavorite, recentIds, addRecent } = useFavorites();
 
   useFocusEffect(
@@ -60,6 +62,21 @@ export default function VoicesScreen() {
   );
 
   const allVoices = voicesData?.voices ?? [];
+
+  const defaultVoiceName =
+    defaultVoice && allVoices.find((v) => v.id === defaultVoice.voice_id)?.name;
+
+  const isVoiceDefault = (voiceId: string) =>
+    defaultVoice?.voice_id === voiceId;
+
+  const handleSetDefault = (voice: Voice) => {
+    setDefaultVoiceMutation.mutate({
+      provider: voice.provider,
+      voice_id: voice.id,
+      language: voice.languages?.[0],
+      voice_description: voice.description,
+    });
+  };
 
   // Filter voices based on active tab + search
   const filteredVoices = useMemo(() => {
@@ -249,6 +266,26 @@ export default function VoicesScreen() {
         ))}
       </ScrollView>
 
+      {/* ─── Default Voice status ─── */}
+      {defaultVoice && (
+        <View style={[styles.defaultBanner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.defaultBannerLeft}>
+            <MaterialIcons name="star" size={18} color={colors.accent} />
+            <View style={{ marginLeft: 10, flex: 1 }}>
+              <Text style={[styles.defaultBannerLabel, { color: colors.textMuted }]}>
+                Default voice
+              </Text>
+              <Text style={[styles.defaultBannerName, { color: colors.text }]}>
+                {defaultVoiceName || defaultVoice.voice_id}
+              </Text>
+            </View>
+          </View>
+          {setDefaultVoiceMutation.isPending && (
+            <ActivityIndicator size="small" color={colors.accent} />
+          )}
+        </View>
+      )}
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -269,10 +306,13 @@ export default function VoicesScreen() {
                     gradientIdx={idx}
                     colors={colors}
                     isFav={isFavorite(voice.id)}
+                    isDefault={isVoiceDefault(voice.id)}
                     onToggleFav={() => toggleFavorite(voice.id)}
+                    onSetDefault={() => handleSetDefault(voice)}
                     onPreview={() => handlePreviewVoice(voice)}
                     isPreviewLoading={loadingVoiceId === voice.id}
                     isPreviewPlaying={playingVoiceId === voice.id}
+                    isSettingDefault={setDefaultVoiceMutation.isPending}
                   />
                 ))
               ) : isLoading ? (
@@ -322,10 +362,13 @@ export default function VoicesScreen() {
                     gradientIdx={idx + 4}
                     colors={colors}
                     isFav={isFavorite(voice.id)}
+                    isDefault={isVoiceDefault(voice.id)}
                     onToggleFav={() => toggleFavorite(voice.id)}
+                    onSetDefault={() => handleSetDefault(voice)}
                     onPreview={() => handlePreviewVoice(voice)}
                     isPreviewLoading={loadingVoiceId === voice.id}
                     isPreviewPlaying={playingVoiceId === voice.id}
+                    isSettingDefault={setDefaultVoiceMutation.isPending}
                   />
                 ))}
               </View>
@@ -376,10 +419,13 @@ export default function VoicesScreen() {
                 gradientIdx={idx}
                 colors={colors}
                 isFav={isFavorite(voice.id)}
+                isDefault={isVoiceDefault(voice.id)}
                 onToggleFav={() => toggleFavorite(voice.id)}
+                onSetDefault={() => handleSetDefault(voice)}
                 onPreview={() => handlePreviewVoice(voice)}
                 isPreviewLoading={loadingVoiceId === voice.id}
                 isPreviewPlaying={playingVoiceId === voice.id}
+                isSettingDefault={setDefaultVoiceMutation.isPending}
               />
             ))}
           </View>
@@ -398,19 +444,25 @@ function VoiceRow({
   gradientIdx,
   colors,
   isFav,
+  isDefault,
   onToggleFav,
+  onSetDefault,
   onPreview,
   isPreviewLoading,
   isPreviewPlaying,
+  isSettingDefault,
 }: {
   voice: Voice;
   gradientIdx: number;
   colors: typeof Colors.dark;
   isFav: boolean;
+  isDefault: boolean;
   onToggleFav: () => void;
+  onSetDefault: () => void;
   onPreview: () => void;
   isPreviewLoading: boolean;
   isPreviewPlaying: boolean;
+  isSettingDefault: boolean;
 }) {
   const gc = GRADIENT_COLORS[gradientIdx % GRADIENT_COLORS.length];
 
@@ -441,6 +493,26 @@ function VoiceRow({
           </Text>
         )}
       </View>
+      <TouchableOpacity
+        onPress={onSetDefault}
+        disabled={isDefault || isSettingDefault}
+        style={[
+          styles.defaultAction,
+          {
+            backgroundColor: isDefault ? colors.accent : colors.card,
+            opacity: isSettingDefault && !isDefault ? 0.6 : 1,
+          },
+        ]}
+      >
+        <MaterialIcons
+          name={isDefault ? 'star' : 'star-border'}
+          size={16}
+          color={isDefault ? '#FFF' : colors.textMuted}
+        />
+        <Text style={[styles.defaultActionText, { color: isDefault ? '#FFF' : colors.textMuted }]}>
+          {isDefault ? 'Default' : 'Set default'}
+        </Text>
+      </TouchableOpacity>
       <TouchableOpacity onPress={onToggleFav}>
         <MaterialIcons
           name={isFav ? 'favorite' : 'favorite-border'}
@@ -498,6 +570,30 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   pillText: { fontSize: 14 },
+  defaultBanner: {
+    marginHorizontal: 24,
+    marginTop: 8,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  defaultBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  defaultBannerLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  defaultBannerName: { fontSize: 15, fontWeight: '700', marginTop: 2 },
   scrollContent: { paddingHorizontal: 24 },
   section: { marginTop: 28 },
   sectionTitle: { fontSize: 20, fontWeight: '700', marginBottom: 16 },
@@ -518,6 +614,15 @@ const styles = StyleSheet.create({
   voiceName: { fontSize: 16, fontWeight: '600', marginBottom: 2 },
   voiceDesc: { fontSize: 12, lineHeight: 16 },
   voiceLangs: { fontSize: 11, marginTop: 2, fontStyle: 'italic' },
+  defaultAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+  },
+  defaultActionText: { fontSize: 11, fontWeight: '700' },
   // Collections
   collectionCard: {
     width: 288,

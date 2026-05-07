@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "locked": false,
-  "run_id": null,
-  "status": "idle",
-  "started_at": null,
-  "owner": null,
-  "reason": null,
-  "heartbeat_at": "2026-05-04T18:58:49Z",
-  "stale_after_seconds": 3600,
-  "updated_at": "2026-05-04T18:58:49Z"
+  "locked": true,
+  "run_id": "run_20260506T184923Z_short_term_default_voice",
+  "status": "running",
+  "started_at": "2026-05-06T18:49:55Z",
+  "owner": "hermes-orchestrator-supervisor",
+  "reason": "processing short-term Qwen3-TTS hardening and default voice UX feedback",
+  "heartbeat_at": "2026-05-06T18:49:55Z",
+  "stale_after_seconds": 7200,
+  "updated_at": "2026-05-06T18:49:55Z"
 }

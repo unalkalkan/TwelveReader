@@ -29,3 +29,11 @@
 - API compatibility: request/response fields match `API.md` and Go handlers.
 - UX: every disabled or not-yet-supported action explains why.
 - Resumability: summary and backlog state reflect the next safe action.
+
+## Milestone: Short-term core Qwen3-TTS hardening
+- Work stops at Step 4 for now; skip quality/production/medium-term expansion and any workstation/vLLM-omni changes.
+- OpenCode workers use `opencode-go/deepseek-v4-pro` for this repo.
+- A single-user default voice exists, persists across restarts, and is changeable from the Voices tab.
+- Book upload starts segmentation and synthesis immediately using the default voice without waiting for manual voice mapping.
+- Persona mapping can be changed any time; new/future segments use the new voice first.
+- Existing audio produced with an older persona voice is marked stale and regenerated only after current fresh synthesis work is complete.

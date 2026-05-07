@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "run_id": "wr_20260506_step2_default_voice_backend",
+  "backlog_item_id": "blg_short_step2_single_user_default_voice",
+  "worker_role": "builder",
+  "model_tier": "local",
+  "status": "accepted_backend_slice",
+  "created_at": "2026-05-06T18:59:57Z",
+  "started_at": "2026-05-06T18:59:57Z",
+  "objective": "Implement backend single-user default voice persistence and API for TwelveReader using strict TDD. Do not implement Step 3 auto-mapping or Step 4 stale regeneration in this worker.",
+  "scope": {
+    "allowed_paths": [
+      "pkg/types",
+      "internal/book",
+      "internal/api",
+      "cmd/server",
+      "API.md",
+      ".hermes-orchestrator/worker_runs/wr_20260506_step2_default_voice_backend"
+    ],
+    "forbidden_paths": [
+      "web-client/",
+      "qwen3-tts/",
+      ".git/"
+    ],
+    "worktree": null,
+    "branch_hint": "ui"
+  },
+  "inputs": {
+    "mission_refs": [
+      ".hermes-orchestrator/mission.md"
+    ],
+    "design_refs": [
+      ".hermes-orchestrator/design.md"
+    ],
+    "plan_refs": [
+      ".hermes-orchestrator/plan.md#short-term-focus-core-qwen3-tts-ux-hardening"
+    ],
+    "feedback_refs": [
+      ".hermes-orchestrator/feedback/fb_20260506_short_step2_default_voice.md"
+    ],
+    "acceptance_refs": [
+      ".hermes-orchestrator/acceptance.md#milestone-short-term-core-qwen3-tts-hardening"
+    ],
+    "extra_files": [
+      "pkg/types/book.go",
+      "internal/book/repository.go",
+      "internal/book/repository_test.go",
+      "internal/api/voices_handler.go",
+      "internal/api/voices_handler_test.go",
+      "cmd/server/main.go",
+      "API.md"
+    ]
+  },
+  "constraints": {
+    "max_retries": 2,
+    "stop_on_review_required": true,
+    "must_run_tests": true,
+    "must_write_result": true
+  },
+  "requested_outputs": [
+    "updated code",
+    "test results",
+    "result.json summary"
+  ],
+  "completed_at": "2026-05-06T19:16:03Z",
+  "review_id": "rev_20260506_step2_default_voice_backend",
+  "updated_at": "2026-05-06T19:25:06Z"
+}

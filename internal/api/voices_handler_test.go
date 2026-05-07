@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/unalkalkan/TwelveReader/internal/book"
 	"github.com/unalkalkan/TwelveReader/internal/provider"
 	"github.com/unalkalkan/TwelveReader/internal/storage"
 	"github.com/unalkalkan/TwelveReader/pkg/types"
@@ -320,6 +321,113 @@ func TestVoicesHandler_PreviewVoiceValidation(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	handler.PreviewVoice(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("Expected status 400, got %d", w.Code)
+	}
+}
+func TestVoicesHandler_GetDefaultVoiceBootstrapsFirstAvailableVoice(t *testing.T) {
+	registry := provider.NewRegistry()
+	stubConfig := types.TTSProviderConfig{Name: "stub-tts", Enabled: true, Options: map[string]string{}}
+	if err := registry.RegisterTTS(provider.NewStubTTSProvider(stubConfig)); err != nil {
+		t.Fatalf("Failed to register stub TTS provider: %v", err)
+	}
+	storageAdapter, err := storage.NewLocalAdapter(t.TempDir())
+	if err != nil {
+		t.Fatalf("Failed to create storage adapter: %v", err)
+	}
+	defer storageAdapter.Close()
+	repo := book.NewRepository(storageAdapter)
+	handler := NewVoicesHandlerWithRepository(registry, repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/voices/default", nil)
+	w := httptest.NewRecorder()
+	handler.DefaultVoice(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var response types.DefaultVoice
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+	if response.Provider != "stub-tts" || response.VoiceID != "stub-voice-1" {
+		t.Fatalf("Expected bootstrapped stub-tts/stub-voice-1, got %s/%s", response.Provider, response.VoiceID)
+	}
+	persisted, err := repo.GetDefaultVoice(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get persisted default voice: %v", err)
+	}
+	if persisted == nil || persisted.Provider != response.Provider || persisted.VoiceID != response.VoiceID {
+		t.Fatalf("Default voice was not persisted: %#v", persisted)
+	}
+}
+
+func TestVoicesHandler_PutDefaultVoicePersistsSelection(t *testing.T) {
+	registry := provider.NewRegistry()
+	stubConfig := types.TTSProviderConfig{Name: "stub-tts", Enabled: true, Options: map[string]string{}}
+	if err := registry.RegisterTTS(provider.NewStubTTSProvider(stubConfig)); err != nil {
+		t.Fatalf("Failed to register stub TTS provider: %v", err)
+	}
+	storageAdapter, err := storage.NewLocalAdapter(t.TempDir())
+	if err != nil {
+		t.Fatalf("Failed to create storage adapter: %v", err)
+	}
+	defer storageAdapter.Close()
+	repo := book.NewRepository(storageAdapter)
+	handler := NewVoicesHandlerWithRepository(registry, repo)
+
+	body := strings.NewReader(`{"provider":"stub-tts","voice_id":"stub-voice-2","language":"en","voice_description":"Another stub voice"}`)
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/voices/default", body)
+	w := httptest.NewRecorder()
+	handler.DefaultVoice(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+	persisted, err := repo.GetDefaultVoice(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get persisted default voice: %v", err)
+	}
+	if persisted == nil || persisted.Provider != "stub-tts" || persisted.VoiceID != "stub-voice-2" {
+		t.Fatalf("Unexpected persisted default voice: %#v", persisted)
+	}
+}
+
+func TestVoicesHandler_PutDefaultVoiceRejectsUnknownProvider(t *testing.T) {
+	registry := provider.NewRegistry()
+	storageAdapter, err := storage.NewLocalAdapter(t.TempDir())
+	if err != nil {
+		t.Fatalf("Failed to create storage adapter: %v", err)
+	}
+	defer storageAdapter.Close()
+	handler := NewVoicesHandlerWithRepository(registry, book.NewRepository(storageAdapter))
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/voices/default", strings.NewReader(`{"provider":"missing","voice_id":"voice"}`))
+	w := httptest.NewRecorder()
+	handler.DefaultVoice(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("Expected status 400, got %d", w.Code)
+	}
+}
+
+func TestVoicesHandler_PutDefaultVoiceRejectsUnknownVoice(t *testing.T) {
+	registry := provider.NewRegistry()
+	stubConfig := types.TTSProviderConfig{Name: "stub-tts", Enabled: true, Options: map[string]string{}}
+	if err := registry.RegisterTTS(provider.NewStubTTSProvider(stubConfig)); err != nil {
+		t.Fatalf("Failed to register stub TTS provider: %v", err)
+	}
+	storageAdapter, err := storage.NewLocalAdapter(t.TempDir())
+	if err != nil {
+		t.Fatalf("Failed to create storage adapter: %v", err)
+	}
+	defer storageAdapter.Close()
+	handler := NewVoicesHandlerWithRepository(registry, book.NewRepository(storageAdapter))
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/voices/default", strings.NewReader(`{"provider":"stub-tts","voice_id":"missing-voice"}`))
+	w := httptest.NewRecorder()
+	handler.DefaultVoice(w, req)
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("Expected status 400, got %d", w.Code)

@@ -53,6 +53,13 @@ type Repository interface {
 	// GetVoiceMap retrieves voice mapping for a book
 	GetVoiceMap(ctx context.Context, bookID string) (*types.VoiceMap, error)
 
+	// SaveDefaultVoice stores the single-user default TTS voice selection
+	SaveDefaultVoice(ctx context.Context, setting *types.DefaultVoice) error
+
+	// GetDefaultVoice retrieves the single-user default TTS voice selection.
+	// Missing settings return (nil, nil).
+	GetDefaultVoice(ctx context.Context) (*types.DefaultVoice, error)
+
 	// SavePersonaProfiles stores persona profiles for a book
 	SavePersonaProfiles(ctx context.Context, bookID string, profiles []*types.PersonaProfile) error
 
@@ -61,6 +68,7 @@ type Repository interface {
 
 	// UpdatePersonaProfilesFromSegments merges segment personas into stored profiles
 	UpdatePersonaProfilesFromSegments(ctx context.Context, bookID string, segments []*types.Segment) error
+
 
 	// SaveRawFile stores the uploaded raw file
 	SaveRawFile(ctx context.Context, bookID string, data []byte, format string) error
@@ -413,6 +421,58 @@ func (r *StorageRepository) GetVoiceMap(ctx context.Context, bookID string) (*ty
 	}
 
 	return &voiceMap, nil
+}
+
+
+// SaveDefaultVoice stores the single-user default TTS voice selection.
+func (r *StorageRepository) SaveDefaultVoice(ctx context.Context, setting *types.DefaultVoice) error {
+	if setting == nil {
+		return fmt.Errorf("default voice setting is nil")
+	}
+	lockInterface, _ := r.bookLock.LoadOrStore("__settings_default_voice", &sync.Mutex{})
+	mu := lockInterface.(*sync.Mutex)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	data, err := json.Marshal(setting)
+	if err != nil {
+		return fmt.Errorf("failed to marshal default voice: %w", err)
+	}
+
+	return r.storage.Put(ctx, filepath.Join("settings", "default-voice.json"), bytesReader(data))
+}
+
+// GetDefaultVoice retrieves the single-user default TTS voice selection.
+// Missing settings return (nil, nil) so callers can bootstrap a default.
+func (r *StorageRepository) GetDefaultVoice(ctx context.Context) (*types.DefaultVoice, error) {
+	lockInterface, _ := r.bookLock.LoadOrStore("__settings_default_voice", &sync.Mutex{})
+	mu := lockInterface.(*sync.Mutex)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	path := filepath.Join("settings", "default-voice.json")
+	exists, err := r.storage.Exists(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check default voice existence: %w", err)
+	}
+	if !exists {
+		return nil, nil
+	}
+
+	reader, err := r.storage.Get(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default voice: %w", err)
+	}
+	defer reader.Close()
+
+	var setting types.DefaultVoice
+	if err := json.NewDecoder(reader).Decode(&setting); err != nil {
+		return nil, fmt.Errorf("failed to decode default voice: %w", err)
+	}
+
+	return &setting, nil
 }
 
 // SaveRawFile stores the uploaded raw file
