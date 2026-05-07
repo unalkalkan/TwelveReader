@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project_id": "twelvereader",
-  "updated_at": "2026-05-06T19:38:39Z",
+  "updated_at": "2026-05-07T06:22:10Z",
   "items": [
     {
       "id": "blg_bootstrap_orchestrator",
@@ -435,7 +435,7 @@
       "id": "blg_short_step3_default_voice_auto_mapping",
       "title": "Short Step 3: auto-map discovered personas to default voice",
       "description": "On upload/pipeline start, apply the default voice as the mapping for discovered personas so segmentation and synthesis start immediately without waiting for manual voice mapping.",
-      "status": "ready",
+      "status": "done",
       "priority": 90,
       "role_hint": "builder",
       "phase": "short-term",
@@ -448,15 +448,15 @@
       ],
       "retry_count": 0,
       "max_retries": 2,
-      "last_run_id": null,
+      "last_run_id": "wr_20260507_steps3_4_default_voice_remap",
       "created_at": "2026-05-06T18:49:55Z",
-      "updated_at": "2026-05-06T18:49:55Z"
+      "updated_at": "2026-05-07T06:22:10Z"
     },
     {
       "id": "blg_short_step4_remap_stale_resynthesis",
       "title": "Short Step 4: remap stale audio and prioritize fresh segments",
       "description": "When persona mappings change, prioritize future/newer segments with the new voice, mark old audio stale, and regenerate stale segments after current book synthesis completes.",
-      "status": "ready",
+      "status": "done",
       "priority": 89,
       "role_hint": "builder",
       "phase": "short-term",
@@ -469,9 +469,9 @@
       ],
       "retry_count": 0,
       "max_retries": 2,
-      "last_run_id": null,
+      "last_run_id": "wr_20260507_steps3_4_default_voice_remap",
       "created_at": "2026-05-06T18:49:55Z",
-      "updated_at": "2026-05-06T18:49:55Z"
+      "updated_at": "2026-05-07T06:22:10Z"
     }
   ]
 }

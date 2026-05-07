@@ -63,6 +63,8 @@ export const SegmentSchema = z.object({
   person: z.string(),
   voice_description: z.string(),
   voice_id: z.string().optional(),
+  audio_stale: z.boolean().optional(),
+  stale_voice_id: z.string().optional(),
   processing: z.object({
     segmenter_version: z.string(),
     generated_at: z.string(),

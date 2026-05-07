@@ -74,6 +74,30 @@ type hybridPipelineState struct {
 	activeSynthesis        int32
 }
 
+func (state *hybridPipelineState) staleProcessingAllowed() bool {
+	state.segmentsMu.RLock()
+	segmentationComplete := state.segmentationComplete
+	state.segmentsMu.RUnlock()
+	return segmentationComplete
+}
+
+func (state *hybridPipelineState) currentVoiceForPersona(persona string) string {
+	state.personaMu.RLock()
+	defer state.personaMu.RUnlock()
+	return state.mappedPersonas[persona]
+}
+
+func (state *hybridPipelineState) voiceMapLocked() *types.VoiceMap {
+	voiceMap := &types.VoiceMap{BookID: state.bookID, Persons: make([]types.PersonVoice, 0, len(state.mappedPersonas))}
+	for persona, voiceID := range state.mappedPersonas {
+		if persona == "" || voiceID == "" {
+			continue
+		}
+		voiceMap.Persons = append(voiceMap.Persons, types.PersonVoice{ID: persona, ProviderVoice: voiceID})
+	}
+	return voiceMap
+}
+
 // PersonaDiscoveryEvent signals that new personas need voice mapping
 type PersonaDiscoveryEvent struct {
 	Personas        []string       // Newly discovered personas
@@ -579,6 +603,12 @@ func (o *HybridOrchestrator) handlePersonaDiscovery(
 ) {
 	persona := segment.Person
 
+	if o.tryAutoMapPersonaToDefaultVoice(ctx, state, persona) {
+		state.segmentQueue.Enqueue(segment, true)
+		o.updateBookAfterDefaultVoiceMapping(ctx, state)
+		return
+	}
+
 	// First, check and update persona discovery under lock
 	state.personaMu.Lock()
 	isNewPersona := !state.discoveredPersonas[persona]
@@ -703,6 +733,76 @@ func (o *HybridOrchestrator) handlePersonaDiscovery(
 	}
 }
 
+func (o *HybridOrchestrator) tryAutoMapPersonaToDefaultVoice(ctx context.Context, state *hybridPipelineState, persona string) bool {
+	defaultVoice, err := o.repo.GetDefaultVoice(ctx)
+	if err != nil || defaultVoice == nil || defaultVoice.VoiceID == "" {
+		if err != nil {
+			log.Printf("[tryAutoMapPersonaToDefaultVoice] Failed to load default voice: %v", err)
+		}
+		return false
+	}
+
+	state.personaMu.Lock()
+	if state.mappedPersonas[persona] != "" {
+		state.personaMu.Unlock()
+		return false
+	}
+	state.discoveredPersonas[persona] = true
+	state.mappedPersonas[persona] = defaultVoice.VoiceID
+	if !state.initialMappingDone {
+		state.initialMappingDone = true
+		state.closeInitialMappingOnce.Do(func() {
+			close(state.initialMappingReceived)
+			log.Printf("[tryAutoMapPersonaToDefaultVoice] Initial mapping auto-applied from default voice")
+		})
+	}
+	state.unmappedPersonas = removeString(state.unmappedPersonas, persona)
+	voiceMap := state.voiceMapLocked()
+	state.personaMu.Unlock()
+
+	if err := o.repo.SaveVoiceMap(ctx, voiceMap); err != nil {
+		log.Printf("[tryAutoMapPersonaToDefaultVoice] Failed to persist voice map: %v", err)
+	}
+	return true
+}
+
+func (o *HybridOrchestrator) updateBookAfterDefaultVoiceMapping(ctx context.Context, state *hybridPipelineState) {
+	book, err := o.repo.GetBook(ctx, state.bookID)
+	if err != nil || book == nil {
+		return
+	}
+	state.personaMu.RLock()
+	discovered := make([]string, 0, len(state.discoveredPersonas))
+	for persona := range state.discoveredPersonas {
+		discovered = append(discovered, persona)
+	}
+	unmapped := make([]string, len(state.unmappedPersonas))
+	copy(unmapped, state.unmappedPersonas)
+	state.personaMu.RUnlock()
+
+	book.Status = "synthesizing"
+	book.WaitingForMapping = len(unmapped) > 0
+	book.DiscoveredPersonas = discovered
+	book.UnmappedPersonas = unmapped
+	book.PendingSegmentCount = state.segmentQueue.UnmappedCount()
+	if err := o.repo.UpdateBook(ctx, book); err != nil {
+		log.Printf("[updateBookAfterDefaultVoiceMapping] Failed to update book: %v", err)
+	}
+}
+
+func removeString(values []string, value string) []string {
+	if len(values) == 0 {
+		return values
+	}
+	filtered := values[:0]
+	for _, candidate := range values {
+		if candidate != value {
+			filtered = append(filtered, candidate)
+		}
+	}
+	return filtered
+}
+
 // runTTSStage processes segments through TTS synthesis
 func (o *HybridOrchestrator) runTTSStage(ctx context.Context, state *hybridPipelineState) {
 	defer state.wg.Done()
@@ -763,7 +863,7 @@ func (o *HybridOrchestrator) ttsWorker(ctx context.Context, state *hybridPipelin
 		// invisible to other idle workers' completion checks.
 		atomic.AddInt32(&state.activeSynthesis, 1)
 
-		segment := state.segmentQueue.DequeueNext()
+		segment := state.segmentQueue.DequeueNext(state.staleProcessingAllowed())
 		if segment == nil {
 			atomic.AddInt32(&state.activeSynthesis, -1)
 
@@ -772,7 +872,7 @@ func (o *HybridOrchestrator) ttsWorker(ctx context.Context, state *hybridPipelin
 			totalSegments := len(state.allSegments)
 			state.segmentsMu.RUnlock()
 
-			mappedCount := state.segmentQueue.MappedCount()
+			mappedCount := state.segmentQueue.ReadyCount()
 			unmappedCount := state.segmentQueue.UnmappedCount()
 			activeCount := atomic.LoadInt32(&state.activeSynthesis)
 
@@ -804,13 +904,18 @@ func (o *HybridOrchestrator) ttsWorker(ctx context.Context, state *hybridPipelin
 			continue
 		}
 
+		wasStale := segment.AudioStale
 		log.Printf("[ttsWorker-%d] Synthesizing segment %s (persona: %s, voice: %s)",
 			workerID, segment.ID, segment.Person, voiceID)
-		err := o.synthesizeSegment(ctx, state.bookID, segment, voiceID)
+		err := o.synthesizeSegment(ctx, state, segment, voiceID)
 		if err != nil {
 			retryCount := state.segmentQueue.RecordFailure(segment.ID)
 			if retryCount <= state.maxRetries {
-				state.segmentQueue.Enqueue(segment, true)
+				if wasStale {
+					state.segmentQueue.EnqueueStale(segment)
+				} else {
+					state.segmentQueue.Enqueue(segment, true)
+				}
 				log.Printf("[ttsWorker-%d] Requeued segment %s for retry (attempt %d/%d): %v",
 					workerID, segment.ID, retryCount, state.maxRetries, err)
 			} else {
@@ -827,16 +932,18 @@ func (o *HybridOrchestrator) ttsWorker(ctx context.Context, state *hybridPipelin
 
 		state.segmentQueue.ClearRetryTracker(segment.ID)
 
+		state.segmentsMu.RLock()
+		totalSegments := len(state.allSegments)
+		state.segmentsMu.RUnlock()
+
 		state.ttsMu.Lock()
-		state.synthesizedCount++
+		if !wasStale || state.synthesizedCount < totalSegments {
+			state.synthesizedCount++
+		}
 		currentCount := state.synthesizedCount
 		state.ttsMu.Unlock()
 
 		atomic.AddInt32(&state.activeSynthesis, -1)
-
-		state.segmentsMu.RLock()
-		totalSegments := len(state.allSegments)
-		state.segmentsMu.RUnlock()
 
 		log.Printf("[ttsWorker-%d] Completed segment %s (%d/%d)", workerID, segment.ID, currentCount, totalSegments)
 
@@ -894,7 +1001,7 @@ func (o *HybridOrchestrator) monitorVoiceMappings(ctx context.Context, state *hy
 // synthesizeSegment synthesizes audio for a segment
 func (o *HybridOrchestrator) synthesizeSegment(
 	ctx context.Context,
-	bookID string,
+	state *hybridPipelineState,
 	segment *types.Segment,
 	voiceID string,
 ) error {
@@ -924,7 +1031,7 @@ func (o *HybridOrchestrator) synthesizeSegment(
 	}
 
 	// Store audio file
-	audioPath := fmt.Sprintf("books/%s/audio/%s.%s", bookID, segment.ID, resp.Format)
+	audioPath := fmt.Sprintf("books/%s/audio/%s.%s", state.bookID, segment.ID, resp.Format)
 	if err := o.storage.Put(ctx, audioPath, bytes.NewReader(resp.AudioData)); err != nil {
 		return fmt.Errorf("failed to store audio: %w", err)
 	}
@@ -951,6 +1058,18 @@ func (o *HybridOrchestrator) synthesizeSegment(
 	}
 	segment.Processing.TTSProvider = ttsProvider.Name()
 	segment.Processing.GeneratedAt = time.Now()
+	if currentVoice := state.currentVoiceForPersona(segment.Person); currentVoice != "" && currentVoice != voiceID {
+		segment.AudioStale = true
+		segment.StaleVoiceID = voiceID
+		if err := o.repo.SaveSegment(ctx, segment); err != nil {
+			log.Printf("[synthesizeSegment] Failed to mark remapped in-flight segment %s stale: %v", segment.ID, err)
+		}
+		state.segmentQueue.EnqueueStale(segment)
+		return nil
+	}
+
+	segment.AudioStale = false
+	segment.StaleVoiceID = ""
 
 	// Save updated segment
 	if err := o.repo.SaveSegment(ctx, segment); err != nil {
@@ -1009,6 +1128,11 @@ func (o *HybridOrchestrator) applyVoiceMapping(
 	log.Printf("[applyVoiceMapping] Before update - Discovered: %v, Mapped: %v, Unmapped: %v",
 		keysFromMap(state.discoveredPersonas), state.mappedPersonas, state.unmappedPersonas)
 
+	previousMappings := make(map[string]string, len(state.mappedPersonas))
+	for persona, voiceID := range state.mappedPersonas {
+		previousMappings[persona] = voiceID
+	}
+
 	// Update mapped personas
 	for _, pv := range mappingUpdate.VoiceMap.Persons {
 		state.mappedPersonas[pv.ID] = pv.ProviderVoice
@@ -1064,6 +1188,17 @@ func (o *HybridOrchestrator) applyVoiceMapping(
 		}
 	}
 
+	if !mappingUpdate.IsInitial {
+		o.markRemappedAudioStale(ctx, state, mappingUpdate.VoiceMap, previousMappings)
+	}
+
+	state.personaMu.RLock()
+	persistedVoiceMap := state.voiceMapLocked()
+	state.personaMu.RUnlock()
+	if err := o.repo.SaveVoiceMap(ctx, persistedVoiceMap); err != nil {
+		log.Printf("[applyVoiceMapping] Failed to persist voice map: %v", err)
+	}
+
 	// Update book status
 	book, err := o.repo.GetBook(ctx, state.bookID)
 	if err == nil && book != nil {
@@ -1083,6 +1218,50 @@ func (o *HybridOrchestrator) applyVoiceMapping(
 		log.Printf("[applyVoiceMapping] Book updated successfully")
 	} else {
 		log.Printf("[applyVoiceMapping] Failed to update book: %v", err)
+	}
+}
+
+func (o *HybridOrchestrator) markRemappedAudioStale(ctx context.Context, state *hybridPipelineState, voiceMap *types.VoiceMap, previousMappings map[string]string) {
+	if voiceMap == nil {
+		return
+	}
+	changedVoices := make(map[string]string)
+	for _, pv := range voiceMap.Persons {
+		if pv.ID == "" || pv.ProviderVoice == "" {
+			continue
+		}
+		oldVoice := previousMappings[pv.ID]
+		if oldVoice == "" || oldVoice == pv.ProviderVoice {
+			continue
+		}
+		changedVoices[pv.ID] = oldVoice
+	}
+	if len(changedVoices) == 0 {
+		return
+	}
+
+	state.segmentsMu.RLock()
+	segments := make([]*types.Segment, len(state.allSegments))
+	copy(segments, state.allSegments)
+	state.segmentsMu.RUnlock()
+
+	marked := 0
+	for _, segment := range segments {
+		oldVoice, changed := changedVoices[segment.Person]
+		if !changed || segment.VoiceID == "" || segment.VoiceID == state.mappedPersonas[segment.Person] {
+			continue
+		}
+		segment.AudioStale = true
+		segment.StaleVoiceID = oldVoice
+		if err := o.repo.SaveSegment(ctx, segment); err != nil {
+			log.Printf("[markRemappedAudioStale] Failed to mark segment %s stale: %v", segment.ID, err)
+			continue
+		}
+		state.segmentQueue.EnqueueStale(segment)
+		marked++
+	}
+	if marked > 0 {
+		log.Printf("[markRemappedAudioStale] Marked %d segment(s) stale for deferred regeneration", marked)
 	}
 }
 

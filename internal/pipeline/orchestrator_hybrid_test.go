@@ -20,7 +20,7 @@ func TestSegmentQueueTracksRetryFailureLifecycle(t *testing.T) {
 	segment := &types.Segment{ID: "seg_001", Person: "narrator"}
 
 	queue.Enqueue(segment, true)
-	if got := queue.DequeueNext(); got == nil || got.ID != segment.ID {
+	if got := queue.DequeueNext(true); got == nil || got.ID != segment.ID {
 		t.Fatalf("expected first dequeue to return %s, got %#v", segment.ID, got)
 	}
 
@@ -29,7 +29,7 @@ func TestSegmentQueueTracksRetryFailureLifecycle(t *testing.T) {
 	}
 	queue.Enqueue(segment, true)
 
-	if got := queue.DequeueNext(); got == nil || got.ID != segment.ID {
+	if got := queue.DequeueNext(true); got == nil || got.ID != segment.ID {
 		t.Fatalf("expected requeued segment %s, got %#v", segment.ID, got)
 	}
 	if retryCount := queue.RecordFailure(segment.ID); retryCount != 2 {
@@ -239,6 +239,273 @@ func TestShortBookRequestsInitialMappingAfterSegmentationCompletes(t *testing.T)
 	}
 }
 
+func TestDefaultVoiceAutoMapsFirstPersonaAndStartsSynthesisWithoutManualMapping(t *testing.T) {
+	repo := newPipelineTestRepository()
+	store := newPipelineTestStorage()
+	registry := provider.NewRegistry()
+	if err := registry.RegisterTTS(&pipelineTestTTSProvider{}); err != nil {
+		t.Fatalf("register tts provider: %v", err)
+	}
+	repo.defaultVoice = &types.DefaultVoice{Provider: "pipeline-test-tts", VoiceID: "voice-default", Language: "en"}
+
+	book := &types.Book{ID: "book_default", Title: "Default", Status: "segmenting"}
+	if err := repo.SaveBook(context.Background(), book); err != nil {
+		t.Fatalf("save book: %v", err)
+	}
+	segment := &types.Segment{ID: "seg_default", BookID: book.ID, Text: "hello", Language: "en", Person: "narrator", VoiceDescription: "neutral"}
+	orchestrator := NewHybridOrchestrator(
+		PipelineConfig{TTSConcurrency: 1, MinSegmentsBeforeTTS: 5, SegmentationBatchSize: 1},
+		repo,
+		store,
+		&pipelineTestLLMProvider{},
+		registry,
+	)
+	state := newWorkerTestState(book.ID, segment)
+	state.initialMappingDone = false
+	state.discoveredPersonas = make(map[string]bool)
+
+	orchestrator.handlePersonaDiscovery(context.Background(), state, segment, 1)
+
+	select {
+	case event := <-state.voiceMappingNeeded:
+		t.Fatalf("default voice should avoid manual mapping event, got %#v", event)
+	default:
+	}
+	select {
+	case <-state.initialMappingReceived:
+	case <-time.After(time.Second):
+		t.Fatalf("expected default voice auto-mapping to unblock initial synthesis")
+	}
+	if got := state.mappedPersonas["narrator"]; got != "voice-default" {
+		t.Fatalf("expected narrator to be auto-mapped to default voice, got %q", got)
+	}
+	if !state.initialMappingDone {
+		t.Fatalf("expected initial mapping to be considered done after default auto-map")
+	}
+	if got := state.segmentQueue.MappedCount(); got != 1 {
+		t.Fatalf("expected current segment queued for immediate synthesis, got %d mapped segments", got)
+	}
+	voiceMap, err := repo.GetVoiceMap(context.Background(), book.ID)
+	if err != nil {
+		t.Fatalf("expected default auto-mapping to persist voice map: %v", err)
+	}
+	if len(voiceMap.Persons) != 1 || voiceMap.Persons[0].ID != "narrator" || voiceMap.Persons[0].ProviderVoice != "voice-default" {
+		t.Fatalf("unexpected persisted voice map after default auto-map: %#v", voiceMap.Persons)
+	}
+
+	updatedBook, err := repo.GetBook(context.Background(), book.ID)
+	if err != nil {
+		t.Fatalf("get book: %v", err)
+	}
+	if updatedBook.WaitingForMapping {
+		t.Fatalf("book should not wait for voice mapping when default voice is available")
+	}
+	if updatedBook.Status != "synthesizing" {
+		t.Fatalf("expected book to move to synthesizing, got %q", updatedBook.Status)
+	}
+}
+
+func TestDefaultVoiceAutoMapsNewPersonaAfterInitialMapping(t *testing.T) {
+	repo := newPipelineTestRepository()
+	store := newPipelineTestStorage()
+	registry := provider.NewRegistry()
+	if err := registry.RegisterTTS(&pipelineTestTTSProvider{}); err != nil {
+		t.Fatalf("register tts provider: %v", err)
+	}
+	repo.defaultVoice = &types.DefaultVoice{Provider: "pipeline-test-tts", VoiceID: "voice-default", Language: "en"}
+
+	book := &types.Book{ID: "book_new_persona", Title: "Default New Persona", Status: "synthesizing"}
+	if err := repo.SaveBook(context.Background(), book); err != nil {
+		t.Fatalf("save book: %v", err)
+	}
+	segment := &types.Segment{ID: "seg_alice", BookID: book.ID, Text: "hi", Language: "en", Person: "alice", VoiceDescription: "bright"}
+	orchestrator := NewHybridOrchestrator(
+		PipelineConfig{TTSConcurrency: 1, MinSegmentsBeforeTTS: 5, SegmentationBatchSize: 1},
+		repo,
+		store,
+		&pipelineTestLLMProvider{},
+		registry,
+	)
+	state := newWorkerTestState(book.ID, segment)
+	state.initialMappingDone = true
+	state.discoveredPersonas = map[string]bool{"narrator": true}
+	state.mappedPersonas = map[string]string{"narrator": "manual-voice"}
+
+	orchestrator.handlePersonaDiscovery(context.Background(), state, segment, 6)
+
+	select {
+	case event := <-state.voiceMappingNeeded:
+		t.Fatalf("new persona should use default voice without manual mapping event, got %#v", event)
+	default:
+	}
+	if got := state.mappedPersonas["alice"]; got != "voice-default" {
+		t.Fatalf("expected new persona alice to be auto-mapped to default voice, got %q", got)
+	}
+	if state.mappedPersonas["narrator"] != "manual-voice" {
+		t.Fatalf("default auto-mapping should not overwrite existing narrator mapping")
+	}
+	if got := state.segmentQueue.MappedCount(); got != 1 {
+		t.Fatalf("expected new persona segment queued for immediate synthesis, got %d", got)
+	}
+	voiceMap, err := repo.GetVoiceMap(context.Background(), book.ID)
+	if err != nil {
+		t.Fatalf("expected new persona default mapping to persist voice map: %v", err)
+	}
+	persisted := make(map[string]string)
+	for _, pv := range voiceMap.Persons {
+		persisted[pv.ID] = pv.ProviderVoice
+	}
+	if persisted["narrator"] != "manual-voice" || persisted["alice"] != "voice-default" {
+		t.Fatalf("unexpected persisted voice map after new persona default mapping: %#v", persisted)
+	}
+	updatedBook, err := repo.GetBook(context.Background(), book.ID)
+	if err != nil {
+		t.Fatalf("get book: %v", err)
+	}
+	if updatedBook.WaitingForMapping || len(updatedBook.UnmappedPersonas) != 0 {
+		t.Fatalf("book should not wait for mapping after default new-persona mapping, waiting=%v unmapped=%v", updatedBook.WaitingForMapping, updatedBook.UnmappedPersonas)
+	}
+}
+
+func TestStaleQueueWaitsForSegmentationCompletionBeforeRegeneration(t *testing.T) {
+	queue := NewSegmentQueue()
+	stale := &types.Segment{ID: "seg_stale", Person: "narrator", AudioStale: true}
+	fresh := &types.Segment{ID: "seg_fresh", Person: "narrator"}
+	queue.EnqueueStale(stale)
+
+	if got := queue.DequeueNext(false); got != nil {
+		t.Fatalf("expected stale work to wait while fresh segmentation can still arrive, got %#v", got)
+	}
+	queue.Enqueue(fresh, true)
+	if got := queue.DequeueNext(false); got == nil || got.ID != fresh.ID {
+		t.Fatalf("expected fresh work before stale regeneration, got %#v", got)
+	}
+	if got := queue.DequeueNext(true); got == nil || got.ID != stale.ID {
+		t.Fatalf("expected stale regeneration once allowed, got %#v", got)
+	}
+}
+
+func TestRemapMarksOldAudioStaleAndRegeneratesItAfterFreshSegments(t *testing.T) {
+	repo := newPipelineTestRepository()
+	store := newPipelineTestStorage()
+	ttsProvider := &pipelineTestTTSProvider{}
+	registry := provider.NewRegistry()
+	if err := registry.RegisterTTS(ttsProvider); err != nil {
+		t.Fatalf("register tts provider: %v", err)
+	}
+
+	book := &types.Book{ID: "book_remap", Title: "Remap", Status: "synthesizing", TotalSegments: 2, SynthesizedSegments: 1}
+	if err := repo.SaveBook(context.Background(), book); err != nil {
+		t.Fatalf("save book: %v", err)
+	}
+	oldAudio := &types.Segment{ID: "seg_old", BookID: book.ID, Text: "old audio", Language: "en", Person: "narrator", VoiceID: "old-voice", Processing: &types.ProcessingInfo{TTSProvider: "pipeline-test-tts", GeneratedAt: time.Now()}}
+	fresh := &types.Segment{ID: "seg_fresh", BookID: book.ID, Text: "fresh first", Language: "en", Person: "narrator", Processing: &types.ProcessingInfo{GeneratedAt: time.Now()}}
+	if err := repo.SaveSegment(context.Background(), oldAudio); err != nil {
+		t.Fatalf("save old segment: %v", err)
+	}
+	if err := repo.SaveSegment(context.Background(), fresh); err != nil {
+		t.Fatalf("save fresh segment: %v", err)
+	}
+
+	orchestrator := NewHybridOrchestrator(
+		PipelineConfig{TTSConcurrency: 1, MinSegmentsBeforeTTS: 1, SegmentationBatchSize: 1},
+		repo,
+		store,
+		&pipelineTestLLMProvider{},
+		registry,
+	)
+	state := newWorkerTestState(book.ID, oldAudio)
+	state.allSegments = []*types.Segment{oldAudio, fresh}
+	state.discoveredPersonas = map[string]bool{"narrator": true}
+	state.mappedPersonas["narrator"] = "old-voice"
+	state.initialMappingDone = true
+	state.synthesizedCount = 1
+	state.segmentQueue.Enqueue(fresh, true)
+
+	orchestrator.applyVoiceMapping(context.Background(), state, VoiceMappingUpdate{
+		VoiceMap:  &types.VoiceMap{BookID: book.ID, Persons: []types.PersonVoice{{ID: "narrator", ProviderVoice: "new-voice"}}},
+		IsInitial: false,
+	})
+
+	staleSegment, err := repo.GetSegment(context.Background(), book.ID, oldAudio.ID)
+	if err != nil {
+		t.Fatalf("get stale segment: %v", err)
+	}
+	if !staleSegment.AudioStale {
+		t.Fatalf("expected existing old-voice audio to be marked stale")
+	}
+	if state.segmentQueue.StaleCount() != 1 {
+		t.Fatalf("expected one stale segment queued for deferred regeneration, got %d", state.segmentQueue.StaleCount())
+	}
+	voiceMap, err := repo.GetVoiceMap(context.Background(), book.ID)
+	if err != nil {
+		t.Fatalf("expected remap to persist updated voice map: %v", err)
+	}
+	if len(voiceMap.Persons) != 1 || voiceMap.Persons[0].ID != "narrator" || voiceMap.Persons[0].ProviderVoice != "new-voice" {
+		t.Fatalf("unexpected persisted remap: %#v", voiceMap.Persons)
+	}
+
+	state.ttsWorkers.Add(1)
+	orchestrator.ttsWorker(context.Background(), state, 0)
+	orchestrator.completePipeline(state)
+
+	wantOrder := []string{"fresh first:new-voice", "old audio:new-voice"}
+	if got := ttsProvider.callOrder(); strings.Join(got, ",") != strings.Join(wantOrder, ",") {
+		t.Fatalf("expected fresh synthesis before stale regeneration with new voice, got %#v", got)
+	}
+	updatedOld, err := repo.GetSegment(context.Background(), book.ID, oldAudio.ID)
+	if err != nil {
+		t.Fatalf("get regenerated old segment: %v", err)
+	}
+	if updatedOld.AudioStale {
+		t.Fatalf("expected stale marker cleared after regeneration")
+	}
+	if updatedOld.VoiceID != "new-voice" {
+		t.Fatalf("expected old segment regenerated with new voice, got %q", updatedOld.VoiceID)
+	}
+	if state.synthesizedCount != 2 {
+		t.Fatalf("expected fresh synthesis count to remain bounded by total segments, got %d", state.synthesizedCount)
+	}
+}
+
+func TestInFlightOldVoiceSynthesisIsMarkedStaleAfterRemap(t *testing.T) {
+	repo := newPipelineTestRepository()
+	store := newPipelineTestStorage()
+	registry := provider.NewRegistry()
+	if err := registry.RegisterTTS(&pipelineTestTTSProvider{}); err != nil {
+		t.Fatalf("register tts provider: %v", err)
+	}
+	book := &types.Book{ID: "book_inflight", Title: "Inflight", Status: "synthesizing", TotalSegments: 1}
+	if err := repo.SaveBook(context.Background(), book); err != nil {
+		t.Fatalf("save book: %v", err)
+	}
+	segment := &types.Segment{ID: "seg_inflight", BookID: book.ID, Text: "old inflight", Language: "en", Person: "narrator", Processing: &types.ProcessingInfo{GeneratedAt: time.Now()}}
+	orchestrator := NewHybridOrchestrator(
+		PipelineConfig{TTSConcurrency: 1, MinSegmentsBeforeTTS: 1, SegmentationBatchSize: 1},
+		repo,
+		store,
+		&pipelineTestLLMProvider{},
+		registry,
+	)
+	state := newWorkerTestState(book.ID, segment)
+	state.mappedPersonas["narrator"] = "new-voice"
+	state.segmentationComplete = false
+
+	if err := orchestrator.synthesizeSegment(context.Background(), state, segment, "old-voice"); err != nil {
+		t.Fatalf("synthesize in-flight old voice: %v", err)
+	}
+	updated, err := repo.GetSegment(context.Background(), book.ID, segment.ID)
+	if err != nil {
+		t.Fatalf("get segment: %v", err)
+	}
+	if !updated.AudioStale || updated.StaleVoiceID != "old-voice" {
+		t.Fatalf("expected in-flight old voice result marked stale, got stale=%v staleVoice=%q", updated.AudioStale, updated.StaleVoiceID)
+	}
+	if state.segmentQueue.StaleCount() != 1 {
+		t.Fatalf("expected stale in-flight result queued for regeneration, got %d", state.segmentQueue.StaleCount())
+	}
+}
+
 func newWorkerTestState(bookID string, segment *types.Segment) *hybridPipelineState {
 	return &hybridPipelineState{
 		bookID:                 bookID,
@@ -271,6 +538,7 @@ func newPipelineTestStatus(bookID string) *PipelineStatus {
 type pipelineTestTTSProvider struct {
 	mu                    sync.Mutex
 	calls                 map[string]int
+	callRecords           []string
 	failuresBeforeSuccess int
 	alwaysFail            bool
 }
@@ -283,6 +551,7 @@ func (p *pipelineTestTTSProvider) Synthesize(ctx context.Context, req provider.T
 		p.calls = make(map[string]int)
 	}
 	p.calls[req.Text]++
+	p.callRecords = append(p.callRecords, fmt.Sprintf("%s:%s", req.Text, req.VoiceID))
 	callCount := p.calls[req.Text]
 	p.mu.Unlock()
 
@@ -308,6 +577,14 @@ func (p *pipelineTestTTSProvider) callsFor(text string) int {
 	return p.calls[text]
 }
 
+func (p *pipelineTestTTSProvider) callOrder() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	records := make([]string, len(p.callRecords))
+	copy(records, p.callRecords)
+	return records
+}
+
 type pipelineTestLLMProvider struct{}
 
 func (p *pipelineTestLLMProvider) Name() string { return "pipeline-test-llm" }
@@ -320,13 +597,15 @@ func (p *pipelineTestLLMProvider) BatchSegment(ctx context.Context, req provider
 func (p *pipelineTestLLMProvider) Close() error { return nil }
 
 type pipelineTestRepository struct {
-	mu       sync.RWMutex
-	books    map[string]*types.Book
-	segments map[string]*types.Segment
+	mu           sync.RWMutex
+	books        map[string]*types.Book
+	segments     map[string]*types.Segment
+	voiceMaps    map[string]*types.VoiceMap
+	defaultVoice *types.DefaultVoice
 }
 
 func newPipelineTestRepository() *pipelineTestRepository {
-	return &pipelineTestRepository{books: make(map[string]*types.Book), segments: make(map[string]*types.Segment)}
+	return &pipelineTestRepository{books: make(map[string]*types.Book), segments: make(map[string]*types.Segment), voiceMaps: make(map[string]*types.VoiceMap)}
 }
 
 func (r *pipelineTestRepository) SaveBook(ctx context.Context, book *types.Book) error {
@@ -404,16 +683,46 @@ func (r *pipelineTestRepository) ListSegments(ctx context.Context, bookID string
 }
 
 func (r *pipelineTestRepository) SaveVoiceMap(ctx context.Context, voiceMap *types.VoiceMap) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if voiceMap == nil {
+		return nil
+	}
+	copyMap := *voiceMap
+	copyMap.Persons = append([]types.PersonVoice(nil), voiceMap.Persons...)
+	r.voiceMaps[voiceMap.BookID] = &copyMap
 	return nil
 }
 func (r *pipelineTestRepository) GetVoiceMap(ctx context.Context, bookID string) (*types.VoiceMap, error) {
-	return nil, fmt.Errorf("voice map not found")
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	voiceMap, ok := r.voiceMaps[bookID]
+	if !ok {
+		return nil, fmt.Errorf("voice map not found")
+	}
+	copyMap := *voiceMap
+	copyMap.Persons = append([]types.PersonVoice(nil), voiceMap.Persons...)
+	return &copyMap, nil
 }
 func (r *pipelineTestRepository) SaveDefaultVoice(ctx context.Context, setting *types.DefaultVoice) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if setting == nil {
+		r.defaultVoice = nil
+		return nil
+	}
+	copy := *setting
+	r.defaultVoice = &copy
 	return nil
 }
 func (r *pipelineTestRepository) GetDefaultVoice(ctx context.Context) (*types.DefaultVoice, error) {
-	return nil, nil
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.defaultVoice == nil {
+		return nil, nil
+	}
+	copy := *r.defaultVoice
+	return &copy, nil
 }
 func (r *pipelineTestRepository) SavePersonaProfiles(ctx context.Context, bookID string, profiles []*types.PersonaProfile) error {
 	return nil

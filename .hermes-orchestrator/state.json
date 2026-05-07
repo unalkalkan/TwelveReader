@@ -2,8 +2,8 @@
   "version": 1,
   "project_id": "twelvereader",
   "orchestrator_status": "idle",
-  "current_phase": "phase-5",
-  "current_goal": "Delete Books feedback implemented and verified; GitHub push remains blocked by missing authentication.",
+  "current_phase": "short-term",
+  "current_goal": "Qwen3-TTS short-term Steps 3 and 4 implemented and verified; Step 1 remains planned/ready and GitHub push remains blocked by missing authentication.",
   "active_run_ids": [],
   "pending_review_ids": [],
   "active_feedback_ids": [],
@@ -22,10 +22,10 @@
     "target_tier": null
   },
   "last_supervisor_action": {
-    "at": "2026-05-04T18:58:49Z",
-    "action": "delete_books_feedback_verified",
-    "target_id": "blg_delete_books_feedback",
-    "notes": "Implemented and verified Delete Book actions using OpenCode DeepSeek R4 Pro worker plus supervisor reconciliation."
+    "at": "2026-05-07T06:22:10Z",
+    "action": "steps3_4_default_voice_remap_verified",
+    "target_id": "blg_short_step3_default_voice_auto_mapping,blg_short_step4_remap_stale_resynthesis",
+    "notes": "Implemented default voice auto-mapping plus remap stale regeneration; validation passed."
   },
   "counters": {
     "total_tasks": 19,
@@ -38,5 +38,5 @@
     "review_revisions": 0,
     "premium_escalations": 0
   },
-  "updated_at": "2026-05-04T18:58:49Z"
+  "updated_at": "2026-05-07T06:22:10Z"
 }

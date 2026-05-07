@@ -62,8 +62,9 @@ type SegmentQueue struct {
 }
 
 func (sq *SegmentQueue) Enqueue(segment *types.Segment, isMapped bool)
-func (sq *SegmentQueue) DequeueNext() *types.Segment
+func (sq *SegmentQueue) DequeueNext(allowStale bool) *types.Segment
 func (sq *SegmentQueue) PromotePendingSegments(persona string)
+func (sq *SegmentQueue) EnqueueStale(segment *types.Segment)
 ```
 
 #### C. Modified Segmentation Stage
@@ -71,6 +72,8 @@ func (sq *SegmentQueue) PromotePendingSegments(persona string)
 - Continue segmentation but check each new segment for unmapped personas
 - Route segments to appropriate queue (mapped vs unmapped)
 - Emit `NEW_PERSONA_DISCOVERED` event when finding unmapped persona
+
+- Defer stale-audio regeneration via `DequeueNext(allowStale=true)` until segmentation is complete; fresh/current mapped segments stay ahead of stale work.
 
 #### D. Modified TTS Stage
 - Only process segments from `mappedQueue`

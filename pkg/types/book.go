@@ -57,7 +57,9 @@ type Segment struct {
 	Language         string          `json:"language"`
 	Person           string          `json:"person"`
 	VoiceDescription string          `json:"voice_description"`
-	VoiceID          string          `json:"voice_id,omitempty"` // Set after voice mapping
+	VoiceID          string          `json:"voice_id,omitempty"`       // Set after voice mapping/synthesis
+	AudioStale       bool            `json:"audio_stale,omitempty"`    // Existing audio was generated with an older persona voice
+	StaleVoiceID     string          `json:"stale_voice_id,omitempty"` // Voice ID used by stale audio before regeneration
 	Timestamps       *TimestampData  `json:"timestamps,omitempty"`
 	SourceContext    *SourceContext  `json:"source_context,omitempty"`
 	Processing       *ProcessingInfo `json:"processing"`

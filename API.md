@@ -416,6 +416,9 @@ List all segments for a book.
     "language": "en",
     "person": "narrator",
     "voice_description": "neutral",
+    "voice_id": "voice_1",
+    "audio_stale": false,
+    "stale_voice_id": "old_voice_1",
     "processing": {
       "segmenter_version": "v1",
       "generated_at": "2026-01-25T10:03:00Z"
@@ -423,6 +426,11 @@ List all segments for a book.
   }
 ]
 ```
+
+**Segment voice fields:**
+- `voice_id`: voice used for the current generated audio, when available.
+- `audio_stale`: true when the segment has existing audio generated with an older persona mapping; new/future work is prioritized before stale regeneration.
+- `stale_voice_id`: previous voice ID for stale audio, present only while stale regeneration is pending.
 
 **Status Codes:**
 - `200 OK` - Success

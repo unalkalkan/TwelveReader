@@ -10,6 +10,7 @@ import (
 type SegmentQueue struct {
 	mappedQueue       []*types.Segment // Segments with mapped voices, ready for TTS
 	unmappedQueue     []*types.Segment // Segments waiting for voice mapping
+	staleQueue        []*types.Segment // Existing stale audio queued for deferred regeneration
 	retryCounts       map[string]int   // segment ID -> failed synthesis attempts
 	permanentlyFailed map[string]bool  // segment IDs that exhausted retry budget
 	mu                sync.RWMutex
@@ -20,6 +21,7 @@ func NewSegmentQueue() *SegmentQueue {
 	return &SegmentQueue{
 		mappedQueue:       make([]*types.Segment, 0),
 		unmappedQueue:     make([]*types.Segment, 0),
+		staleQueue:        make([]*types.Segment, 0),
 		retryCounts:       make(map[string]int),
 		permanentlyFailed: make(map[string]bool),
 	}
@@ -37,19 +39,25 @@ func (sq *SegmentQueue) Enqueue(segment *types.Segment, isMapped bool) {
 	}
 }
 
-// DequeueNext returns the next segment ready for TTS, or nil if none available
-func (sq *SegmentQueue) DequeueNext() *types.Segment {
+// DequeueNext returns the next segment ready for TTS, or nil if none available.
+// Fresh mapped segments are always processed before stale regeneration work.
+// Stale segments are only returned when allowStale is true so the orchestrator
+// can defer regeneration until fresh/current synthesis is drained.
+func (sq *SegmentQueue) DequeueNext(allowStale bool) *types.Segment {
 	sq.mu.Lock()
 	defer sq.mu.Unlock()
 
-	if len(sq.mappedQueue) == 0 {
-		return nil
+	if len(sq.mappedQueue) > 0 {
+		segment := sq.mappedQueue[0]
+		sq.mappedQueue = sq.mappedQueue[1:]
+		return segment
 	}
-
-	// Dequeue from front
-	segment := sq.mappedQueue[0]
-	sq.mappedQueue = sq.mappedQueue[1:]
-	return segment
+	if allowStale && len(sq.staleQueue) > 0 {
+		segment := sq.staleQueue[0]
+		sq.staleQueue = sq.staleQueue[1:]
+		return segment
+	}
+	return nil
 }
 
 // PromotePendingSegments moves segments with the given persona from unmapped to mapped queue
@@ -88,11 +96,37 @@ func (sq *SegmentQueue) UnmappedCount() int {
 	return len(sq.unmappedQueue)
 }
 
-// MappedCount returns the number of segments ready for TTS
+// MappedCount returns the number of fresh segments ready for TTS.
 func (sq *SegmentQueue) MappedCount() int {
 	sq.mu.RLock()
 	defer sq.mu.RUnlock()
 	return len(sq.mappedQueue)
+}
+
+// ReadyCount returns all currently synthesizeable queued segments, including stale regeneration work.
+func (sq *SegmentQueue) ReadyCount() int {
+	sq.mu.RLock()
+	defer sq.mu.RUnlock()
+	return len(sq.mappedQueue) + len(sq.staleQueue)
+}
+
+// EnqueueStale adds an existing stale-audio segment to deferred regeneration work.
+func (sq *SegmentQueue) EnqueueStale(segment *types.Segment) {
+	sq.mu.Lock()
+	defer sq.mu.Unlock()
+	for _, queued := range sq.staleQueue {
+		if queued.ID == segment.ID {
+			return
+		}
+	}
+	sq.staleQueue = append(sq.staleQueue, segment)
+}
+
+// StaleCount returns the number of stale audio segments waiting for deferred regeneration.
+func (sq *SegmentQueue) StaleCount() int {
+	sq.mu.RLock()
+	defer sq.mu.RUnlock()
+	return len(sq.staleQueue)
 }
 
 // GetUnmappedPersonas returns the unique list of personas in the unmapped queue

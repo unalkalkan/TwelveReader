@@ -330,10 +330,10 @@
     {
       "id": "fb_20260506_short_step3_immediate_synthesis",
       "created_at": "2026-05-06T18:49:55Z",
-      "updated_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-07T06:22:10Z",
       "created_by": "human",
       "source": "telegram",
-      "state": "planned",
+      "state": "verified",
       "title": "Short-term Step 3: upload starts segmentation and synthesis immediately with default voice",
       "body_file": "feedback/fb_20260506_short_step3_immediate_synthesis.md",
       "category": "backend",
@@ -350,8 +350,14 @@
       "linked_backlog_items": [
         "blg_short_step3_default_voice_auto_mapping"
       ],
-      "linked_worker_runs": [],
-      "resolution": null,
+      "linked_worker_runs": [
+        "wr_20260507_steps3_4_default_voice_remap"
+      ],
+      "resolution": {
+        "status": "implemented",
+        "at": "2026-05-07T06:22:10Z",
+        "note": "Default voice auto-mapping now persists a voice map and immediately queues discovered personas for synthesis without manual mapping."
+      },
       "history": [
         {
           "at": "2026-05-06T18:49:55Z",
@@ -366,16 +372,30 @@
           "from": "new",
           "to": "planned",
           "note": "Triaged into short-term implementation backlog through Step 4."
+        },
+        {
+          "at": "2026-05-07T06:22:10Z",
+          "actor": "hermes",
+          "from": "planned",
+          "to": "in_progress",
+          "note": "Direct TDD implementation started for Step 3 together with Step 4."
+        },
+        {
+          "at": "2026-05-07T06:22:10Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "verified",
+          "note": "Implemented and verified default voice auto-mapping with persisted voice map and immediate synthesis tests."
         }
       ]
     },
     {
       "id": "fb_20260506_short_step4_remap_stale_resynthesis",
       "created_at": "2026-05-06T18:49:55Z",
-      "updated_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-07T06:22:10Z",
       "created_by": "human",
       "source": "telegram",
-      "state": "planned",
+      "state": "verified",
       "title": "Short-term Step 4: persona remap marks old audio stale and prioritizes new segments",
       "body_file": "feedback/fb_20260506_short_step4_remap_stale_resynthesis.md",
       "category": "backend",
@@ -392,8 +412,14 @@
       "linked_backlog_items": [
         "blg_short_step4_remap_stale_resynthesis"
       ],
-      "linked_worker_runs": [],
-      "resolution": null,
+      "linked_worker_runs": [
+        "wr_20260507_steps3_4_default_voice_remap"
+      ],
+      "resolution": {
+        "status": "implemented",
+        "at": "2026-05-07T06:22:10Z",
+        "note": "Persona remaps now mark old/in-flight old-voice audio stale, prioritize fresh/current synthesis, and regenerate stale audio after current synthesis drains."
+      },
       "history": [
         {
           "at": "2026-05-06T18:49:55Z",
@@ -408,6 +434,20 @@
           "from": "new",
           "to": "planned",
           "note": "Triaged into short-term implementation backlog through Step 4."
+        },
+        {
+          "at": "2026-05-07T06:22:10Z",
+          "actor": "hermes",
+          "from": "planned",
+          "to": "in_progress",
+          "note": "Direct TDD implementation started for Step 4 together with Step 3."
+        },
+        {
+          "at": "2026-05-07T06:22:10Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "verified",
+          "note": "Implemented and verified stale remap behavior, fresh-first queueing, stale retries, and in-flight stale marking."
         }
       ]
     }
