@@ -768,12 +768,24 @@ func (h *BookHandler) GetPersonas(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[GetPersonas] No voice map found or error: %v", err)
 	}
 
-	// Build persona discovery response
+	// Build persona discovery response. Older books can have stale
+	// UnmappedPersonas metadata even after the voice map was repaired or remapped;
+	// expose only personas that are still truly unmapped.
+	unmapped := make([]string, 0, len(book.UnmappedPersonas))
+	for _, persona := range book.UnmappedPersonas {
+		if mapped[persona] == "" {
+			unmapped = append(unmapped, persona)
+		}
+	}
+	pendingSegments := book.PendingSegmentCount
+	if len(unmapped) == 0 {
+		pendingSegments = 0
+	}
 	personaDiscovery := &types.PersonaDiscovery{
 		Discovered:      book.DiscoveredPersonas,
 		Mapped:          mapped,
-		Unmapped:        book.UnmappedPersonas,
-		PendingSegments: book.PendingSegmentCount,
+		Unmapped:        unmapped,
+		PendingSegments: pendingSegments,
 	}
 
 	log.Printf("[GetPersonas] Returning: Discovered=%v, Mapped=%v, Unmapped=%v, Pending=%d",
