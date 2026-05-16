@@ -77,3 +77,8 @@
 {"event": "worker_completed", "at": "2026-05-06T19:30:20Z", "run_id": "wr_20260506_step2_default_voice_frontend", "backlog_item_id": "blg_short_step2_single_user_default_voice", "status": "completed_needs_review", "tests": "cd web-client && npx tsc --noEmit passed"}
 {"event": "review_written", "at": "2026-05-06T19:38:39Z", "review_id": "rev_20260506_step2_default_voice_full", "target_run_id": "wr_20260506_step2_default_voice_frontend", "verdict": "pass"}
 {"event": "feedback_transition", "at": "2026-05-06T19:38:39Z", "feedback_id": "fb_20260506_short_step2_default_voice", "to": "verified", "note": "Step 2 default voice implemented and reviewed"}
+{"at":"2026-05-16T06:36:51Z","type":"lock_recovered","run_id":"run_20260516T063632Z_debug_dashboard","previous_run_id":"run_20260506T184923Z_short_term_default_voice","owner":"hermes-agent","reason":"previous lock heartbeat is stale; starting human-requested debug dashboard implementation"}
+{"at":"2026-05-16T06:36:51Z","type":"lock_acquired","run_id":"run_20260516T063632Z_debug_dashboard","owner":"hermes-agent","reason":"implement separate TwelveReader debug dashboard"}
+{"at":"2026-05-16T06:43:14Z","type":"review_written","run_id":"run_20260516T063632Z_debug_dashboard","backlog_item_id":"blg_debug_view_dashboard","verdict":"approve","tests":["cd debug-dashboard && npm run build"]}
+{"at":"2026-05-16T06:43:14Z","type":"supervisor_completed","run_id":"run_20260516T063632Z_debug_dashboard","completed_item_ids":["blg_debug_view_dashboard"]}
+{"at":"2026-05-16T06:43:14Z","type":"lock_released","run_id":"run_20260516T063632Z_debug_dashboard"}

@@ -1,0 +1,155 @@
+export type BookStatus =
+  | 'uploaded'
+  | 'parsing'
+  | 'segmenting'
+  | 'voice_mapping'
+  | 'ready'
+  | 'synthesizing'
+  | 'synthesized'
+  | 'synthesis_error'
+  | 'error';
+
+export interface BookMetadata {
+  id: string;
+  title: string;
+  author: string;
+  language: string;
+  uploaded_at: string;
+  status: BookStatus | string;
+  orig_format: string;
+  error?: string;
+  total_chapters: number;
+  total_segments: number;
+  total_paragraphs?: number;
+  segmented_paragraphs?: number;
+  synthesized_segments?: number;
+  discovered_personas?: string[];
+  unmapped_personas?: string[];
+  pending_segment_count?: number;
+  waiting_for_mapping?: boolean;
+}
+
+export interface ProcessingStatus {
+  book_id: string;
+  status: BookStatus | string;
+  stage: string;
+  progress: number;
+  total_chapters: number;
+  parsed_chapters: number;
+  total_segments: number;
+  total_paragraphs?: number;
+  segmented_paragraphs?: number;
+  synthesized_segments?: number;
+  error?: string;
+  updated_at: string;
+}
+
+export interface Segment {
+  id: string;
+  book_id: string;
+  chapter: string;
+  toc_path: string[];
+  text: string;
+  language: string;
+  person: string;
+  voice_description: string;
+  voice_id?: string;
+  audio_stale?: boolean;
+  stale_voice_id?: string;
+  timestamps?: {
+    precision: 'word' | 'sentence' | string;
+    items: Array<{ word: string; start: number; end: number }>;
+  };
+  processing?: {
+    segmenter_version?: string;
+    generated_at?: string;
+    tts_provider?: string;
+  };
+  source_context?: {
+    prev_paragraph_id?: string;
+    next_paragraph_id?: string;
+  };
+  audio_url?: string;
+}
+
+export interface PipelineStage {
+  stage: string;
+  status: string;
+  current: number;
+  total: number;
+  message?: string;
+}
+
+export interface PipelineStatus {
+  book_id: string;
+  status?: string;
+  stages: PipelineStage[];
+  updated_at?: string;
+}
+
+export interface PersonaDiscovery {
+  discovered: string[];
+  mapped: Record<string, string>;
+  unmapped: string[];
+  pending_segments: number;
+}
+
+export interface HealthResponse {
+  status: string;
+  timestamp?: string;
+  version?: string;
+  checks?: Record<string, { status: string; error?: string }>;
+}
+
+export interface ProvidersResponse {
+  llm?: string[];
+  tts?: string[];
+  ocr?: string[];
+}
+
+export type SegmentReadState = 'not_opened' | 'read' | 'current' | 'skipped';
+export type SegmentListenState = 'not_attempted' | 'partial' | 'completed' | 'failed' | 'stuck';
+export type SegmentSynthState = 'not_created' | 'queued' | 'running' | 'completed' | 'failed' | 'retrying' | 'stale';
+export type SegmentAudioState = 'missing' | 'attached' | 'stale' | 'invalid' | 'playback_failed';
+
+export interface SegmentInspection {
+  index: number;
+  segment: Segment;
+  synthState: SegmentSynthState;
+  audioState: SegmentAudioState;
+  readState: SegmentReadState;
+  listenState: SegmentListenState;
+  audioDurationSec?: number;
+  playbackFailures: number;
+  retryCount: number;
+  lastUserEvent?: string;
+  blocker?: string;
+}
+
+export interface BookJourney {
+  book: BookMetadata;
+  status?: ProcessingStatus;
+  pipeline?: PipelineStatus;
+  personas?: PersonaDiscovery;
+  segments: SegmentInspection[];
+  readinessScore: number;
+  textReadyCount: number;
+  audioReadyCount: number;
+  staleAudioCount: number;
+  failedAudioCount: number;
+  userReadSegment: number;
+  userListenedSegment: number;
+  blocker?: string;
+  perspective: string;
+}
+
+export interface LiveEvent {
+  id: string;
+  at: string;
+  scope: 'system' | 'book' | 'segment' | 'synth' | 'user' | 'health';
+  severity: 'info' | 'success' | 'warning' | 'danger';
+  title: string;
+  detail: string;
+  bookId?: string;
+  segmentId?: string;
+}

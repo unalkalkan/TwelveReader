@@ -72,6 +72,19 @@ services:
     networks:
       - twelvereader-network
 
+  debug-dashboard:
+    build:
+      context: ./debug-dashboard
+      dockerfile: Dockerfile
+    container_name: twelvereader-debug-dashboard
+    restart: unless-stopped
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+    networks:
+      - twelvereader-network
+
 volumes:
   twelvereader-data:
     driver: local
