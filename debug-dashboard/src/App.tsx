@@ -310,7 +310,7 @@ export function App() {
 
 function Metric({ title, value, icon, tone, detail }: { title: string; value: number | string; icon: React.ReactNode; tone: string; detail: string }) {
   return (
-    <div className="col-sm-6 col-lg-4 col-xxl-2">
+    <div className="col-sm-6 col-lg-4 col-xl-4">
       <div className="card metric-card">
         <div className="card-body">
           <div className={`metric-icon text-${tone}`}>{icon}</div>
