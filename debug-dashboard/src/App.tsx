@@ -17,9 +17,30 @@ function useLiveDashboard() {
   const [health, setHealth] = useState<HealthResponse | undefined>();
   const [providers, setProviders] = useState<ProvidersResponse | undefined>();
   const [mode, setMode] = useState<'live' | 'demo'>('demo');
+  const [sseConnected, setSseConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toISOString());
   const [error, setError] = useState<string | undefined>();
 
+  // SSE connection for live event push
+  useEffect(() => {
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource(`${window.location.origin}/api/v1/debug/stream`);
+      es.onopen = () => setSseConnected(true);
+      es.onerror = () => setSseConnected(false);
+      es.addEventListener('debug-state', (e) => {
+        try {
+          const data = JSON.parse(e.data) as LiveEvent[];
+          setEvents(data);
+          setLastUpdated(new Date().toISOString());
+        } catch { /* ignore parse errors */ }
+      });
+    } catch { /* SSE unavailable — falls back to polling */ }
+
+    return () => { es?.close(); };
+  }, []);
+
+  // REST polling for journeys (complex multi-endpoint aggregation)
   useEffect(() => {
     let cancelled = false;
 
@@ -67,8 +88,11 @@ function useLiveDashboard() {
         setProviders(providersResult);
         setJourneys(finalJourneys);
 
+        // Initial events from REST (SSE will take over for push updates)
         const apiEvents = await getDebugEvents().catch(() => []);
-        setEvents(apiEvents.length ? apiEvents : buildEvents(finalJourneys, healthResult));
+        if (!sseConnected || apiEvents.length > 0) {
+          setEvents(apiEvents.length ? apiEvents : buildEvents(finalJourneys, healthResult));
+        }
         setLastUpdated(new Date().toISOString());
         setError(undefined);
       } catch (err) {
@@ -83,11 +107,11 @@ function useLiveDashboard() {
     }
 
     load();
-    const id = window.setInterval(load, 2500);
+    const id = window.setInterval(load, 5000);
     return () => { cancelled = true; window.clearInterval(id); };
   }, []);
 
-  return { journeys, events, health, providers, mode, lastUpdated, error };
+  return { journeys, events, health, providers, mode, sseConnected, lastUpdated, error };
 }
 
 function BookDetailRoute({ journeys, events }: { journeys: BookJourney[]; events: LiveEvent[] }) {
@@ -97,11 +121,11 @@ function BookDetailRoute({ journeys, events }: { journeys: BookJourney[]; events
 }
 
 export function App() {
-  const { journeys, events, health, providers, mode, lastUpdated, error } = useLiveDashboard();
+  const { journeys, events, health, providers, mode, sseConnected, lastUpdated, error } = useLiveDashboard();
 
   return (
     <BrowserRouter>
-      <Layout mode={mode} health={health ? { status: health.status } : undefined} providers={providers ?? undefined} lastUpdated={lastUpdated}>
+      <Layout mode={mode} sseConnected={sseConnected} health={health ? { status: health.status } : undefined} providers={providers ?? undefined} lastUpdated={lastUpdated}>
         <Routes>
           <Route path="/" element={<OverviewPage journeys={journeys} events={events} health={health} providers={providers} error={error} />} />
           <Route path="/books" element={<BooksListPage journeys={journeys} />} />
