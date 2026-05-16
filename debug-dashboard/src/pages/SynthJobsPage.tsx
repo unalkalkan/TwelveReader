@@ -155,6 +155,11 @@ export function SynthJobsPage({ journeys }: { journeys: BookJourney[] }) {
               </tr>
             </thead>
             <tbody>
+              {filtered.length === 0 && (
+                <tr><td colSpan={9} className="text-center py-5 text-secondary">
+                  No synth jobs found. Synth jobs appear when a book is uploaded and segmented.
+                </td></tr>
+              )}
               {filtered.map((job) => (
                 <tr key={job.id}>
                   <td>

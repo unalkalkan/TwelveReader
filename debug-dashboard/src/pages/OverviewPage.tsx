@@ -75,7 +75,7 @@ export function OverviewPage({
       </section>
 
       {/* Quick Book Status */}
-      {journeys.length > 0 && (
+      {journeys.length > 0 ? (
         <div className="card mb-3">
           <div className="card-header d-flex justify-content-between align-items-center">
             <h3 className="card-title">Book Quick Status</h3>
@@ -121,6 +121,11 @@ export function OverviewPage({
             </table>
           </div>
         </div>
+      ) : (
+        <div className="card mb-3"><div className="card-body text-center py-5">
+          <div className="text-secondary mb-2">No books found</div>
+          <div className="text-secondary small">Upload a book to TwelveReader to see it here. The dashboard connects directly to the backend API.</div>
+        </div></div>
       )}
 
       {/* Recent Events */}

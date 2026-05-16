@@ -121,6 +121,11 @@ export function AudioArtifactsPage({ journeys }: { journeys: BookJourney[] }) {
               </tr>
             </thead>
             <tbody>
+              {filtered.length === 0 && (
+                <tr><td colSpan={8} className="text-center py-5 text-secondary">
+                  No audio artifacts found. Artifacts appear when TTS synthesis completes for book segments.
+                </td></tr>
+              )}
               {filtered.slice(0, 200).map((a) => (
                 <tr key={`${a.bookId}-${a.segmentId}`}>
                   <td><Link to={`/books/${a.bookId}`} className="text-white text-decoration-none">{a.bookTitle}</Link></td>

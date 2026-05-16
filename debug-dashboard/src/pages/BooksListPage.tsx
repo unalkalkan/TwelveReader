@@ -59,7 +59,7 @@ export function BooksListPage({ journeys }: { journeys: BookJourney[] }) {
             <div className="card">
               <div className="card-body text-center py-5">
                 <div className="text-secondary mb-2">No books found</div>
-                <div className="text-secondary small">Try adjusting your search or filters</div>
+                <div className="text-secondary small">{journeys.length === 0 ? 'Upload a book to TwelveReader to see it here.' : 'Try adjusting your search or filters'}</div>
               </div>
             </div>
           </div>

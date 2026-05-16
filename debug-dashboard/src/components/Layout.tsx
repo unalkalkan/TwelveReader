@@ -16,7 +16,7 @@ import type { ProvidersResponse } from '../types';
 
 type LayoutProps = {
   children: ReactNode;
-  mode: 'live' | 'demo';
+  apiConnected: boolean;
   sseConnected?: boolean;
   health?: HealthStatus;
   providers?: ProvidersResponse;
@@ -55,7 +55,7 @@ function HeadphonesIcon(props: React.SVGProps<SVGSVGElement>) {
   return <IconHeadphones {...props} />;
 }
 
-export function Layout({ children, mode, sseConnected, health, providers, lastUpdated }: LayoutProps) {
+export function Layout({ children, apiConnected, sseConnected, health, providers, lastUpdated }: LayoutProps) {
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -91,9 +91,9 @@ export function Layout({ children, mode, sseConnected, health, providers, lastUp
           ))}
 
           <div className="mt-auto p-3 sidebar-status">
-            <span className={`status status-dot status-dot-animated ${mode === 'live' ? 'status-green' : 'status-yellow'}`} />
+            <span className={`status status-dot ${apiConnected ? 'status-green' : 'status-red'}`} />
             <div>
-              <div className="small fw-semibold">{mode === 'live' ? 'Live API connected' : 'Demo fallback active'}</div>
+              <div className="small fw-semibold">{apiConnected ? 'API connected' : 'API disconnected'}</div>
               {sseConnected && <div className="text-success xsmall"><span className="status-dot status-green" /> SSE push active</div>}
               <div className="text-secondary small">Updated {fmtTime(lastUpdated)}</div>
             </div>

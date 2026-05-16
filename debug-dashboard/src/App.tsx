@@ -8,15 +8,15 @@ import { SynthJobsPage } from './pages/SynthJobsPage';
 import { UserActivityPage } from './pages/UserActivityPage';
 import { AudioArtifactsPage } from './pages/AudioArtifactsPage';
 import { getAudioValidation, getBookStatus, getBooks, getDebugEvents, getHealth, getPersonas, getPipelineStatus, getPlaybackEvents, getProviders, getSegments, getSynthJobs, getUserProgress } from './api';
-import { buildEvents, deriveJourney, makeDemoBooks } from './state';
+import { deriveJourney } from './state';
 import type { BookJourney, HealthResponse, LiveEvent, ProvidersResponse } from './types';
 
 function useLiveDashboard() {
-  const [journeys, setJourneys] = useState<BookJourney[]>(makeDemoBooks());
-  const [events, setEvents] = useState<LiveEvent[]>(buildEvents(makeDemoBooks()));
+  const [journeys, setJourneys] = useState<BookJourney[]>([]);
+  const [events, setEvents] = useState<LiveEvent[]>([]);
   const [health, setHealth] = useState<HealthResponse | undefined>();
   const [providers, setProviders] = useState<ProvidersResponse | undefined>();
-  const [mode, setMode] = useState<'live' | 'demo'>('demo');
+  const [apiConnected, setApiConnected] = useState(false);
   const [sseConnected, setSseConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toISOString());
   const [error, setError] = useState<string | undefined>();
@@ -52,9 +52,22 @@ function useLiveDashboard() {
           getBooks(),
         ]);
 
+        setApiConnected(true);
         const selectedBooks = [...books]
           .sort((a, b) => Date.parse(b.uploaded_at) - Date.parse(a.uploaded_at))
           .slice(0, 20);
+
+        if (selectedBooks.length === 0) {
+          if (cancelled) return;
+          setJourneys([]);
+          setHealth(healthResult);
+          setProviders(providersResult);
+          const apiEvents = await getDebugEvents().catch(() => []);
+          setEvents(apiEvents);
+          setLastUpdated(new Date().toISOString());
+          setError(undefined);
+          return;
+        }
 
         const loadedJourneys = await Promise.all(
           selectedBooks.map(async (book) => {
@@ -82,25 +95,19 @@ function useLiveDashboard() {
         );
 
         if (cancelled) return;
-        const finalJourneys = loadedJourneys.length ? loadedJourneys : makeDemoBooks();
-        setMode(loadedJourneys.length ? 'live' : 'demo');
+        setJourneys(loadedJourneys);
         setHealth(healthResult);
         setProviders(providersResult);
-        setJourneys(finalJourneys);
 
-        // Initial events from REST (SSE will take over for push updates)
         const apiEvents = await getDebugEvents().catch(() => []);
-        if (!sseConnected || apiEvents.length > 0) {
-          setEvents(apiEvents.length ? apiEvents : buildEvents(finalJourneys, healthResult));
-        }
+        setEvents(apiEvents);
         setLastUpdated(new Date().toISOString());
         setError(undefined);
       } catch (err) {
         if (cancelled) return;
-        const demo = makeDemoBooks();
-        setMode('demo');
-        setJourneys(demo);
-        setEvents(buildEvents(demo, undefined));
+        setApiConnected(false);
+        setJourneys([]);
+        setEvents([]);
         setLastUpdated(new Date().toISOString());
         setError(err instanceof Error ? err.message : 'Unknown API error');
       }
@@ -111,21 +118,27 @@ function useLiveDashboard() {
     return () => { cancelled = true; window.clearInterval(id); };
   }, []);
 
-  return { journeys, events, health, providers, mode, sseConnected, lastUpdated, error };
+  return { journeys, events, health, providers, apiConnected, sseConnected, lastUpdated, error };
 }
 
 function BookDetailRoute({ journeys, events }: { journeys: BookJourney[]; events: LiveEvent[] }) {
   const { bookId } = useParams<{ bookId: string }>();
   const journey = useMemo(() => journeys.find((j) => j.book.id === bookId) || journeys[0], [journeys, bookId]);
+  if (!journey) return (
+    <div className="card"><div className="card-body text-center py-5">
+      <div className="text-secondary mb-2">No books found</div>
+      <div className="text-secondary small">Upload a book to TwelveReader to inspect its journey here</div>
+    </div></div>
+  );
   return <BookDetailPage journey={journey} events={events} />;
 }
 
 export function App() {
-  const { journeys, events, health, providers, mode, sseConnected, lastUpdated, error } = useLiveDashboard();
+  const { journeys, events, health, providers, apiConnected, sseConnected, lastUpdated, error } = useLiveDashboard();
 
   return (
     <BrowserRouter>
-      <Layout mode={mode} sseConnected={sseConnected} health={health ? { status: health.status } : undefined} providers={providers ?? undefined} lastUpdated={lastUpdated}>
+      <Layout apiConnected={apiConnected} sseConnected={sseConnected} health={health ? { status: health.status } : undefined} providers={providers ?? undefined} lastUpdated={lastUpdated}>
         <Routes>
           <Route path="/" element={<OverviewPage journeys={journeys} events={events} health={health} providers={providers} error={error} />} />
           <Route path="/books" element={<BooksListPage journeys={journeys} />} />
@@ -172,35 +185,42 @@ function SegmentsQuickView({ journeys }: { journeys: BookJourney[] }) {
         <div className="text-secondary">{filtered.length} segment(s) across {journeys.length} book(s)</div>
       </div>
 
-      <div className="card">
-        <div className="card-header flex-wrap gap-2">
-          <div className="ms-auto d-flex gap-2 align-items-center">
-            <div className="input-icon segment-search" style={{ minWidth: '20rem' }}>
-              <span className="input-icon-addon"><svg xmlns="http://www.w3.org/2000/svg" width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx={11} cy={11} r={8} /><path d="m21 21-4.3-4.3" /></svg></span>
-              <input className="form-control form-control-sm" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search segment, persona, status..." />
+      {allSegments.length === 0 ? (
+        <div className="card"><div className="card-body text-center py-5">
+          <div className="text-secondary mb-2">No segments found</div>
+          <div className="text-secondary small">Upload a book to TwelveReader to see its segments here</div>
+        </div></div>
+      ) : (
+        <div className="card">
+          <div className="card-header flex-wrap gap-2">
+            <div className="ms-auto d-flex gap-2 align-items-center">
+              <div className="input-icon segment-search" style={{ minWidth: '20rem' }}>
+                <span className="input-icon-addon"><svg xmlns="http://www.w3.org/2000/svg" width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx={11} cy={11} r={8} /><path d="m21 21-4.3-4.3" /></svg></span>
+                <input className="form-control form-control-sm" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search segment, persona, status..." />
+              </div>
             </div>
           </div>
+          <div className="table-responsive">
+            <table className="table table-vcenter card-table table-hover">
+              <thead><tr><th>#</th><th>Book</th><th>Segment</th><th>Persona</th><th>Synth</th><th>Audio</th><th>User</th><th>Blocker</th></tr></thead>
+              <tbody>
+                {filtered.slice(0, 300).map((row) => (
+                  <tr key={(row as any).segment.id} style={{ cursor: 'pointer' }}>
+                    <td className="text-secondary">{(row as any).index}</td>
+                    <td><span className="mono-id small">{(row as any).bookTitle}</span></td>
+                    <td><span className="mono-id">{(row as any).segment.id}</span></td>
+                    <td><span className="badge bg-secondary-lt">{(row as any).segment.person || 'narrator'}</span></td>
+                    <td><span className={`badge bg-${statusColor((row as any).synthState)}-lt`}>{(row as any).synthState}</span></td>
+                    <td><span className={`badge bg-${statusColor((row as any).audioState)}-lt`}>{(row as any).audioState}</span></td>
+                    <td><div className="small">read: {(row as any).readState}</div><div className="small text-secondary">listen: {(row as any).listenState}</div></td>
+                    <td>{(row as any).blocker ? <span className="text-warning small">{(row as any).blocker.slice(0, 50)}</span> : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div className="table-responsive">
-          <table className="table table-vcenter card-table table-hover">
-            <thead><tr><th>#</th><th>Book</th><th>Segment</th><th>Persona</th><th>Synth</th><th>Audio</th><th>User</th><th>Blocker</th></tr></thead>
-            <tbody>
-              {filtered.slice(0, 300).map((row) => (
-                <tr key={(row as any).segment.id} style={{ cursor: 'pointer' }}>
-                  <td className="text-secondary">{(row as any).index}</td>
-                  <td><span className="mono-id small">{(row as any).bookTitle}</span></td>
-                  <td><span className="mono-id">{(row as any).segment.id}</span></td>
-                  <td><span className="badge bg-secondary-lt">{(row as any).segment.person || 'narrator'}</span></td>
-                  <td><span className={`badge bg-${statusColor((row as any).synthState)}-lt`}>{(row as any).synthState}</span></td>
-                  <td><span className={`badge bg-${statusColor((row as any).audioState)}-lt`}>{(row as any).audioState}</span></td>
-                  <td><div className="small">read: {(row as any).readState}</div><div className="small text-secondary">listen: {(row as any).listenState}</div></td>
-                  <td>{(row as any).blocker ? <span className="text-warning small">{(row as any).blocker.slice(0, 50)}</span> : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
     </>
   );
 }
