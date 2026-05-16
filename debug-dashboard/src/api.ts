@@ -6,10 +6,16 @@ import type {
   ProcessingStatus,
   ProvidersResponse,
   Segment,
+  SynthJob,
+  AudioArtifactValidation,
+  PlaybackEvent,
+  UserProgress,
+  LiveEvent,
 } from './types';
 
 const env = import.meta.env as Record<string, string | undefined>;
-export const API_ORIGIN = (env.VITE_TWELVEREADER_API_URL || 'http://localhost:8080').replace(/\/$/, '');
+const configuredOrigin = env.VITE_TWELVEREADER_API_URL;
+export const API_ORIGIN = (configuredOrigin && configuredOrigin.trim().length > 0 ? configuredOrigin : window.location.origin).replace(/\/$/, '');
 const API_BASE = `${API_ORIGIN}/api/v1`;
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -62,4 +68,34 @@ export async function fetchBookStream(bookId: string): Promise<Segment[]> {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => JSON.parse(line) as Segment);
+}
+
+export async function getSynthJobs(bookId: string): Promise<SynthJob[]> {
+  const data = await request<{ jobs: SynthJob[] }>(`${API_BASE}/debug/books/${bookId}/synth-jobs`);
+  return data.jobs || [];
+}
+
+export async function getAudioValidation(bookId: string): Promise<AudioArtifactValidation[]> {
+  const data = await request<{ artifacts: AudioArtifactValidation[] }>(`${API_BASE}/debug/books/${bookId}/audio-validation`);
+  return data.artifacts || [];
+}
+
+export async function getPlaybackEvents(bookId: string): Promise<PlaybackEvent[]> {
+  const data = await request<{ events: PlaybackEvent[] }>(`${API_BASE}/debug/books/${bookId}/playback-events`);
+  return data.events || [];
+}
+
+export async function getUserProgress(bookId: string): Promise<UserProgress> {
+  return request<UserProgress>(`${API_BASE}/debug/books/${bookId}/user-progress`);
+}
+
+export async function getDebugEvents(bookId?: string): Promise<LiveEvent[]> {
+  const url = bookId ? `${API_BASE}/debug/books/${bookId}/events` : `${API_BASE}/debug/events`;
+  const data = await request<{ events: LiveEvent[] }>(url);
+  return (data.events || []).map((event) => ({
+    ...event,
+    at: event.at || event.created_at || new Date().toISOString(),
+    bookId: event.bookId || event.book_id,
+    segmentId: event.segmentId || event.segment_id,
+  }));
 }

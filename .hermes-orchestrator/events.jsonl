@@ -82,3 +82,8 @@
 {"at":"2026-05-16T06:43:14Z","type":"review_written","run_id":"run_20260516T063632Z_debug_dashboard","backlog_item_id":"blg_debug_view_dashboard","verdict":"approve","tests":["cd debug-dashboard && npm run build"]}
 {"at":"2026-05-16T06:43:14Z","type":"supervisor_completed","run_id":"run_20260516T063632Z_debug_dashboard","completed_item_ids":["blg_debug_view_dashboard"]}
 {"at":"2026-05-16T06:43:14Z","type":"lock_released","run_id":"run_20260516T063632Z_debug_dashboard"}
+{"at":"2026-05-16T06:59:30Z","type":"lock_acquired","run_id":"run_20260516T065912Z_debug_backend_tunnel","owner":"hermes-agent","reason":"debug backend telemetry plus Cloudflare dashboard tunnel"}
+{"at":"2026-05-16T07:11:15Z","type":"review_written","run_id":"run_20260516T065912Z_debug_backend_tunnel","backlog_item_id":"blg_debug_backend_telemetry","verdict":"approve","tests":["docker run --rm -v \"$PWD\":/src -w /src golang:1.24-alpine sh -c go test ./...","npm --prefix debug-dashboard run build"]}
+{"at":"2026-05-16T07:11:15Z","type":"deployment_verified","run_id":"run_20260516T065912Z_debug_backend_tunnel","hostname":"dashboard.unalkalkan.com","origin":"http://127.0.0.1:3003"}
+{"at":"2026-05-16T07:11:15Z","type":"supervisor_completed","run_id":"run_20260516T065912Z_debug_backend_tunnel","completed_item_ids":["blg_debug_backend_telemetry","blg_debug_dashboard_cloudflare_tunnel"]}
+{"at":"2026-05-16T07:11:15Z","type":"lock_released","run_id":"run_20260516T065912Z_debug_backend_tunnel"}

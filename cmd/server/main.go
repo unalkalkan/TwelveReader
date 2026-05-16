@@ -115,6 +115,7 @@ func main() {
 
 	// Book API endpoints (Milestone 3)
 	bookHandler := api.NewBookHandler(bookRepo, parserFactory, providerRegistry, storageAdapter)
+	debugHandler := api.NewDebugHandler(bookRepo, storageAdapter)
 	mux.HandleFunc("/api/v1/books", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			bookHandler.UploadBook(w, r)
@@ -152,6 +153,26 @@ func main() {
 			bookHandler.GetAudio(w, r)
 		} else {
 			bookHandler.GetBook(w, r)
+		}
+	})
+	mux.HandleFunc("/api/v1/debug/events", debugHandler.Events)
+	mux.HandleFunc("/api/v1/debug/stream", debugHandler.EventStream)
+	mux.HandleFunc("/api/v1/debug/books/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if strings.HasSuffix(path, "/synth-jobs") {
+			debugHandler.ListSynthJobs(w, r)
+		} else if strings.HasSuffix(path, "/audio-validation") {
+			debugHandler.AudioValidation(w, r)
+		} else if strings.HasSuffix(path, "/playback-events") {
+			debugHandler.PlaybackEvents(w, r)
+		} else if strings.HasSuffix(path, "/user-progress") {
+			debugHandler.UserProgress(w, r)
+		} else if strings.HasSuffix(path, "/events") {
+			debugHandler.Events(w, r)
+		} else if strings.HasSuffix(path, "/stream") {
+			debugHandler.EventStream(w, r)
+		} else {
+			respondDebugNotFound(w)
 		}
 	})
 
@@ -213,6 +234,12 @@ func providersHandler(registry *provider.Registry) http.HandlerFunc {
 			toJSON(tts),
 			toJSON(ocr))
 	}
+}
+
+func respondDebugNotFound(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNotFound)
+	fmt.Fprint(w, `{"error":"Debug endpoint not found"}`)
 }
 
 func toJSON(items []string) string {

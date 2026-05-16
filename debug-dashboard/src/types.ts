@@ -112,6 +112,65 @@ export type SegmentListenState = 'not_attempted' | 'partial' | 'completed' | 'fa
 export type SegmentSynthState = 'not_created' | 'queued' | 'running' | 'completed' | 'failed' | 'retrying' | 'stale';
 export type SegmentAudioState = 'missing' | 'attached' | 'stale' | 'invalid' | 'playback_failed';
 
+
+export interface SynthJob {
+  id: string;
+  book_id: string;
+  segment_id: string;
+  status: string;
+  provider?: string;
+  voice_id?: string;
+  output_path?: string;
+  output_format?: string;
+  output_bytes?: number;
+  retry_count: number;
+  error?: string;
+  updated_at: string;
+}
+
+export interface AudioArtifactValidation {
+  book_id: string;
+  segment_id: string;
+  status: string;
+  format?: string;
+  path?: string;
+  bytes?: number;
+  content_type?: string;
+  error?: string;
+  checked_at: string;
+}
+
+export interface PlaybackEvent {
+  id: string;
+  book_id: string;
+  segment_id?: string;
+  user_id: string;
+  event_type: string;
+  playback_position_sec?: number;
+  duration_sec?: number;
+  success?: boolean;
+  error?: string;
+  client?: string;
+  device?: string;
+  created_at: string;
+}
+
+export interface UserProgress {
+  book_id: string;
+  user_id: string;
+  journey_state: string;
+  can_read: boolean;
+  can_listen_all: boolean;
+  last_opened_segment_id?: string;
+  last_read_segment_id?: string;
+  last_listened_segment_id?: string;
+  stuck_segment_id?: string;
+  playback_failures: number;
+  completed_listen_segments: number;
+  total_segments: number;
+  updated_at: string;
+}
+
 export interface SegmentInspection {
   index: number;
   segment: Segment;
@@ -124,6 +183,8 @@ export interface SegmentInspection {
   retryCount: number;
   lastUserEvent?: string;
   blocker?: string;
+  synthJob?: SynthJob;
+  audioValidation?: AudioArtifactValidation;
 }
 
 export interface BookJourney {
@@ -131,6 +192,8 @@ export interface BookJourney {
   status?: ProcessingStatus;
   pipeline?: PipelineStatus;
   personas?: PersonaDiscovery;
+  userProgress?: UserProgress;
+  playbackEvents?: PlaybackEvent[];
   segments: SegmentInspection[];
   readinessScore: number;
   textReadyCount: number;
@@ -146,10 +209,13 @@ export interface BookJourney {
 export interface LiveEvent {
   id: string;
   at: string;
+  created_at?: string;
   scope: 'system' | 'book' | 'segment' | 'synth' | 'user' | 'health';
   severity: 'info' | 'success' | 'warning' | 'danger';
   title: string;
   detail: string;
   bookId?: string;
   segmentId?: string;
+  book_id?: string;
+  segment_id?: string;
 }

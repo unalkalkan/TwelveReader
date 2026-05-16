@@ -3,7 +3,7 @@
   "project_id": "twelvereader",
   "orchestrator_status": "idle",
   "current_phase": "debug-dashboard",
-  "current_goal": "Standalone Tabler debug dashboard MVP implemented and build-verified; richer backend telemetry remains future work.",
+  "current_goal": "Debug telemetry endpoints implemented; dashboard deployed at dashboard.unalkalkan.com.",
   "active_run_ids": [],
   "pending_review_ids": [],
   "active_feedback_ids": [],
@@ -13,7 +13,7 @@
   "git": {
     "repo_initialized": true,
     "current_branch": "ui",
-    "last_commit_sha": "28a9450",
+    "last_commit_sha": "f08d56f",
     "working_tree_dirty": true
   },
   "escalation": {
@@ -22,14 +22,14 @@
     "target_tier": null
   },
   "last_supervisor_action": {
-    "at": "2026-05-16T06:43:14Z",
-    "action": "debug_dashboard_mvp_verified",
-    "target_id": "blg_debug_view_dashboard",
-    "notes": "Created separate debug-dashboard React/Vite project using Tabler dark slate blue theme; npm build passed."
+    "at": "2026-05-16T07:11:15Z",
+    "action": "debug_backend_tunnel_verified",
+    "target_id": "blg_debug_backend_telemetry,blg_debug_dashboard_cloudflare_tunnel",
+    "notes": "Go tests and dashboard build passed; dashboard.unalkalkan.com returns HTTP 200 and proxies debug API."
   },
   "counters": {
-    "total_tasks": 25,
-    "completed": 21,
+    "total_tasks": 27,
+    "completed": 23,
     "in_progress": 1,
     "failed": 0,
     "total_runs": 11,
@@ -38,5 +38,5 @@
     "review_revisions": 0,
     "premium_escalations": 0
   },
-  "updated_at": "2026-05-16T06:43:14Z"
+  "updated_at": "2026-05-16T07:11:15Z"
 }

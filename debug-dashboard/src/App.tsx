@@ -13,7 +13,7 @@ import {
   IconUserCheck,
   IconWaveSine,
 } from '@tabler/icons-react';
-import { fetchBookStream, getBookStatus, getBooks, getHealth, getPersonas, getPipelineStatus, getProviders, getSegments } from './api';
+import { fetchBookStream, getAudioValidation, getBookStatus, getBooks, getDebugEvents, getHealth, getPersonas, getPipelineStatus, getPlaybackEvents, getProviders, getSegments, getSynthJobs, getUserProgress } from './api';
 import { buildEvents, deriveJourney, makeDemoBooks } from './state';
 import type { BookJourney, HealthResponse, LiveEvent, ProvidersResponse, SegmentInspection } from './types';
 
@@ -72,15 +72,19 @@ function useLiveDashboard() {
 
         const loadedJourneys = await Promise.all(
           selectedBooks.map(async (book) => {
-            const [status, segments, streamSegments, pipeline, personas] = await Promise.all([
+            const [status, segments, streamSegments, pipeline, personas, synthJobs, audioValidations, playbackEvents, userProgress] = await Promise.all([
               getBookStatus(book.id).catch(() => undefined),
               getSegments(book.id).catch(() => []),
               fetchBookStream(book.id).catch(() => []),
               getPipelineStatus(book.id).catch(() => undefined),
               getPersonas(book.id).catch(() => undefined),
+              getSynthJobs(book.id).catch(() => []),
+              getAudioValidation(book.id).catch(() => []),
+              getPlaybackEvents(book.id).catch(() => []),
+              getUserProgress(book.id).catch(() => undefined),
             ]);
             const mergedSegments = streamSegments.length ? streamSegments : segments;
-            return deriveJourney(book, status, pipeline, personas, mergedSegments);
+            return deriveJourney(book, status, pipeline, personas, mergedSegments, { synthJobs, audioValidations, playbackEvents, userProgress });
           }),
         );
 
@@ -90,7 +94,8 @@ function useLiveDashboard() {
         setHealth(healthResult);
         setProviders(providersResult);
         setJourneys(finalJourneys);
-        setEvents(buildEvents(finalJourneys, healthResult, nextTick));
+        const apiEvents = await getDebugEvents().catch(() => []);
+        setEvents(apiEvents.length ? apiEvents : buildEvents(finalJourneys, healthResult, nextTick));
         setLastUpdated(new Date().toISOString());
         setError(undefined);
       } catch (err) {
@@ -179,6 +184,7 @@ export function App() {
               ['Books', IconBook2],
               ['Segments', IconDatabase],
               ['Synth Jobs', IconHeadphones],
+              ['Audio Artifacts', IconPlayerPlay],
               ['User Journey', IconUserCheck],
               ['Events', IconHeartbeat],
             ].map(([label, Icon]: any, index) => (
@@ -401,7 +407,8 @@ function UserPerspective({ journey }: { journey: BookJourney }) {
           <div className="datagrid-item"><div className="datagrid-title">Last read</div><div className="datagrid-content">Segment {journey.userReadSegment || '—'}</div></div>
           <div className="datagrid-item"><div className="datagrid-title">Last listened</div><div className="datagrid-content">Segment {journey.userListenedSegment || '—'}</div></div>
           <div className="datagrid-item"><div className="datagrid-title">Next segment</div><div className="datagrid-content">{nextSegment ? `${nextSegment.index} · ${nextSegment.audioState}` : '—'}</div></div>
-          <div className="datagrid-item"><div className="datagrid-title">Playback failures</div><div className="datagrid-content">{journey.failedAudioCount}</div></div>
+          <div className="datagrid-item"><div className="datagrid-title">Playback failures</div><div className="datagrid-content">{journey.userProgress?.playback_failures ?? journey.failedAudioCount}</div></div>
+          <div className="datagrid-item"><div className="datagrid-title">Journey state</div><div className="datagrid-content">{journey.userProgress?.journey_state || 'derived'}</div></div>
         </div>
       </div>
     </div>
@@ -422,7 +429,7 @@ function SegmentsTable({ rows, query, setQuery, onSelect }: { rows: SegmentInspe
         <table className="table table-vcenter card-table table-hover">
           <thead>
             <tr>
-              <th>#</th><th>Segment</th><th>Persona</th><th>Synth</th><th>Audio</th><th>User</th><th>Playback</th><th>Blocker</th>
+              <th>#</th><th>Segment</th><th>Persona</th><th>Synth</th><th>Audio</th><th>Artifact</th><th>User</th><th>Playback</th><th>Blocker</th>
             </tr>
           </thead>
           <tbody>
@@ -433,6 +440,7 @@ function SegmentsTable({ rows, query, setQuery, onSelect }: { rows: SegmentInspe
                 <td><span className="badge bg-secondary-lt">{row.segment.person || 'narrator'}</span></td>
                 <td><span className={cls('badge', `bg-${statusColor(row.synthState)}-lt`)}>{row.synthState}</span></td>
                 <td><span className={cls('badge', `bg-${statusColor(row.audioState)}-lt`)}>{row.audioState}</span></td>
+                <td className="text-secondary small">{row.audioValidation?.bytes ? `${row.audioValidation.bytes} B` : row.audioValidation?.status || '—'}</td>
                 <td><div className="small">read: {row.readState}</div><div className="small text-secondary">listen: {row.listenState}</div></td>
                 <td>{row.playbackFailures ? <span className="badge bg-danger-lt">{row.playbackFailures} failed</span> : <span className="text-secondary">{row.audioDurationSec ? `${row.audioDurationSec}s` : '—'}</span>}</td>
                 <td className="blocker-cell">{row.blocker ? <span className="text-warning">{row.blocker}</span> : <span className="text-secondary">—</span>}</td>
@@ -495,6 +503,13 @@ function SegmentDrawer({ segment, onClose }: { segment: SegmentInspection; onClo
           {segment.blocker && <div className="alert alert-warning"><IconAlertTriangle size={18} /> {segment.blocker}</div>}
           <h4>Text preview</h4>
           <div className="text-preview">{segment.segment.text}</div>
+          <h4 className="mt-4">Synth job</h4>
+          <div className="datagrid mb-3">
+            <div className="datagrid-item"><div className="datagrid-title">Job status</div><div className="datagrid-content">{segment.synthJob?.status || 'derived'}</div></div>
+            <div className="datagrid-item"><div className="datagrid-title">Provider</div><div className="datagrid-content">{segment.synthJob?.provider || '—'}</div></div>
+            <div className="datagrid-item"><div className="datagrid-title">Output</div><div className="datagrid-content mono-id">{segment.synthJob?.output_path || segment.audioValidation?.path || '—'}</div></div>
+            <div className="datagrid-item"><div className="datagrid-title">Bytes</div><div className="datagrid-content">{segment.synthJob?.output_bytes || segment.audioValidation?.bytes || '—'}</div></div>
+          </div>
           <h4 className="mt-4">Raw inspection</h4>
           <pre className="raw-json">{JSON.stringify(segment, null, 2)}</pre>
         </div>

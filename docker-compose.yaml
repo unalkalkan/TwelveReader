@@ -79,7 +79,7 @@ services:
     container_name: twelvereader-debug-dashboard
     restart: unless-stopped
     ports:
-      - "3001:80"
+      - "3003:80"
     depends_on:
       - backend
     networks:

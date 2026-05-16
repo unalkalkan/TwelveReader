@@ -8,6 +8,10 @@ import type {
   ProcessingStatus,
   Segment,
   SegmentInspection,
+  SynthJob,
+  AudioArtifactValidation,
+  PlaybackEvent,
+  UserProgress,
 } from './types';
 
 const nowIso = () => new Date().toISOString();
@@ -117,25 +121,42 @@ export function deriveJourney(
   pipeline: PipelineStatus | undefined,
   personas: PersonaDiscovery | undefined,
   rawSegments: Segment[] | SegmentInspection[],
+  debug?: { synthJobs?: SynthJob[]; audioValidations?: AudioArtifactValidation[]; playbackEvents?: PlaybackEvent[]; userProgress?: UserProgress },
 ): BookJourney {
+  const synthBySegment = new Map((debug?.synthJobs || []).map((job) => [job.segment_id, job]));
+  const audioBySegment = new Map((debug?.audioValidations || []).map((artifact) => [artifact.segment_id, artifact]));
+  const playbackBySegment = new Map<string, PlaybackEvent[]>();
+  for (const event of debug?.playbackEvents || []) {
+    if (!event.segment_id) continue;
+    playbackBySegment.set(event.segment_id, [...(playbackBySegment.get(event.segment_id) || []), event]);
+  }
   const segments: SegmentInspection[] = rawSegments.map((item, idx) => {
     if ('segment' in item) return item;
     const segment = item as Segment;
-    const hasAudio = Boolean(segment.audio_url || segment.timestamps || segment.voice_id);
     const stale = Boolean(segment.audio_stale);
+    const synthJob = synthBySegment.get(segment.id);
+    const audioValidation = audioBySegment.get(segment.id);
+    const playbackEvents = playbackBySegment.get(segment.id) || [];
+    const playbackFailures = playbackEvents.filter((event) => event.event_type === 'failed' || event.error).length;
+    const completedListens = playbackEvents.filter((event) => event.event_type === 'complete').length;
+    const hasAudio = audioValidation ? audioValidation.status === 'attached' || audioValidation.status === 'stale' : Boolean(segment.audio_url || segment.timestamps || segment.voice_id);
+    const audioState = audioValidation?.status === 'invalid' ? 'invalid' : audioValidation?.status === 'stale' ? 'stale' : playbackFailures > 0 ? 'playback_failed' : hasAudio ? 'attached' : 'missing';
+    const synthState = synthJob?.status === 'completed' ? 'completed' : synthJob?.status === 'failed' || synthJob?.status === 'exhausted' ? 'failed' : synthJob?.status === 'running' ? 'running' : synthJob?.status === 'retrying' ? 'retrying' : stale ? 'stale' : hasAudio ? 'completed' : book.status === 'synthesizing' ? 'queued' : 'not_created';
     return {
       index: idx + 1,
       segment,
-      synthState: stale ? 'stale' : hasAudio ? 'completed' : book.status === 'synthesizing' ? 'queued' : 'not_created',
-      audioState: stale ? 'stale' : hasAudio ? 'attached' : 'missing',
-      readState: idx === 0 ? 'current' : 'not_opened',
-      listenState: 'not_attempted',
+      synthState,
+      audioState,
+      readState: debug?.userProgress?.last_read_segment_id === segment.id ? 'current' : 'not_opened',
+      listenState: playbackFailures > 0 ? 'failed' : completedListens > 0 ? 'completed' : 'not_attempted',
       audioDurationSec: segment.timestamps?.items?.length
         ? Math.round(segment.timestamps.items[segment.timestamps.items.length - 1].end)
         : undefined,
-      playbackFailures: 0,
-      retryCount: 0,
-      blocker: !hasAudio ? 'Audio missing or not attached' : undefined,
+      playbackFailures,
+      retryCount: synthJob?.retry_count || 0,
+      blocker: playbackFailures > 0 ? 'Playback failed for this segment' : audioState === 'invalid' ? audioValidation?.error || 'Audio artifact invalid' : !hasAudio ? 'Audio missing or not attached' : undefined,
+      synthJob,
+      audioValidation,
     };
   });
 
@@ -145,8 +166,8 @@ export function deriveJourney(
   const staleAudioCount = segments.filter((s) => s.audioState === 'stale').length;
   const failedAudioCount = segments.filter((s) => s.audioState === 'playback_failed' || s.synthState === 'failed').length;
   const readinessScore = Math.round(((textReadyCount / total) * 0.4 + (audioReadyCount / total) * 0.6) * 100);
-  const userReadSegment = Math.max(0, ...segments.filter((s) => s.readState === 'read' || s.readState === 'current').map((s) => s.index));
-  const userListenedSegment = Math.max(0, ...segments.filter((s) => s.listenState === 'completed' || s.listenState === 'partial').map((s) => s.index));
+  const userReadSegment = debug?.userProgress?.last_read_segment_id ? segments.find((s) => s.segment.id === debug.userProgress?.last_read_segment_id)?.index || 0 : Math.max(0, ...segments.filter((s) => s.readState === 'read' || s.readState === 'current').map((s) => s.index));
+  const userListenedSegment = debug?.userProgress?.last_listened_segment_id ? segments.find((s) => s.segment.id === debug.userProgress?.last_listened_segment_id)?.index || 0 : Math.max(0, ...segments.filter((s) => s.listenState === 'completed' || s.listenState === 'partial').map((s) => s.index));
 
   let blocker: string | undefined;
   if (book.error || status?.error) blocker = book.error || status?.error;
@@ -154,15 +175,19 @@ export function deriveJourney(
   else if (audioReadyCount < total && ['synthesizing', 'synthesis_error'].includes(book.status)) blocker = `Audio is available through ${audioReadyCount}/${total} segments`;
   else if (book.waiting_for_mapping || (personas?.unmapped?.length || 0) > 0) blocker = 'Waiting for persona voice mapping';
 
-  const perspective = blocker
-    ? `User can read text, but listening is blocked or incomplete: ${blocker}.`
-    : 'User can read and listen normally. No journey blocker detected.';
+  const perspective = debug?.userProgress
+    ? `User journey is ${debug.userProgress.journey_state}. Last listened: ${debug.userProgress.last_listened_segment_id || 'none'}, playback failures: ${debug.userProgress.playback_failures}.`
+    : blocker
+      ? `User can read text, but listening is blocked or incomplete: ${blocker}.`
+      : 'User can read and listen normally. No journey blocker detected.';
 
   return {
     book,
     status,
     pipeline,
     personas,
+    userProgress: debug?.userProgress,
+    playbackEvents: debug?.playbackEvents,
     segments,
     readinessScore,
     textReadyCount,
