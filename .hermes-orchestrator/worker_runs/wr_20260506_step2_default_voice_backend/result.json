@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "run_id": "wr_20260506_step2_default_voice_backend",
+  "status": "accepted_backend_slice",
+  "completed_at": "2026-05-06T19:14:36Z",
+  "summary": "Implemented Step 2 backend single-user default voice setting using TDD: repository persistence, GET/PUT /api/v1/voices/default, server routing, docs, and tests.",
+  "files_changed": [
+    "pkg/types/book.go",
+    "internal/book/repository.go",
+    "internal/book/repository_test.go",
+    "internal/api/voices_handler.go",
+    "internal/api/voices_handler_test.go",
+    "internal/pipeline/orchestrator_hybrid_test.go",
+    "cmd/server/main.go",
+    "API.md"
+  ],
+  "tests_run": [
+    {
+      "command": "./scripts/container-go-test.sh ./internal/book ./internal/api",
+      "result": "failed as expected in RED phase before production code: missing DefaultVoice/GetDefaultVoice/NewVoicesHandlerWithRepository"
+    },
+    {
+      "command": "./scripts/container-go-test.sh ./...",
+      "result": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    },
+    {
+      "command": "cd web-client && npx tsc --noEmit",
+      "result": "passed"
+    }
+  ],
+  "blockers": [],
+  "risks": [
+    "Frontend Voices tab integration remains pending as the next Step 2 slice."
+  ],
+  "review_request": "Review backend API semantics, route ordering for /api/v1/voices/default before preview/list behavior, repository interface expansion, and docs.",
+  "review_id": "rev_20260506_step2_default_voice_backend"
+}

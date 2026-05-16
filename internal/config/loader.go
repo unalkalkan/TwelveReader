@@ -120,36 +120,69 @@ func applyEnvOverrides(cfg *types.Config) {
 func applyProviderEnvOverrides(cfg *types.Config) {
 	// LLM providers
 	for i := range cfg.Providers.LLM {
-		prefix := fmt.Sprintf("TR_LLM_%s_", strings.ToUpper(cfg.Providers.LLM[i].Name))
-		if val := os.Getenv(prefix + "API_KEY"); val != "" {
+		if val := providerEnvValue("LLM", cfg.Providers.LLM[i].Name, "API_KEY"); val != "" {
 			cfg.Providers.LLM[i].APIKey = val
 		}
-		if val := os.Getenv(prefix + "ENDPOINT"); val != "" {
+		if val := providerEnvValue("LLM", cfg.Providers.LLM[i].Name, "ENDPOINT"); val != "" {
 			cfg.Providers.LLM[i].Endpoint = val
 		}
 	}
 
 	// TTS providers
 	for i := range cfg.Providers.TTS {
-		prefix := fmt.Sprintf("TR_TTS_%s_", strings.ToUpper(cfg.Providers.TTS[i].Name))
-		if val := os.Getenv(prefix + "API_KEY"); val != "" {
+		if val := providerEnvValue("TTS", cfg.Providers.TTS[i].Name, "API_KEY"); val != "" {
 			cfg.Providers.TTS[i].APIKey = val
 		}
-		if val := os.Getenv(prefix + "ENDPOINT"); val != "" {
+		if val := providerEnvValue("TTS", cfg.Providers.TTS[i].Name, "ENDPOINT"); val != "" {
 			cfg.Providers.TTS[i].Endpoint = val
 		}
 	}
 
 	// OCR providers
 	for i := range cfg.Providers.OCR {
-		prefix := fmt.Sprintf("TR_OCR_%s_", strings.ToUpper(cfg.Providers.OCR[i].Name))
-		if val := os.Getenv(prefix + "API_KEY"); val != "" {
+		if val := providerEnvValue("OCR", cfg.Providers.OCR[i].Name, "API_KEY"); val != "" {
 			cfg.Providers.OCR[i].APIKey = val
 		}
-		if val := os.Getenv(prefix + "ENDPOINT"); val != "" {
+		if val := providerEnvValue("OCR", cfg.Providers.OCR[i].Name, "ENDPOINT"); val != "" {
 			cfg.Providers.OCR[i].Endpoint = val
 		}
+		if val := providerEnvValue("OCR", cfg.Providers.OCR[i].Name, "MODEL"); val != "" {
+			if cfg.Providers.OCR[i].Options == nil {
+				cfg.Providers.OCR[i].Options = make(map[string]string)
+			}
+			cfg.Providers.OCR[i].Options["model"] = val
+		}
 	}
+}
+
+func providerEnvValue(kind, name, suffix string) string {
+	for _, prefix := range providerEnvPrefixes(kind, name) {
+		if val := os.Getenv(prefix + suffix); val != "" {
+			return val
+		}
+	}
+	return ""
+}
+
+func providerEnvPrefixes(kind, name string) []string {
+	safe := fmt.Sprintf("TR_%s_%s_", kind, envSafeProviderName(name))
+	legacy := fmt.Sprintf("TR_%s_%s_", kind, strings.ToUpper(name))
+	if legacy == safe {
+		return []string{safe}
+	}
+	return []string{safe, legacy}
+}
+
+func envSafeProviderName(name string) string {
+	var b strings.Builder
+	for _, r := range strings.ToUpper(name) {
+		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			continue
+		}
+		b.WriteByte('_')
+	}
+	return b.String()
 }
 
 // GetDefault returns a default configuration

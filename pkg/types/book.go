@@ -2,6 +2,16 @@ package types
 
 import "time"
 
+// DefaultVoice stores the single-user default TTS voice selection.
+// This is intentionally account-like but global until real accounts exist.
+type DefaultVoice struct {
+	Provider         string    `json:"provider"`
+	VoiceID          string    `json:"voice_id"`
+	Language         string    `json:"language,omitempty"`
+	VoiceDescription string    `json:"voice_description,omitempty"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
 // Book represents a book being processed
 type Book struct {
 	ID            string    `json:"id"`
@@ -19,6 +29,12 @@ type Book struct {
 	TotalParagraphs     int `json:"total_paragraphs"`     // Total paragraphs to segment
 	SegmentedParagraphs int `json:"segmented_paragraphs"` // Paragraphs processed so far
 	SynthesizedSegments int `json:"synthesized_segments"` // Segments with audio generated
+
+	// Persona tracking fields for hybrid pipeline
+	DiscoveredPersonas  []string `json:"discovered_personas"`   // All personas discovered so far
+	UnmappedPersonas    []string `json:"unmapped_personas"`     // Personas waiting for voice mapping
+	PendingSegmentCount int      `json:"pending_segment_count"` // Segments waiting for voice mapping
+	WaitingForMapping   bool     `json:"waiting_for_mapping"`   // Pipeline is waiting for user voice mapping
 }
 
 // Chapter represents a chapter in a book
@@ -41,7 +57,9 @@ type Segment struct {
 	Language         string          `json:"language"`
 	Person           string          `json:"person"`
 	VoiceDescription string          `json:"voice_description"`
-	VoiceID          string          `json:"voice_id,omitempty"` // Set after voice mapping
+	VoiceID          string          `json:"voice_id,omitempty"`       // Set after voice mapping/synthesis
+	AudioStale       bool            `json:"audio_stale,omitempty"`    // Existing audio was generated with an older persona voice
+	StaleVoiceID     string          `json:"stale_voice_id,omitempty"` // Voice ID used by stale audio before regeneration
 	Timestamps       *TimestampData  `json:"timestamps,omitempty"`
 	SourceContext    *SourceContext  `json:"source_context,omitempty"`
 	Processing       *ProcessingInfo `json:"processing"`
@@ -111,4 +129,22 @@ type ProcessingStatus struct {
 	TotalParagraphs     int `json:"total_paragraphs"`     // Total paragraphs to segment
 	SegmentedParagraphs int `json:"segmented_paragraphs"` // Paragraphs segmented so far
 	SynthesizedSegments int `json:"synthesized_segments"` // Segments with audio generated
+}
+
+// PersonaProfile holds an aggregate persona voice profile for a book
+type PersonaProfile struct {
+	BookID           string    `json:"book_id"`
+	PersonaID        string    `json:"persona_id"`
+	DisplayName      string    `json:"display_name"`
+	VoiceDescription string    `json:"voice_description"`
+	SegmentCount     int       `json:"segment_count"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+// PersonaDiscovery represents discovered personas with their mapping status
+type PersonaDiscovery struct {
+	Discovered      []string          `json:"discovered"`       // All discovered personas
+	Mapped          map[string]string `json:"mapped"`           // persona -> voiceID
+	Unmapped        []string          `json:"unmapped"`         // Personas needing mapping
+	PendingSegments int               `json:"pending_segments"` // Segments waiting for voice mapping
 }

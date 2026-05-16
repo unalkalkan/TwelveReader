@@ -22,6 +22,9 @@ type Adapter interface {
 	// List returns paths matching the given prefix
 	List(ctx context.Context, prefix string) ([]string, error)
 
+	// DeleteAll removes all data under the given prefix (including the prefix directory)
+	DeleteAll(ctx context.Context, prefix string) error
+
 	// Close cleans up any resources
 	Close() error
 }

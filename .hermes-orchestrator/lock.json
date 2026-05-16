@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "locked": false,
+  "run_id": null,
+  "status": "idle",
+  "started_at": null,
+  "owner": null,
+  "reason": null,
+  "heartbeat_at": null,
+  "stale_after_seconds": 7200,
+  "updated_at": "2026-05-16T11:32:51Z"
+}

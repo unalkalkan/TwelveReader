@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "run_id": "wr_20260430_010",
+  "backlog_item_id": "blg_frontend_deerflow_signature",
+  "worker": {
+    "type": "opencode",
+    "model": "opencode-go/glm-5.1"
+  },
+  "status": "succeeded",
+  "started_at": "2026-04-30T23:50:20Z",
+  "completed_at": "2026-04-30T23:55:31Z",
+  "fallback_reason": null,
+  "summary": "OpenCode GLM-5.1 added a reusable attribution badge and root render. Hermes reviewed and refined placement to the tab layout to avoid root Stack overlay risks, then validated TypeScript and web export successfully.",
+  "files_changed": [
+    "web-client/src/components/AttributionBadge.tsx",
+    "web-client/app/(tabs)/_layout.tsx"
+  ],
+  "validation": [
+    {
+      "command": "cd web-client && npx tsc --noEmit",
+      "status": "passed"
+    },
+    {
+      "command": "cd web-client && npm run build",
+      "status": "passed",
+      "notes": "Existing expo-av deprecation warning remains."
+    },
+    {
+      "command": "go test ./...",
+      "status": "blocked",
+      "notes": "go binary is unavailable on PATH."
+    }
+  ],
+  "review_id": "rv_20260430_010"
+}

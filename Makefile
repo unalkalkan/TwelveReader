@@ -1,4 +1,4 @@
-.PHONY: help build test lint clean run install-tools
+.PHONY: help build test test-container lint clean run install-tools
 
 # Default target
 .DEFAULT_GOAL := help
@@ -28,6 +28,9 @@ build: ## Build the server binary
 test: ## Run all tests
 	@echo "Running tests..."
 	$(GOTEST) -v -race -coverprofile=coverage.out ./...
+
+test-container: ## Run Go tests inside Docker, no host Go required
+	./scripts/container-go-test.sh
 
 test-coverage: test ## Run tests with coverage report
 	@echo "Generating coverage report..."
@@ -75,7 +78,7 @@ docker-build: ## Build Docker image
 
 docker-run: docker-build ## Build and run Docker container
 	@echo "Running Docker container..."
-	docker run -p 8080:8080 -v $(PWD)/config/docker.yaml:/app/config/config.yaml:ro twelvereader:latest
+	docker run -p 8080:8080 -v $(PWD)/config/config.yaml:/app/config/config.yaml:ro twelvereader:latest
 
 docker-up: ## Start services with docker-compose
 	@echo "Starting services..."

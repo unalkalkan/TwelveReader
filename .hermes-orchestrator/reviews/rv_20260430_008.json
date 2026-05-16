@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "review_id": "rv_20260430_008",
+  "target_run_id": "wr_20260430_008",
+  "backlog_item_id": "blg_backend_parser_ocr",
+  "reviewer_role": "reviewer",
+  "model_tier": "hermes_supervisor_with_opencode_go_glm_5_1_readonly_review",
+  "review_type": "implementation_gate",
+  "verdict": "approve_with_follow_up",
+  "created_at": "2026-04-30T22:58:40Z",
+  "summary": "Approved after Hermes addressed the OpenCode GLM-5.1 review findings that were required for this bounded no-dependency parser slice. The change removes placeholder PDF/ePUB parser output and adds behavior-focused tests without changing provider interfaces, frontend contracts, dependencies, remotes, or secrets.",
+  "findings": [
+    {
+      "severity": "medium",
+      "status": "follow_up",
+      "description": "PDF extraction is intentionally limited to simple uncompressed streams and literal strings. Most real PDFs use compression or encodings, so full PDF quality remains a future task."
+    },
+    {
+      "severity": "medium",
+      "status": "follow_up",
+      "description": "OCR implementation was split from the original combined parser/OCR backlog item into blg_backend_ocr_provider."
+    }
+  ],
+  "required_changes": [],
+  "accepted_changes": [
+    "Added EPUB ZIP/OPF spine parsing with HTML/XHTML fallback, entity decoding, script/style stripping, stable chapter IDs, size limits, and tests.",
+    "Added PDF simple uncompressed stream literal-string extraction with escape/octal handling and tests.",
+    "Added tests for invalid inputs, nested OPF href paths, sanitized EPUB content, PDF placeholder removal, and parser factory compatibility."
+  ],
+  "security_review": {
+    "hardcoded_secrets": false,
+    "path_traversal_risk": "none_observed_no_file_writes_from_archive_paths",
+    "remote_changed": false,
+    "notes": "No secrets or remotes changed. EPUB archive entry names are used as in-memory map keys only; no filesystem extraction is performed. Decompressed size limits reduce zip-bomb risk."
+  },
+  "quality_review": {
+    "scope_control": "passed",
+    "type_safety": "frontend_passed_go_path_blocked",
+    "regression_risk": "medium_for_real_world_pdf_quality",
+    "notes": "No dependency or API scope creep. Standard go command is unavailable on PATH; supplemental parser tests passed via cached Go toolchain path."
+  },
+  "validation": [
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    },
+    {
+      "command": "cd web-client && npx tsc --noEmit",
+      "status": "passed"
+    },
+    {
+      "command": "cd web-client && npm run build",
+      "status": "passed",
+      "notes": "Existing expo-av deprecation warning remains."
+    },
+    {
+      "command": "go test ./internal/parser",
+      "status": "blocked",
+      "notes": "go binary not installed on PATH in Hermes environment"
+    },
+    {
+      "command": "/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.12.linux-amd64/bin/go test ./internal/parser -v",
+      "status": "passed",
+      "notes": "Supplemental validation only; not counted as satisfying the standard go-on-PATH prerequisite."
+    }
+  ],
+  "escalation": {
+    "required": false,
+    "reason": null
+  },
+  "next_action": "commit_accepted_changes_then_continue_ocr_or_live_validation_if_time_allows"
+}

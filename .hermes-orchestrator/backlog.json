@@ -1,0 +1,552 @@
+{
+  "version": 1,
+  "project_id": "twelvereader",
+  "updated_at": "2026-05-16T11:32:51Z",
+  "items": [
+    {
+      "id": "blg_bootstrap_orchestrator",
+      "title": "Bootstrap Hermes Orchestrator state",
+      "description": "Replace scaffold templates with project-specific mission/design/plan/acceptance/feedback/backlog/state.",
+      "status": "done",
+      "priority": 100,
+      "role_hint": "builder",
+      "phase": "phase-1",
+      "dependencies": [],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:43:00Z"
+    },
+    {
+      "id": "blg_fix_frontend_compile",
+      "title": "Fix frontend TypeScript compile errors",
+      "description": "Repair current Explore/useVoices response mismatch and any subsequent compile errors.",
+      "status": "done",
+      "priority": 95,
+      "role_hint": "builder",
+      "phase": "phase-2",
+      "dependencies": [
+        "blg_bootstrap_orchestrator"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_001",
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:50:00Z"
+    },
+    {
+      "id": "blg_voice_mapping_ui",
+      "title": "Implement voice mapping UI",
+      "description": "Add a usable flow for voice_mapping books to map discovered personas to voices and submit to backend.",
+      "status": "done",
+      "priority": 92,
+      "role_hint": "builder",
+      "phase": "phase-3",
+      "dependencies": [
+        "blg_fix_frontend_compile"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_001",
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:50:00Z"
+    },
+    {
+      "id": "blg_player_export_states",
+      "title": "Polish player export and state handling",
+      "description": "Add download/share action, mapping-required state, error state, and empty/no-audio guidance.",
+      "status": "done",
+      "priority": 84,
+      "role_hint": "builder",
+      "phase": "phase-3",
+      "dependencies": [
+        "blg_fix_frontend_compile"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_001",
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:50:00Z"
+    },
+    {
+      "id": "blg_library_progress_polish",
+      "title": "Improve library progress indicators",
+      "description": "Replace placeholder progress math with status-aware progress using available metadata/status fields.",
+      "status": "done",
+      "priority": 78,
+      "role_hint": "builder",
+      "phase": "phase-3",
+      "dependencies": [
+        "blg_fix_frontend_compile"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_001",
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:50:00Z"
+    },
+    {
+      "id": "blg_mini_player_syntax_cleanup",
+      "title": "Clean up MiniPlayer style declaration",
+      "description": "Separate component closing brace and StyleSheet declaration for readability and safer future edits.",
+      "status": "done",
+      "priority": 70,
+      "role_hint": "builder",
+      "phase": "phase-3",
+      "dependencies": [
+        "blg_fix_frontend_compile"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 1,
+      "last_run_id": "wr_20260430_002",
+      "created_at": "2026-04-30T20:52:10Z",
+      "updated_at": "2026-04-30T20:52:10Z"
+    },
+    {
+      "id": "blg_api_resilience",
+      "title": "Harden API client and schemas",
+      "description": "Make frontend API helpers resilient to backend error payloads, stream parsing issues, and optional fields.",
+      "status": "done",
+      "priority": 72,
+      "role_hint": "builder",
+      "phase": "phase-2",
+      "dependencies": [
+        "blg_fix_frontend_compile"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_003",
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T20:54:25Z"
+    },
+    {
+      "id": "blg_text_upload_web_compat",
+      "title": "Verify typed text upload on web/native",
+      "description": "Ensure Blob/object URL based text upload works on web and has safe native behavior or disabled guidance.",
+      "status": "done",
+      "priority": 60,
+      "role_hint": "builder",
+      "phase": "phase-3",
+      "dependencies": [
+        "blg_fix_frontend_compile"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_004",
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T21:20:00Z"
+    },
+    {
+      "id": "blg_backend_timeout_retry",
+      "title": "Backend provider timeout and retry hardening",
+      "description": "Add configurable bounded retries/backoff for OpenAI-compatible LLM/TTS provider calls; persistent segment requeue work was split to blg_backend_requeue_failed_segments.",
+      "status": "done",
+      "priority": 50,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_005",
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T21:49:00Z"
+    },
+    {
+      "id": "blg_backend_parser_ocr",
+      "title": "Backend PDF/ePUB parser implementation",
+      "description": "Replace PDF/ePUB parser stubs with bounded standard-library extraction. OCR provider implementation was split to blg_backend_ocr_provider.",
+      "status": "done",
+      "priority": 35,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_008",
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T22:58:40Z"
+    },
+    {
+      "id": "blg_character_voice_kb",
+      "title": "Persistent character voice knowledge base",
+      "description": "Persist character/persona traits from segmentation and attach stable VoiceDescription for TTS.",
+      "status": "done",
+      "priority": 40,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_007",
+      "created_at": "2026-04-30T20:43:00Z",
+      "updated_at": "2026-04-30T22:36:48Z"
+    },
+    {
+      "id": "blg_backend_requeue_failed_segments",
+      "title": "Requeue failed segmentation and synthesis work",
+      "description": "Persist and requeue errored segmentation/TTS segments so long audiobook jobs can continue after transient failures instead of ending with partial synthesis errors.",
+      "status": "done",
+      "priority": 49,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [
+        "blg_backend_timeout_retry"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_006",
+      "created_at": "2026-04-30T21:49:00Z",
+      "updated_at": "2026-04-30T22:16:00Z"
+    },
+    {
+      "id": "blg_backend_ocr_provider",
+      "title": "Backend OCR provider implementation",
+      "description": "Add real OCR provider integration for scanned PDFs/images while preserving configurable provider behavior and no committed secrets.",
+      "status": "done",
+      "priority": 34,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [
+        "blg_backend_parser_ocr"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260430_009",
+      "created_at": "2026-04-30T22:58:40Z",
+      "updated_at": "2026-04-30T23:36:30Z"
+    },
+    {
+      "id": "blg_frontend_deerflow_signature",
+      "title": "Remove unintended Deerflow frontend signature",
+      "description": "Erroneous skill-derived branding task; watermark/signature removed because it was not requested by the project owner.",
+      "status": "cancelled",
+      "priority": 20,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [
+        "blg_fix_frontend_compile"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 1,
+      "last_run_id": "wr_20260430_010",
+      "created_at": "2026-04-30T23:50:20Z",
+      "updated_at": "2026-05-03T17:02:18Z"
+    },
+    {
+      "id": "blg_e2e_container_smoke_stack",
+      "title": "Add containerized E2E smoke stack",
+      "description": "Add deterministic stub config, Docker Compose E2E stack, container Go test target, and API smoke scripts so the product can be validated without host Go or external providers.",
+      "status": "done",
+      "priority": 18,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 1,
+      "last_run_id": "wr_20260503_001",
+      "created_at": "2026-05-03T13:50:00Z",
+      "updated_at": "2026-05-03T17:02:18Z"
+    },
+    {
+      "id": "blg_push_ui_branch",
+      "title": "Push validated ui branch to GitHub",
+      "description": "Push local ui branch commits to origin after GitHub authentication is provided. Keep remote URL sanitized and avoid committing credentials.",
+      "status": "blocked",
+      "priority": 17,
+      "role_hint": "supervisor",
+      "phase": "phase-5",
+      "dependencies": [
+        "blg_e2e_container_smoke_stack"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 1,
+      "last_run_id": null,
+      "created_at": "2026-05-03T13:50:00Z",
+      "updated_at": "2026-05-03T13:50:00Z"
+    },
+    {
+      "id": "blg_short_book_voice_mapping_unblock",
+      "title": "Fix short-book voice mapping stall",
+      "description": "Ensure books with fewer than MinSegmentsBeforeTTS segments still request initial voice mapping, continue synthesis after mapping, and keep UI polling voice_mapping status.",
+      "status": "done",
+      "priority": 90,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [
+        "blg_voice_mapping_ui"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260503_short_voice_mapping",
+      "created_at": "2026-05-03T18:03:39Z",
+      "updated_at": "2026-05-03T18:03:39Z"
+    },
+    {
+      "id": "blg_pdf_flatedecode_support",
+      "title": "Add FlateDecode decompression to PDF parser",
+      "description": "Add FlateDecode (zlib/deflate) stream decompression to the PDF parser in internal/parser/pdf.go so that compressed content streams from modern PDF libraries (fpdf2, ReportLab, wkhtmltopdf, LibreOffice) are decompressed before text extraction. Use Go stdlib compress/zlib and compress/flate. Must handle both FlateDecode filter detection and the actual decompression in extractStreams or a new decompressStream helper.",
+      "status": "in_progress",
+      "priority": 80,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [
+        "blg_backend_parser_ocr"
+      ],
+      "acceptance_refs": [
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-05-03T19:42:00Z",
+      "updated_at": "2026-05-03T19:42:00Z"
+    },
+    {
+      "id": "blg_delete_books_feedback",
+      "title": "Implement Delete Book actions from player and Continue Listening menus",
+      "description": "Add native dropdown actions for the player three-dot button and Continue Listening three-dot button. Include a Delete Book option that deletes the selected book through backend API and updates frontend query/cache/navigation state.",
+      "status": "done",
+      "priority": 88,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [],
+      "acceptance_refs": [
+        "feedback/fb_20260504_001.md",
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260504_delete_books",
+      "created_at": "2026-05-04T18:36:30Z",
+      "updated_at": "2026-05-04T18:58:49Z"
+    },
+    {
+      "id": "blg_persistent_voice_samples",
+      "title": "Persist reusable test voice samples",
+      "description": "Generate missing voice preview samples after backend startup/TTS voice discovery and serve future Voices tab preview clicks from persistent filesystem storage instead of synthesizing each click.",
+      "status": "done",
+      "priority": 87,
+      "role_hint": "builder",
+      "phase": "phase-5",
+      "dependencies": [],
+      "acceptance_refs": [
+        "feedback/fb_20260505_voice_samples.md",
+        "acceptance.md#global-requirements"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-05-05T09:13:01Z",
+      "updated_at": "2026-05-05T09:13:01Z"
+    },
+    {
+      "id": "blg_short_step1_core_tts_config",
+      "title": "Short Step 1: harden current Qwen3-TTS provider path",
+      "description": "Keep current OpenAI-compatible qwen3-tts integration stable without vLLM-omni/workstation changes; verify provider/voice defaults and preserve cached voice previews.",
+      "status": "ready",
+      "priority": 92,
+      "role_hint": "builder",
+      "phase": "short-term",
+      "dependencies": [],
+      "acceptance_refs": [
+        "feedback/fb_20260506_short_step1_core_tts_config.md",
+        "acceptance.md#milestone-short-term-core-qwen3-tts-hardening"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": null,
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-06T18:49:55Z"
+    },
+    {
+      "id": "blg_short_step2_single_user_default_voice",
+      "title": "Short Step 2: add single-user default voice setting",
+      "description": "Persist a default voice for the single current user, expose GET/PUT API and make Voices tab display/change it.",
+      "status": "done",
+      "priority": 91,
+      "role_hint": "builder",
+      "phase": "short-term",
+      "dependencies": [
+        "blg_short_step1_core_tts_config"
+      ],
+      "acceptance_refs": [
+        "feedback/fb_20260506_short_step2_default_voice.md",
+        "acceptance.md#milestone-short-term-core-qwen3-tts-hardening"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260506_step2_default_voice_frontend",
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-06T19:38:39Z"
+    },
+    {
+      "id": "blg_short_step3_default_voice_auto_mapping",
+      "title": "Short Step 3: auto-map discovered personas to default voice",
+      "description": "On upload/pipeline start, apply the default voice as the mapping for discovered personas so segmentation and synthesis start immediately without waiting for manual voice mapping.",
+      "status": "done",
+      "priority": 90,
+      "role_hint": "builder",
+      "phase": "short-term",
+      "dependencies": [
+        "blg_short_step2_single_user_default_voice"
+      ],
+      "acceptance_refs": [
+        "feedback/fb_20260506_short_step3_immediate_synthesis.md",
+        "acceptance.md#milestone-short-term-core-qwen3-tts-hardening"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260507_steps3_4_default_voice_remap",
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-07T06:22:10Z"
+    },
+    {
+      "id": "blg_short_step4_remap_stale_resynthesis",
+      "title": "Short Step 4: remap stale audio and prioritize fresh segments",
+      "description": "When persona mappings change, prioritize future/newer segments with the new voice, mark old audio stale, and regenerate stale segments after current book synthesis completes.",
+      "status": "done",
+      "priority": 89,
+      "role_hint": "builder",
+      "phase": "short-term",
+      "dependencies": [
+        "blg_short_step3_default_voice_auto_mapping"
+      ],
+      "acceptance_refs": [
+        "feedback/fb_20260506_short_step4_remap_stale_resynthesis.md",
+        "acceptance.md#milestone-short-term-core-qwen3-tts-hardening"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "wr_20260507_steps3_4_default_voice_remap",
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-07T06:22:10Z"
+    },
+    {
+      "id": "blg_debug_view_dashboard",
+      "title": "Create separate live debug dashboard web project",
+      "description": "Build a Tabler dark/slate/blue standalone web dashboard for inspecting TwelveReader book journey state: books, segments, synth/audio readiness, user progress perspective, live event feed, and health diagnostics. Use live API polling with mock fallback until richer backend telemetry exists.",
+      "status": "done",
+      "priority": 86,
+      "role_hint": "builder",
+      "phase": "debug-dashboard",
+      "dependencies": [],
+      "acceptance_refs": [
+        "design.md#constraints",
+        "human request 2026-05-16 debug view dashboard"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "run_20260516T063632Z_debug_dashboard",
+      "created_at": "2026-05-16T06:36:51Z",
+      "updated_at": "2026-05-16T06:43:14Z"
+    },
+    {
+      "id": "blg_debug_backend_telemetry",
+      "title": "Add backend debug telemetry endpoints",
+      "description": "Expose synth job list/status, playback/read event telemetry, per-segment audio validation, unified SSE event stream, and user progress/session state for the debug dashboard.",
+      "status": "done",
+      "priority": 87,
+      "role_hint": "builder",
+      "phase": "debug-dashboard",
+      "dependencies": [],
+      "acceptance_refs": [
+        "human request 2026-05-16 Next backend additions and dashboard.unalkalkan.com"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "run_20260516T065912Z_debug_backend_tunnel",
+      "created_at": "2026-05-16T06:59:30Z",
+      "updated_at": "2026-05-16T07:11:15Z"
+    },
+    {
+      "id": "blg_debug_dashboard_cloudflare_tunnel",
+      "title": "Expose debug dashboard at dashboard.unalkalkan.com",
+      "description": "Run the debug dashboard service and publish it through a persistent Cloudflare Tunnel hostname dashboard.unalkalkan.com.",
+      "status": "done",
+      "priority": 86,
+      "role_hint": "builder",
+      "phase": "debug-dashboard",
+      "dependencies": [],
+      "acceptance_refs": [
+        "human request 2026-05-16 Next backend additions and dashboard.unalkalkan.com"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "run_20260516T065912Z_debug_backend_tunnel",
+      "created_at": "2026-05-16T06:59:30Z",
+      "updated_at": "2026-05-16T07:11:15Z"
+    },
+    {
+      "id": "blg_debug_dashboard_tabler_theme",
+      "title": "Align debug dashboard with preferred Tabler dark admin style",
+      "description": "Update the standalone debug dashboard colors, shell, cards, spacing, navigation, tables, badges, and component styling to match the provided correct Tabler dark admin reference instead of the overly custom near-black/gradient look.",
+      "status": "done",
+      "priority": 88,
+      "role_hint": "builder",
+      "phase": "debug-dashboard-polish",
+      "dependencies": [
+        "blg_debug_view_dashboard"
+      ],
+      "acceptance_refs": [
+        "human-feedback: Telegram 2026-05-16 dashboard Tabler reference images"
+      ],
+      "retry_count": 0,
+      "max_retries": 2,
+      "last_run_id": "run_20260516T112434Z_debug_dashboard_tabler_theme",
+      "created_at": "2026-05-16T11:24:34Z",
+      "updated_at": "2026-05-16T11:32:51Z"
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "run_id": "wr_20260430_004",
+  "backlog_item_id": "blg_text_upload_web_compat",
+  "worker_role": "builder",
+  "worker": {
+    "type": "opencode",
+    "model": "opencode-go/glm-5.1"
+  },
+  "status": "completed",
+  "completed_at": "2026-04-30T21:18:22Z",
+  "summary": "Typed text upload now uses an in-memory Blob/FileSource on web and avoids URL.createObjectURL. Native typed-text submit is explicitly blocked with user guidance until native temp-file support exists. Picked-file upload still uses the React Native uri/name/type FormData path.",
+  "outcome": "review_required",
+  "files_changed": [
+    "web-client/app/(tabs)/add.tsx",
+    "web-client/src/api/client.ts",
+    "web-client/src/api/hooks.ts"
+  ],
+  "tests": [
+    {
+      "command": "opencode run --model opencode-go/glm-5.1 --format json '<bounded task>'",
+      "status": "passed",
+      "notes": "OpenCode worker completed with the required model and ran its own tsc check. Hermes reviewed the diff before acceptance."
+    },
+    {
+      "command": "cd web-client && npx tsc --noEmit",
+      "status": "passed",
+      "notes": "Hermes validation passed with no TypeScript output."
+    },
+    {
+      "command": "cd web-client && npm run build",
+      "status": "passed",
+      "notes": "Expo web export passed; existing expo-av deprecation warning remains."
+    },
+    {
+      "command": "go test ./...",
+      "status": "blocked",
+      "notes": "The go binary is not installed in this Hermes environment."
+    }
+  ],
+  "git": {
+    "commit_requested": true,
+    "commit_message_suggestion": "fix(ui): harden typed text upload compatibility",
+    "commit_sha": null
+  },
+  "artifacts": [],
+  "blockers": [
+    "Go tests unavailable because go is not installed."
+  ],
+  "risks": [
+    "No live backend/browser upload test was possible in this cron run; validation covered static compile/build and code review."
+  ],
+  "follow_up_suggestions": [
+    "Exercise typed text upload in a browser against a running backend.",
+    "Add native temp-file support later if typed-text conversion should work on iOS/Android."
+  ],
+  "review_request": {
+    "required": true,
+    "type": "implementation_gate",
+    "questions": [
+      "Does the FileSource union preserve picked-file upload behavior while fixing web typed-text upload?",
+      "Is native typed-text guidance acceptable until temp-file support is implemented?"
+    ]
+  }
+}

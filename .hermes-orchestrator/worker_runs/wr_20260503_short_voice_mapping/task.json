@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "run_id": "wr_20260503_short_voice_mapping",
+  "task_id": "blg_short_book_voice_mapping_unblock",
+  "role": "builder",
+  "model_tier": "hermes-agent-direct",
+  "started_at": "2026-05-03T18:03:39Z",
+  "prompt": "Diagnose player stuck at synthesizing 0% for short text upload; unblock affected book; fix pipeline/UI regression; verify live deployment."
+}

@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "project_id": "twelvereader",
+  "orchestrator_status": "idle",
+  "current_phase": "debug-dashboard-polish",
+  "current_goal": "Debug dashboard Tabler dark admin theme aligned with user reference and deployed at dashboard.unalkalkan.com.",
+  "active_run_ids": [],
+  "pending_review_ids": [],
+  "active_feedback_ids": [],
+  "blocked_item_ids": [
+    "github_auth_missing"
+  ],
+  "git": {
+    "repo_initialized": true,
+    "current_branch": "ui",
+    "last_commit_sha": "8b41afb",
+    "working_tree_dirty": false
+  },
+  "escalation": {
+    "required": false,
+    "reason": null,
+    "target_tier": null
+  },
+  "last_supervisor_action": {
+    "at": "2026-05-16T11:32:51Z",
+    "action": "tabler_theme_polish_verified",
+    "target_id": "blg_debug_dashboard_tabler_theme",
+    "notes": "Updated dashboard to use Tabler themes CSS, slate panel colors, sidebar sections, top nav, compact metric cards, restrained borders/radius, responsive metric wrapping; build and public endpoint checks passed. Commit 8b41afb created."
+  },
+  "counters": {
+    "total_tasks": 27,
+    "completed": 23,
+    "in_progress": 1,
+    "failed": 0,
+    "total_runs": 11,
+    "successful_runs": 11,
+    "failed_runs": 0,
+    "review_revisions": 0,
+    "premium_escalations": 0
+  },
+  "updated_at": "2026-05-16T11:33:13Z"
+}

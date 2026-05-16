@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "run_id": "wr_20260430_009",
+  "backlog_item_id": "blg_backend_ocr_provider",
+  "worker_role": "builder",
+  "worker": {
+    "type": "opencode_then_hermes_reconciliation",
+    "model": "opencode-go/glm-5.1",
+    "fallback_from": null,
+    "notes": "OpenCode GLM-5.1 produced the bounded OCR provider implementation and tests. Hermes reviewed the diff, removed unused example language config, changed endpoint-without-model behavior to fail at provider initialization instead of silently stubbing, reran validation, and committed accepted implementation."
+  },
+  "status": "completed",
+  "completed_at": "2026-04-30T23:36:30Z",
+  "summary": "Added a real OpenAI-compatible OCR provider that sends image bytes as bounded base64 data URLs to vision chat/completions, parses plain-text or structured JSON OCR responses, supports retries/backoff, request/response byte limits, max_tokens, MIME detection, language-aware prompts, and clear error paths. Registry now creates the real OCR provider when an enabled OCR config has an endpoint and fails fast when the required model is missing; endpoint-less OCR providers continue using the stub fallback. Config loading now supports safe underscore provider env var names and TR_OCR_<NAME>_MODEL overrides without storing secrets.",
+  "outcome": "accepted",
+  "files_changed": [
+    "internal/provider/openai_ocr.go",
+    "internal/provider/openai_ocr_test.go",
+    "internal/provider/registry.go",
+    "internal/provider/registry_test.go",
+    "internal/config/loader.go",
+    "internal/config/loader_test.go",
+    "config/dev.example.yaml"
+  ],
+  "tests": [
+    {
+      "command": "opencode run --model opencode-go/glm-5.1 --format json <bounded implementation task>",
+      "status": "passed",
+      "notes": "OpenCode used exactly opencode-go/glm-5.1 for implementation."
+    },
+    {
+      "command": "opencode run --model opencode-go/glm-5.1 --format json <read-only review>",
+      "status": "passed",
+      "notes": "Initial read-only review approved after Hermes reconciliation; final read-only review also returned APPROVE with no must-fix issues."
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed",
+      "notes": "No whitespace errors before commit."
+    },
+    {
+      "command": "cd web-client && npx tsc --noEmit",
+      "status": "passed",
+      "notes": "Frontend TypeScript gate passed."
+    },
+    {
+      "command": "cd web-client && npm run build",
+      "status": "passed",
+      "notes": "Expo web export passed; existing expo-av deprecation warning remains."
+    },
+    {
+      "command": "go test ./internal/config ./internal/provider -count=1",
+      "status": "blocked",
+      "notes": "The go binary is not installed on PATH in the Hermes supervisor environment."
+    }
+  ],
+  "git": {
+    "commit_requested": true,
+    "commit_message_suggestion": "feat(provider): add OpenAI-compatible OCR provider",
+    "commit_sha": "12e0334"
+  },
+  "artifacts": [],
+  "blockers": [
+    "Go tests remain blocked because go is not installed on PATH."
+  ],
+  "risks": [
+    "OCR provider integration is available through the provider registry, but scanned PDF page rasterization/wiring into parser flow remains a future slice.",
+    "Vision OCR quality depends on the configured OpenAI-compatible provider and model."
+  ],
+  "follow_up_suggestions": [
+    "Run go test ./internal/config ./internal/provider on a host with Go installed.",
+    "Add scanned-PDF rasterization/OCR pipeline wiring if scanned document support is required beyond provider availability.",
+    "Consider PDF FlateDecode or an audited PDF parser dependency for more real-world PDF coverage."
+  ],
+  "review_request": {
+    "required": false,
+    "type": "implementation_gate",
+    "questions": []
+  }
+}

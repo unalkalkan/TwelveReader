@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "run_id": "wr_20260506_step2_default_voice_frontend",
+  "backlog_item_id": "blg_short_step2_single_user_default_voice",
+  "worker_role": "builder",
+  "model_tier": "local",
+  "status": "completed_needs_review",
+  "created_at": "2026-05-06T19:20:00Z",
+  "objective": "Wire the Voices tab to GET/PUT /api/v1/voices/default so the user can see and change the current single-user default voice.",
+  "scope": {
+    "allowed_paths": [
+      "web-client/src/types/api.ts",
+      "web-client/src/api/client.ts",
+      "web-client/src/api/hooks.ts",
+      "web-client/app/(tabs)/voices.tsx",
+      ".hermes-orchestrator/worker_runs/wr_20260506_step2_default_voice_frontend"
+    ],
+    "forbidden_paths": [
+      "internal/",
+      "cmd/",
+      "qwen3-tts/",
+      ".git/"
+    ],
+    "branch_hint": "ui"
+  },
+  "constraints": {
+    "must_run_tests": true,
+    "test_command": "cd web-client && npx tsc --noEmit",
+    "must_write_result": true
+  },
+  "requested_outputs": [
+    "frontend API/types/hooks",
+    "Voices tab default voice UX",
+    "typecheck result",
+    "result.json summary"
+  ],
+  "completed_at": "2026-05-06T19:30:20Z"
+}

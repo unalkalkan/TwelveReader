@@ -162,6 +162,79 @@ curl http://localhost:8080/api/v1/voices?provider=openai-tts
 
 ---
 
+### GET /api/v1/voices/default
+Returns the single-user default narration voice. If no default voice has been saved yet, the server assigns the first available TTS provider voice and persists it.
+
+**Response:**
+```json
+{
+  "provider": "qwen3-tts",
+  "voice_id": "aiden",
+  "language": "en",
+  "voice_description": "warm and clear",
+  "updated_at": "2026-05-06T18:49:55Z"
+}
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `503 Service Unavailable` - No TTS voices are available or default voice storage is not configured
+
+---
+
+### PUT /api/v1/voices/default
+Sets the single-user default narration voice used by new books and unmapped personas.
+
+**Request Body:**
+```json
+{
+  "provider": "qwen3-tts",
+  "voice_id": "aiden",
+  "language": "en",
+  "voice_description": "warm and clear"
+}
+```
+
+**Response:** Same as `GET /api/v1/voices/default`.
+
+**Status Codes:**
+- `200 OK` - Default voice saved
+- `400 Bad Request` - Invalid payload, provider not found, or voice not found for provider
+- `503 Service Unavailable` - Default voice storage is not configured
+
+---
+
+### POST /api/v1/voices/preview
+Generates a short TTS preview for a selected voice and returns base64 audio.
+
+**Request Body:**
+```json
+{
+  "provider": "qwen3-tts",
+  "voice_id": "aiden",
+  "text": "In my life, why do I give valuable time\nTo people who don't care if I live or die?",
+  "language": "en",
+  "voice_description": "warm and clear"
+}
+```
+
+**Response:**
+```json
+{
+  "audio_base64": "UklGRiQ...",
+  "mime_type": "audio/mpeg",
+  "format": "mp3"
+}
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `400 Bad Request` - Missing required fields (`provider`, `voice_id`, `text`) or invalid payload
+- `404 Not Found` - Provider not found
+- `500 Internal Server Error` - TTS synthesis failed
+
+---
+
 ## Configuration
 
 The server is configured via a YAML configuration file. See `config/dev.example.yaml` for a complete example.
@@ -343,6 +416,9 @@ List all segments for a book.
     "language": "en",
     "person": "narrator",
     "voice_description": "neutral",
+    "voice_id": "voice_1",
+    "audio_stale": false,
+    "stale_voice_id": "old_voice_1",
     "processing": {
       "segmenter_version": "v1",
       "generated_at": "2026-01-25T10:03:00Z"
@@ -350,6 +426,11 @@ List all segments for a book.
   }
 ]
 ```
+
+**Segment voice fields:**
+- `voice_id`: voice used for the current generated audio, when available.
+- `audio_stale`: true when the segment has existing audio generated with an older persona mapping; new/future work is prioritized before stale regeneration.
+- `stale_voice_id`: previous voice ID for stale audio, present only while stale regeneration is pending.
 
 **Status Codes:**
 - `200 OK` - Success

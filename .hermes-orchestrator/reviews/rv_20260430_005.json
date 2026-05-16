@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "review_id": "rv_20260430_005",
+  "target_run_id": "wr_20260430_005",
+  "backlog_item_id": "blg_backend_timeout_retry",
+  "reviewer_role": "reviewer",
+  "model_tier": "hermes_supervisor",
+  "review_type": "implementation_gate",
+  "verdict": "approve",
+  "created_at": "2026-04-30T21:49:00Z",
+  "summary": "Approved bounded provider retry hardening after Hermes diff review. The change is confined to OpenAI-compatible provider request handling and tests, keeps Authorization headers out of logs, rebuilds JSON request bodies for every retry, and only retries transient transport/status failures.",
+  "findings": [],
+  "required_changes": [],
+  "accepted_changes": [
+    "Added shared retry option/backoff/request helpers in internal/provider/retry.go.",
+    "LLM and TTS constructors now parse max_retries and retry_backoff_ms from provider options with safe defaults.",
+    "LLM chat completion and TTS speech POST calls now retry transport errors plus HTTP 429/5xx and stop on context cancellation during backoff.",
+    "HTTP 4xx errors other than 429 still return parsed provider error messages without retrying.",
+    "Added focused provider tests for retry option parsing, transient retry success, non-retryable 4xx behavior, and context-stopped backoff."
+  ],
+  "security_review": {
+    "hardcoded_secrets": false,
+    "path_traversal_risk": false,
+    "remote_changed": false,
+    "notes": "No secrets were added. Authorization header construction is unchanged and not logged. Origin remote remains the expected HTTPS GitHub URL."
+  },
+  "quality_review": {
+    "scope_control": "passed",
+    "type_safety": "not_applicable_go_compile_blocked",
+    "regression_risk": "medium_until_go_tests_run",
+    "notes": "Static review found no obvious API contract break. Go formatting/tests are blocked because go is missing in this Hermes environment."
+  },
+  "validation": [
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    },
+    {
+      "command": "cd web-client && npx tsc --noEmit",
+      "status": "passed"
+    },
+    {
+      "command": "cd web-client && npm run build",
+      "status": "passed"
+    },
+    {
+      "command": "go test ./internal/provider ./internal/tts ./internal/pipeline",
+      "status": "blocked",
+      "notes": "go binary not installed"
+    }
+  ],
+  "escalation": {
+    "required": false,
+    "reason": null
+  },
+  "next_action": "commit_accepted_changes_then_continue_requeue_follow_up_if_time_allows"
+}

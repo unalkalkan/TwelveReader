@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "run_id": "wr_20260430_003",
+  "backlog_item_id": "blg_api_resilience",
+  "worker_role": "builder",
+  "status": "completed",
+  "completed_at": "2026-04-30T20:54:25Z",
+  "summary": "VoiceMappingModal now accepts initialMapping and posts update=true for non-blocking later voice edits; Player passes initialMapping only when status is voice_mapping.",
+  "outcome": "review_required",
+  "files_changed": [
+    "web-client/app/player.tsx",
+    "web-client/src/components/VoiceMappingModal.tsx"
+  ],
+  "tests": [
+    {
+      "command": "npx tsc --noEmit",
+      "status": "passed",
+      "notes": "TypeScript compile passed."
+    },
+    {
+      "command": "npm run build",
+      "status": "passed",
+      "notes": "Expo web export passed with existing expo-av deprecation warning."
+    }
+  ],
+  "git": {
+    "commit_requested": true,
+    "commit_message_suggestion": "fix(ui): distinguish initial and update voice mappings",
+    "commit_sha": null
+  },
+  "artifacts": [],
+  "blockers": [],
+  "risks": [
+    "Live backend validation is still needed for active pipeline behavior."
+  ],
+  "follow_up_suggestions": [
+    "Exercise update=true mapping against a synthesized/active book once backend is available."
+  ],
+  "review_request": {
+    "required": true,
+    "type": "implementation_gate",
+    "questions": [
+      "Does mapping mode match backend API intent?"
+    ]
+  }
+}

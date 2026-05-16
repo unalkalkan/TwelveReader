@@ -1,0 +1,95 @@
+{"event": "lock_acquired", "run_id": "sup_20260430_213413", "project_id": "twelvereader", "at": "2026-04-30T21:34:13Z", "owner": "hermes-cron", "reason": "bounded supervisor cycle for blg_backend_timeout_retry"}
+{"event": "worker_spawned", "run_id": "wr_20260430_005", "supervisor_run_id": "sup_20260430_213413", "backlog_item_id": "blg_backend_timeout_retry", "at": "2026-04-30T21:35:00Z", "worker": "opencode-go/glm-5.1"}
+{"event": "worker_completed", "run_id": "wr_20260430_005", "supervisor_run_id": "sup_20260430_213413", "backlog_item_id": "blg_backend_timeout_retry", "at": "2026-04-30T21:48:00Z", "worker": "direct_hermes_fallback"}
+{"event": "review_written", "run_id": "wr_20260430_005", "review_id": "rv_20260430_005", "at": "2026-04-30T21:49:00Z", "verdict": "approve"}
+{"event": "backlog_updated", "run_id": "sup_20260430_213413", "at": "2026-04-30T21:49:00Z", "notes": "provider retry task marked done; persistent requeue follow-up split out"}
+{"event": "supervisor_completed", "run_id": "sup_20260430_213413", "at": "2026-04-30T21:49:00Z", "status": "completed"}
+{"event": "lock_released", "run_id": "sup_20260430_213413", "at": "2026-04-30T21:49:00Z"}
+{"event": "commit_created", "run_id": "sup_20260430_213413", "worker_run_id": "wr_20260430_005", "commit_sha": "ffc5c46", "at": "2026-04-30T21:51:00Z"}
+{"ts":"2026-04-30T21:58:00Z","event":"lock_acquired","run_id":"wr_20260430_006","owner":"hermes-cron-supervisor","backlog_item_id":"blg_backend_requeue_failed_segments"}
+{"ts":"2026-04-30T21:59:00Z","event":"worker_spawned","run_id":"wr_20260430_006","backlog_item_id":"blg_backend_requeue_failed_segments","worker":"opencode-go/glm-5.1"}
+{"ts":"2026-04-30T22:16:00Z","event":"review_written","run_id":"wr_20260430_006","review_id":"rv_20260430_006","verdict":"approve"}
+{"ts":"2026-04-30T22:16:00Z","event":"backlog_updated","run_id":"wr_20260430_006","backlog_item_id":"blg_backend_requeue_failed_segments","status":"done"}
+{"ts":"2026-04-30T22:16:00Z","event":"summary_written","run_id":"wr_20260430_006","path":".hermes-orchestrator/summaries/latest.md"}
+{"ts":"2026-04-30T22:17:00Z","event":"lock_released","run_id":"wr_20260430_006","owner":"hermes-cron-supervisor"}
+{"ts":"2026-04-30T22:17:00Z","event":"commit_created","run_id":"wr_20260430_006","commit_sha":"674e7a6"}
+{"ts": "2026-04-30T22:26:00Z", "event": "lock_acquired", "run_id": "wr_20260430_007", "owner": "hermes-cron-supervisor", "backlog_item_id": "blg_character_voice_kb"}
+{"ts": "2026-04-30T22:26:00Z", "event": "worker_spawned", "run_id": "wr_20260430_007", "backlog_item_id": "blg_character_voice_kb", "worker": "opencode-go/glm-5.1"}
+{"ts": "2026-04-30T22:40:00Z", "event": "review_written", "run_id": "wr_20260430_007", "review_id": "rv_20260430_007", "verdict": "approve_with_follow_up"}
+{"ts": "2026-04-30T22:40:00Z", "event": "backlog_updated", "run_id": "wr_20260430_007", "backlog_item_id": "blg_character_voice_kb", "status": "done"}
+{"ts": "2026-04-30T22:40:00Z", "event": "summary_written", "run_id": "wr_20260430_007", "path": ".hermes-orchestrator/summaries/latest.md"}
+{"ts": "2026-04-30T22:42:00Z", "event": "lock_released", "run_id": "wr_20260430_007", "owner": "hermes-cron-supervisor"}
+{"ts": "2026-04-30T22:43:00Z", "event": "commit_created", "run_id": "wr_20260430_007", "commit_sha": "1381394"}
+{"ts": "2026-04-30T22:36:48Z", "event": "state_timestamp_corrected", "run_id": "wr_20260430_007", "notes": "Normalized future hardcoded timestamps to current UTC."}
+{"ts": "2026-04-30T22:36:57Z", "event": "commit_created", "run_id": "wr_20260430_007", "commit_sha": "0053771", "notes": "timestamp normalization checkpoint"}
+{"ts": "2026-04-30T22:37:27Z", "event": "state_updated", "run_id": "wr_20260430_007", "notes": "Recorded accepted implementation commit SHA without chasing orchestrator-only commits."}
+{"at":"2026-04-30T22:49:27Z","event":"lock_acquired","run_id":"wr_20260430_008","owner":"hermes-cron-supervisor","backlog_item_id":"blg_backend_parser_ocr"}
+{"at":"2026-04-30T22:58:40Z","event":"worker_completed","run_id":"wr_20260430_008","backlog_item_id":"blg_backend_parser_ocr","worker":"opencode-go/glm-5.1"}
+{"at":"2026-04-30T22:58:40Z","event":"review_written","run_id":"wr_20260430_008","review_id":"rv_20260430_008","verdict":"approve_with_follow_up"}
+{"at":"2026-04-30T22:58:40Z","event":"backlog_updated","run_id":"wr_20260430_008","completed":"blg_backend_parser_ocr","created":"blg_backend_ocr_provider"}
+{"at":"2026-04-30T22:59:45Z","event":"commit_created","run_id":"wr_20260430_008","commit_sha":"01c64ec","message":"feat(parser): add bounded pdf and epub extraction"}
+{"at":"2026-04-30T23:00:10Z","event":"lock_released","run_id":"wr_20260430_008","owner":"hermes-cron-supervisor"}
+{"ts":"2026-04-30T23:13:30Z","event":"lock_acquired","run_id":"wr_20260430_009","backlog_item_id":"blg_backend_ocr_provider","owner":"hermes-cron-supervisor"}
+{"ts":"2026-04-30T23:36:30Z","event":"worker_completed","run_id":"wr_20260430_009","backlog_item_id":"blg_backend_ocr_provider","worker":"opencode-go/glm-5.1"}
+{"ts":"2026-04-30T23:36:30Z","event":"review_written","run_id":"wr_20260430_009","review_id":"rv_20260430_009","verdict":"approve"}
+{"ts":"2026-04-30T23:36:30Z","event":"backlog_updated","run_id":"wr_20260430_009","backlog_item_id":"blg_backend_ocr_provider","status":"done"}
+{"ts":"2026-04-30T23:36:30Z","event":"summary_written","run_id":"wr_20260430_009","path":".hermes-orchestrator/summaries/latest.md"}
+{"ts":"2026-04-30T23:36:30Z","event":"commit_created","run_id":"wr_20260430_009","commit_sha":"12e0334","message":"feat(provider): add OpenAI-compatible OCR provider"}
+{"ts":"2026-04-30T23:38:00Z","event":"lock_released","run_id":"wr_20260430_009","owner":"hermes-cron-supervisor"}
+{"ts": "2026-04-30T23:49:30Z", "event": "lock_acquired", "run_id": "wr_20260430_010", "owner": "hermes-cron", "reason": "final frontend validation and live-readiness review before deadline"}
+{"ts": "2026-04-30T23:50:20Z", "event": "worker_spawn_planned", "run_id": "wr_20260430_010", "backlog_item_id": "blg_frontend_deerflow_signature", "model": "opencode-go/glm-5.1"}
+{"ts": "2026-04-30T23:55:31Z", "event": "worker_completed", "run_id": "wr_20260430_010", "status": "succeeded"}
+{"ts": "2026-04-30T23:55:31Z", "event": "review_written", "review_id": "rv_20260430_010", "run_id": "wr_20260430_010", "decision": "approved"}
+{"ts": "2026-04-30T23:55:31Z", "event": "backlog_updated", "backlog_item_id": "blg_frontend_deerflow_signature", "status": "done"}
+{"ts": "2026-04-30T23:56:10Z", "event": "summary_written", "run_id": "wr_20260430_010", "path": ".hermes-orchestrator/summaries/latest.md"}
+{"ts": "2026-04-30T23:58:05Z", "event": "commit_created", "run_id": "wr_20260430_010", "commit": "1f6c209", "message": "feat(web): add Deerflow attribution badge"}
+{"ts": "2026-04-30T23:58:05Z", "event": "lock_released", "run_id": "wr_20260430_010", "status": "idle"}
+{"at": "2026-05-03T13:50:00Z", "event": "commit_created", "target_id": "blg_e2e_container_smoke_stack", "commit": "d37bbcc", "notes": "Container E2E smoke stack committed locally after validation."}
+{"at": "2026-05-03T13:50:00Z", "event": "push_blocked", "target_id": "blg_push_ui_branch", "reason": "missing_github_auth", "notes": "No gh, no GITHUB_TOKEN in shell, no ~/.git-credentials. Remote remains sanitized."}
+{"ts": "2026-05-03T17:02:18Z", "event": "backlog_updated", "backlog_item_id": "blg_frontend_deerflow_signature", "status": "cancelled", "reason": "unrequested_skill_derived_branding_removed"}
+{"ts": "2026-05-03T17:02:18Z", "event": "supervisor_note", "target_id": "frontend_branding", "notes": "Removed Created By Deerflow watermark from project source and docs."}
+{"ts": "2026-05-03T18:03:39Z", "event": "supervisor_completed", "run_id": "wr_20260503_short_voice_mapping", "task_id": "blg_short_book_voice_mapping_unblock", "status": "verified", "notes": "Short-book voice mapping stall fixed and live-verified."}
+{"at":"2026-05-04T12:06:04.683Z","type":"feedback_submitted","feedback_id":"fb_20260504_001","project":"TwelveReader","source":"visualizer","trigger_requested":true}
+{"at":"2026-05-04T12:06:04.687Z","type":"supervisor_triggered_from_feedback","run_id":"trigger_20260504T120604_30","feedback_id":"fb_20260504_001","pid":73,"metadata_path":"/workspace/TwelveReader/.hermes-orchestrator/supervisor_runs/trigger_20260504T120604_30/metadata.json","log_path":"/workspace/TwelveReader/.hermes-orchestrator/supervisor_runs/trigger_20260504T120604_30/launcher.log","source":"visualizer"}
+{"at": "2026-05-04T12:06:04Z", "feedback_ids": ["fb_20260504_001"], "owner": "hermes-orchestrator-scanner", "run_id": "run_20260504T120604Z_73", "type": "lock_acquired"}
+{"at": "2026-05-04T12:06:04Z", "feedback_ids": ["fb_20260504_001"], "log_path": "/workspace/TwelveReader/.hermes-orchestrator/supervisor_runs/run_20260504T120604Z_73/output.log", "pid": 74, "run_id": "run_20260504T120604Z_73", "type": "supervisor_spawned"}
+{"at": "2026-05-04T18:36:30Z", "type": "lock_recovered", "previous_run_id": "run_20260504T120604Z_73", "run_id": "sup_20260504_delete_books", "reason": "previous supervisor failed immediately due missing Hermes provider config and stale lock exceeded timeout"}
+{"at": "2026-05-04T18:36:30Z", "type": "lock_acquired", "run_id": "sup_20260504_delete_books", "owner": "hermes-supervisor", "feedback_ids": ["fb_20260504_001"]}
+{"at": "2026-05-04T18:36:30Z", "type": "backlog_updated", "run_id": "sup_20260504_delete_books", "backlog_item_id": "blg_delete_books_feedback", "status": "in_progress"}
+{"at": "2026-05-04T18:36:30Z", "type": "worker_spawn_planned", "run_id": "wr_20260504_delete_books", "supervisor_run_id": "sup_20260504_delete_books", "backlog_item_id": "blg_delete_books_feedback", "model": "opencode-go/deepseek-v4-pro"}
+{"at": "2026-05-04T18:58:49Z", "type": "worker_completed", "run_id": "wr_20260504_delete_books", "supervisor_run_id": "sup_20260504_delete_books", "backlog_item_id": "blg_delete_books_feedback", "status": "success"}
+{"at": "2026-05-04T18:58:49Z", "type": "review_written", "review_id": "rv_20260504_delete_books", "target_run_id": "wr_20260504_delete_books", "decision": "pass"}
+{"at": "2026-05-04T18:58:49Z", "type": "feedback_transition", "feedback_id": "fb_20260504_001", "from": "in_progress", "to": "verified", "run_id": "sup_20260504_delete_books"}
+{"at": "2026-05-04T18:58:49Z", "type": "backlog_updated", "backlog_item_id": "blg_delete_books_feedback", "status": "done", "run_id": "sup_20260504_delete_books"}
+{"at": "2026-05-04T18:58:49Z", "type": "supervisor_completed", "run_id": "sup_20260504_delete_books", "task_id": "blg_delete_books_feedback", "status": "verified", "notes": "Delete Books feedback implemented and verified."}
+{"at": "2026-05-04T18:58:49Z", "type": "lock_released", "run_id": "sup_20260504_delete_books"}
+{"at": "2026-05-04T19:06:10Z", "type": "deployment_completed", "run_id": "sup_20260504_delete_books", "backend_image": "twelvereader:latest", "frontend_image": "twelvereader-frontend:latest", "backend_container": "twelvereader-backend-prod", "frontend_container": "twelvereader-frontend-prod"}
+{"at": "2026-05-04T19:06:10Z", "type": "smoke_test_passed", "run_id": "sup_20260504_delete_books", "checks": ["backend_health", "frontend_player_route", "delete_book_api"]}
+{"at": "2026-05-05T09:13:01Z", "event": "feedback_detected", "feedback_id": "fb_20260505_voice_samples", "source": "telegram", "title": "Persist reusable test voice samples"}
+{"at": "2026-05-05T09:13:01Z", "event": "feedback_transition", "feedback_id": "fb_20260505_voice_samples", "from": "new", "to": "verified", "actor": "hermes", "note": "Implemented, tested, deployed, and verified directly."}
+{"at":"2026-05-06T18:49:55Z","type":"lock_acquired","run_id":"run_20260506T184923Z_short_term_default_voice","owner":"hermes-orchestrator-supervisor","feedback_ids":["fb_20260506_short_step1_core_tts_config","fb_20260506_short_step2_default_voice","fb_20260506_short_step3_immediate_synthesis","fb_20260506_short_step4_remap_stale_resynthesis"]}
+{"at":"2026-05-06T18:49:55Z","type":"feedback_transition","run_id":"run_20260506T184923Z_short_term_default_voice","feedback_ids":["fb_20260506_short_step1_core_tts_config","fb_20260506_short_step2_default_voice","fb_20260506_short_step3_immediate_synthesis","fb_20260506_short_step4_remap_stale_resynthesis"],"to":"planned"}
+{"at":"2026-05-06T18:49:55Z","type":"design_updated","run_id":"run_20260506T184923Z_short_term_default_voice","sections":["Current Direction","Architecture","Constraints","Design Decisions","Human Steering Incorporated"]}
+{"at":"2026-05-06T18:49:55Z","type":"backlog_updated","run_id":"run_20260506T184923Z_short_term_default_voice","item_ids":["blg_short_step1_core_tts_config","blg_short_step2_single_user_default_voice","blg_short_step3_default_voice_auto_mapping","blg_short_step4_remap_stale_resynthesis"]}
+{"at":"2026-05-06T18:59:57Z","type":"worker_spawned","run_id":"run_20260506T184923Z_short_term_default_voice","worker_run_id":"wr_20260506_step2_default_voice_backend","backlog_item_id":"blg_short_step2_single_user_default_voice","model":"opencode-go/deepseek-v4-pro"}
+{"event": "worker_completed", "at": "2026-05-06T19:16:03Z", "run_id": "wr_20260506_step2_default_voice_backend", "backlog_item_id": "blg_short_step2_single_user_default_voice", "status": "completed_needs_review", "tests": "./scripts/container-go-test.sh ./... passed"}
+{"event": "review_written", "at": "2026-05-06T19:25:06Z", "review_id": "rev_20260506_step2_default_voice_backend", "target_run_id": "wr_20260506_step2_default_voice_backend", "verdict": "pass_with_notes"}
+{"event": "worker_completed", "at": "2026-05-06T19:30:20Z", "run_id": "wr_20260506_step2_default_voice_frontend", "backlog_item_id": "blg_short_step2_single_user_default_voice", "status": "completed_needs_review", "tests": "cd web-client && npx tsc --noEmit passed"}
+{"event": "review_written", "at": "2026-05-06T19:38:39Z", "review_id": "rev_20260506_step2_default_voice_full", "target_run_id": "wr_20260506_step2_default_voice_frontend", "verdict": "pass"}
+{"event": "feedback_transition", "at": "2026-05-06T19:38:39Z", "feedback_id": "fb_20260506_short_step2_default_voice", "to": "verified", "note": "Step 2 default voice implemented and reviewed"}
+{"at":"2026-05-16T06:36:51Z","type":"lock_recovered","run_id":"run_20260516T063632Z_debug_dashboard","previous_run_id":"run_20260506T184923Z_short_term_default_voice","owner":"hermes-agent","reason":"previous lock heartbeat is stale; starting human-requested debug dashboard implementation"}
+{"at":"2026-05-16T06:36:51Z","type":"lock_acquired","run_id":"run_20260516T063632Z_debug_dashboard","owner":"hermes-agent","reason":"implement separate TwelveReader debug dashboard"}
+{"at":"2026-05-16T06:43:14Z","type":"review_written","run_id":"run_20260516T063632Z_debug_dashboard","backlog_item_id":"blg_debug_view_dashboard","verdict":"approve","tests":["cd debug-dashboard && npm run build"]}
+{"at":"2026-05-16T06:43:14Z","type":"supervisor_completed","run_id":"run_20260516T063632Z_debug_dashboard","completed_item_ids":["blg_debug_view_dashboard"]}
+{"at":"2026-05-16T06:43:14Z","type":"lock_released","run_id":"run_20260516T063632Z_debug_dashboard"}
+{"at":"2026-05-16T06:59:30Z","type":"lock_acquired","run_id":"run_20260516T065912Z_debug_backend_tunnel","owner":"hermes-agent","reason":"debug backend telemetry plus Cloudflare dashboard tunnel"}
+{"at":"2026-05-16T07:11:15Z","type":"review_written","run_id":"run_20260516T065912Z_debug_backend_tunnel","backlog_item_id":"blg_debug_backend_telemetry","verdict":"approve","tests":["docker run --rm -v \"$PWD\":/src -w /src golang:1.24-alpine sh -c go test ./...","npm --prefix debug-dashboard run build"]}
+{"at":"2026-05-16T07:11:15Z","type":"deployment_verified","run_id":"run_20260516T065912Z_debug_backend_tunnel","hostname":"dashboard.unalkalkan.com","origin":"http://127.0.0.1:3003"}
+{"at":"2026-05-16T07:11:15Z","type":"supervisor_completed","run_id":"run_20260516T065912Z_debug_backend_tunnel","completed_item_ids":["blg_debug_backend_telemetry","blg_debug_dashboard_cloudflare_tunnel"]}
+{"at":"2026-05-16T07:11:15Z","type":"lock_released","run_id":"run_20260516T065912Z_debug_backend_tunnel"}
+{"at": "2026-05-16T11:24:34Z", "type": "lock_acquired", "run_id": "run_20260516T112434Z_debug_dashboard_tabler_theme", "owner": "hermes-agent", "reason": "debug dashboard Tabler theme correction"}
+{"at": "2026-05-16T11:24:34Z", "type": "backlog_updated", "run_id": "run_20260516T112434Z_debug_dashboard_tabler_theme", "backlog_item_id": "blg_debug_dashboard_tabler_theme", "status": "in_progress"}
+{"at": "2026-05-16T11:32:51Z", "type": "review_written", "run_id": "run_20260516T112434Z_debug_dashboard_tabler_theme", "backlog_item_id": "blg_debug_dashboard_tabler_theme", "verdict": "approve", "tests": ["npm --prefix debug-dashboard run build", "docker compose up -d --no-deps --build debug-dashboard", "curl http://127.0.0.1:3003/", "curl https://dashboard.unalkalkan.com/", "browser visual inspection against user reference"]}
+{"at": "2026-05-16T11:32:51Z", "type": "deployment_verified", "run_id": "run_20260516T112434Z_debug_dashboard_tabler_theme", "hostname": "dashboard.unalkalkan.com", "origin": "http://127.0.0.1:3003"}
+{"at": "2026-05-16T11:32:51Z", "type": "supervisor_completed", "run_id": "run_20260516T112434Z_debug_dashboard_tabler_theme", "completed_item_ids": ["blg_debug_dashboard_tabler_theme"]}
+{"at": "2026-05-16T11:32:51Z", "type": "lock_released", "run_id": "run_20260516T112434Z_debug_dashboard_tabler_theme"}

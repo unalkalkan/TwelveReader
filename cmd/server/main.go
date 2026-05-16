@@ -101,15 +101,37 @@ func main() {
 	mux.HandleFunc("/api/v1/providers", providersHandler(providerRegistry))
 
 	// Voices API endpoint (Milestone 4)
-	voicesHandler := api.NewVoicesHandler(providerRegistry)
+	voicesHandler := api.NewVoicesHandlerWithRepositoryAndSampleStorage(providerRegistry, bookRepo, storage.NewAdapterSampleStore(storageAdapter))
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		if err := voicesHandler.PreGenerateVoiceSamples(ctx); err != nil {
+			log.Printf("Failed to pre-generate voice samples: %v", err)
+		}
+	}()
 	mux.HandleFunc("/api/v1/voices", voicesHandler.ListVoices)
+	mux.HandleFunc("/api/v1/voices/default", voicesHandler.DefaultVoice)
+	mux.HandleFunc("/api/v1/voices/preview", voicesHandler.PreviewVoice)
 
 	// Book API endpoints (Milestone 3)
 	bookHandler := api.NewBookHandler(bookRepo, parserFactory, providerRegistry, storageAdapter)
-	mux.HandleFunc("/api/v1/books", bookHandler.UploadBook)
+	debugHandler := api.NewDebugHandler(bookRepo, storageAdapter)
+	mux.HandleFunc("/api/v1/books", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			bookHandler.UploadBook(w, r)
+			return
+		}
+		if r.Method == http.MethodGet {
+			bookHandler.ListBooks(w, r)
+			return
+		}
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	})
 	mux.HandleFunc("/api/v1/books/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if strings.HasSuffix(path, "/status") {
+		if r.Method == http.MethodDelete {
+			bookHandler.DeleteBook(w, r)
+		} else if strings.HasSuffix(path, "/status") {
 			bookHandler.GetBookStatus(w, r)
 		} else if strings.HasSuffix(path, "/segments") {
 			bookHandler.ListSegments(w, r)
@@ -123,10 +145,34 @@ func main() {
 			bookHandler.StreamSegments(w, r)
 		} else if strings.HasSuffix(path, "/download") {
 			bookHandler.DownloadBook(w, r)
+		} else if strings.Contains(path, "/pipeline/status") {
+			bookHandler.GetPipelineStatus(w, r)
+		} else if strings.HasSuffix(path, "/personas") {
+			bookHandler.GetPersonas(w, r)
 		} else if strings.Contains(path, "/audio/") {
 			bookHandler.GetAudio(w, r)
 		} else {
 			bookHandler.GetBook(w, r)
+		}
+	})
+	mux.HandleFunc("/api/v1/debug/events", debugHandler.Events)
+	mux.HandleFunc("/api/v1/debug/stream", debugHandler.EventStream)
+	mux.HandleFunc("/api/v1/debug/books/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if strings.HasSuffix(path, "/synth-jobs") {
+			debugHandler.ListSynthJobs(w, r)
+		} else if strings.HasSuffix(path, "/audio-validation") {
+			debugHandler.AudioValidation(w, r)
+		} else if strings.HasSuffix(path, "/playback-events") {
+			debugHandler.PlaybackEvents(w, r)
+		} else if strings.HasSuffix(path, "/user-progress") {
+			debugHandler.UserProgress(w, r)
+		} else if strings.HasSuffix(path, "/events") {
+			debugHandler.Events(w, r)
+		} else if strings.HasSuffix(path, "/stream") {
+			debugHandler.EventStream(w, r)
+		} else {
+			respondDebugNotFound(w)
 		}
 	})
 
@@ -188,6 +234,12 @@ func providersHandler(registry *provider.Registry) http.HandlerFunc {
 			toJSON(tts),
 			toJSON(ocr))
 	}
+}
+
+func respondDebugNotFound(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNotFound)
+	fmt.Fprint(w, `{"error":"Debug endpoint not found"}`)
 }
 
 func toJSON(items []string) string {

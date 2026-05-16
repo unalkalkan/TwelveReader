@@ -2,7 +2,9 @@
 
 ## TODO
 
-- [ ] When the first X segments received, proceed with the TTS, and then proceed to play the book. Orchestation on LLM->TTS->Read should handle in parallel so that the user would not wait for the whole book to be finished before running the audio. Rather than the current web-client's visualization as tabs, we can do a different UX approach to show the progress on each Stage in one view, with reading being at the bottom of these stages. With this approach, we can see updates on each stage in one view, while reading the book (with already completed segments->synthesises).
+- [ ] Ability to create a content hash for the segment, and save LLM responses to disk with the content hash, so that the next runs would not trigger new LLM runs, and uses the cache for the pre existing responses.
+
+- [ ] Voice Preview Audio: Generate short TTS preview samples for voice selection in the voice mapping dialog. Consider using a standard sample text like "Hello, this is how I sound" or leverage provider's built-in voice samples.
 
 - [ ] Context deadlines may exceed way too quickly right now, we should raise these deadline timeouts. Below log is from the TTS, but I've seen that it also happens in the LLM.
 ```

@@ -48,3 +48,10 @@ web-client/node_modules/
 web-client/dist/
 web-client/.vite/
 web-client/*.local
+
+# Debug Dashboard
+debug-dashboard/node_modules/
+debug-dashboard/dist/
+debug-dashboard/.vite/
+debug-dashboard/*.local
+debug-dashboard/*.tsbuildinfo

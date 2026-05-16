@@ -1,0 +1,455 @@
+{
+  "version": 1,
+  "project_id": "twelvereader",
+  "updated_at": "2026-05-06T19:38:39Z",
+  "entries": [
+    {
+      "id": "fb_20260430_001",
+      "created_at": "2026-04-30T20:43:00Z",
+      "created_by": "human",
+      "source": "telegram",
+      "state": "implemented",
+      "title": "Initialize Hermes Orchestrator and complete WIP UI branch directly",
+      "body_file": "feedback/fb_20260430_001.md",
+      "category": "architecture",
+      "priority": "high",
+      "affects_design": true,
+      "linked_design_sections": [
+        "Purpose",
+        "Scope",
+        "Current Direction",
+        "Architecture",
+        "Design Decisions"
+      ],
+      "linked_backlog_items": [
+        "blg_bootstrap_orchestrator",
+        "blg_fix_frontend_compile",
+        "blg_voice_mapping_ui",
+        "blg_player_export_states",
+        "blg_library_progress_polish"
+      ],
+      "linked_worker_runs": [
+        "wr_20260430_001"
+      ],
+      "resolution": "Orchestrator initialized; first UI MVP implementation pass completed with TypeScript/build validation. Remaining backend/liveness validation stays in backlog.",
+      "history": [
+        {
+          "at": "2026-04-30T20:43:00Z",
+          "actor": "human",
+          "from": null,
+          "to": "new",
+          "note": "Initial project-owner feedback received via Telegram."
+        },
+        {
+          "at": "2026-04-30T20:43:00Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "triaged",
+          "note": "Feedback changes orchestration/design scope and requires backlog creation."
+        },
+        {
+          "at": "2026-04-30T20:43:00Z",
+          "actor": "hermes",
+          "from": "triaged",
+          "to": "in_progress",
+          "note": "Design docs and implementation work started."
+        },
+        {
+          "at": "2026-04-30T20:50:00Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "implemented",
+          "note": "First direct implementation cycle completed and reviewed."
+        }
+      ]
+    },
+    {
+      "id": "fb_20260503_002",
+      "created_at": "2026-05-03T19:42:00Z",
+      "created_by": "human",
+      "source": "telegram",
+      "state": "verified",
+      "title": "PDF parser cannot extract text from compressed streams (FlateDecode)",
+      "body_file": "feedback/fb_20260503_002.md",
+      "category": "backend",
+      "priority": "high",
+      "affects_design": true,
+      "linked_design_sections": [
+        "Non-goals"
+      ],
+      "linked_backlog_items": [
+        "blg_pdf_flatedecode_support"
+      ],
+      "linked_worker_runs": [
+        "wr_20260503_pdf_flate"
+      ],
+      "resolution": "Added FlateDecode (zlib/deflate) decompression to extractStreams in internal/parser/pdf.go. Stream dictionaries are inspected for /Filter /FlateDecode and decompressed before text extraction. Verified with fpdf2-generated PDF: previously returned 'no extractable text found', now extracts 47 paragraphs across 4 pages. All existing parser tests pass plus new FlateDecode-specific test. Backend container rebuilt and deployed.",
+      "history": [
+        {
+          "at": "2026-05-03T19:42:00Z",
+          "actor": "human",
+          "from": null,
+          "to": "new",
+          "note": "User reported PDF upload fails with 'no extractable text found'. fpdf2-generated PDF uses FlateDecode compression which the parser does not handle."
+        },
+        {
+          "at": "2026-05-03T19:42:00Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "in_progress",
+          "note": "High priority \u2014 PDF is the primary upload format. Adding FlateDecode decompression to extractStreams."
+        },
+        {
+          "at": "2026-05-03T19:48:00Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "verified",
+          "note": "Implementation complete. FlateDecode decompression added to extractStreams, tested with fpdf2 PDF (47 paragraphs extracted), all tests pass, container rebuilt and deployed. PDF upload confirmed working via frontend proxy."
+        }
+      ]
+    },
+    {
+      "id": "fb_20260504_001",
+      "title": "Delete Books",
+      "category": "feature",
+      "priority": "high",
+      "state": "verified",
+      "created_by": "human",
+      "created_at": "2026-05-04T12:06:04.683Z",
+      "updated_at": "2026-05-04T18:58:49Z",
+      "source": "visualizer",
+      "affects_design": false,
+      "body_file": "feedback/fb_20260504_001.md",
+      "linked_design_sections": [],
+      "linked_backlog_items": [
+        "blg_delete_books_feedback"
+      ],
+      "linked_worker_runs": [
+        "wr_20260504_delete_books"
+      ],
+      "resolution": "Implemented Delete Book actions for both /player three-dot menu and Continue Listening. Backend DELETE /api/v1/books/{bookId} removes stored book artifacts; frontend confirms deletion, clears playback state when needed, invalidates book queries, and navigates away from the deleted player. Verified by containerized Go tests and web build.",
+      "history": [
+        {
+          "from": null,
+          "to": "new",
+          "at": "2026-05-04T12:06:04.683Z",
+          "actor": "human",
+          "note": "Created from Hermes Orchestrator Visualizer."
+        },
+        {
+          "at": "2026-05-04T18:36:30Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "in_progress",
+          "note": "Manual Hermes Orchestrator cycle started after stale triggered supervisor failed; backlog item and OpenCode worker run created."
+        },
+        {
+          "at": "2026-05-04T18:58:49Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "verified",
+          "note": "Implementation completed via OpenCode DeepSeek R4 Pro worker, supervisor reconciled fixes, Go tests and web build passed."
+        }
+      ],
+      "orchestrator_trigger": {
+        "status": "spawned",
+        "run_id": "trigger_20260504T120604_30",
+        "feedback_id": "fb_20260504_001",
+        "pid": 73,
+        "command": "'/opt/hermes-venv/bin/python3' '/data/hermes/skills/autonomous-ai-agents/hermes-orchestrator/scripts/orchestrator_supervise_project.py' '/workspace/TwelveReader' '--feedback-id' 'fb_20260504_001' '--hermes-command' '/opt/hermes-venv/bin/hermes' '--supervisor-max-turns' '90'",
+        "metadata_path": "/workspace/TwelveReader/.hermes-orchestrator/supervisor_runs/trigger_20260504T120604_30/metadata.json",
+        "log_path": "/workspace/TwelveReader/.hermes-orchestrator/supervisor_runs/trigger_20260504T120604_30/launcher.log"
+      }
+    },
+    {
+      "id": "fb_20260505_voice_samples",
+      "title": "Persist reusable test voice samples",
+      "category": "feature",
+      "priority": "high",
+      "state": "verified",
+      "created_by": "human",
+      "created_at": "2026-05-05T09:13:01Z",
+      "updated_at": "2026-05-05T09:13:01Z",
+      "source": "telegram",
+      "affects_design": true,
+      "body_file": "feedback/fb_20260505_voice_samples.md",
+      "linked_design_sections": [
+        "Scope",
+        "Architecture",
+        "Constraints",
+        "Human Steering Incorporated"
+      ],
+      "linked_backlog_items": [
+        "blg_persistent_voice_samples"
+      ],
+      "linked_worker_runs": [],
+      "resolution": "Implemented filesystem-backed reusable voice preview samples under storage path voice-samples/. Backend pre-generates missing samples after startup/TTS voice listing, PreviewVoice serves cached samples instead of synthesizing per click, samples persist in the existing backend data volume across restarts, and responses include cached=true when served from storage.",
+      "history": [
+        {
+          "at": "2026-05-05T09:13:01Z",
+          "actor": "human",
+          "from": null,
+          "to": "new",
+          "note": "User requested Voices tab preview playback to use generated/stored test samples instead of synthesizing every click."
+        },
+        {
+          "at": "2026-05-05T09:13:01Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "in_progress",
+          "note": "Implemented directly with TDD in the Hermes Orchestrator-enabled project."
+        },
+        {
+          "at": "2026-05-05T09:13:01Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "verified",
+          "note": "Containerized Go tests, TypeScript check, web export, Docker rebuild, production backend restart, cache hit, and restart persistence checks passed."
+        }
+      ]
+    },
+    {
+      "id": "fb_20260506_short_step1_core_tts_config",
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-06T18:49:55Z",
+      "created_by": "human",
+      "source": "telegram",
+      "state": "planned",
+      "title": "Short-term Step 1: harden core Qwen3-TTS provider configuration",
+      "body_file": "feedback/fb_20260506_short_step1_core_tts_config.md",
+      "category": "backend",
+      "priority": "high",
+      "affects_design": true,
+      "linked_design_sections": [
+        "Scope",
+        "Current Direction",
+        "Architecture",
+        "Constraints",
+        "Design Decisions",
+        "Human Steering Incorporated"
+      ],
+      "linked_backlog_items": [
+        "blg_short_step1_core_tts_config"
+      ],
+      "linked_worker_runs": [],
+      "resolution": null,
+      "history": [
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "human",
+          "from": null,
+          "to": "new",
+          "note": "Project-owner feedback received via Telegram."
+        },
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "planned",
+          "note": "Triaged into short-term implementation backlog through Step 4."
+        }
+      ]
+    },
+    {
+      "id": "fb_20260506_short_step2_default_voice",
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-06T19:38:39Z",
+      "created_by": "human",
+      "source": "telegram",
+      "state": "verified",
+      "title": "Short-term Step 2: one-user default voice setting",
+      "body_file": "feedback/fb_20260506_short_step2_default_voice.md",
+      "category": "ux",
+      "priority": "high",
+      "affects_design": true,
+      "linked_design_sections": [
+        "Scope",
+        "Current Direction",
+        "Architecture",
+        "Constraints",
+        "Design Decisions",
+        "Human Steering Incorporated"
+      ],
+      "linked_backlog_items": [
+        "blg_short_step2_single_user_default_voice"
+      ],
+      "linked_worker_runs": [
+        "wr_20260506_step2_default_voice_backend",
+        "wr_20260506_step2_default_voice_frontend"
+      ],
+      "resolution": {
+        "status": "implemented",
+        "at": "2026-05-06T19:38:39Z",
+        "note": "Single-user default voice backend and Voices tab UX implemented and verified by tests/typecheck/review."
+      },
+      "history": [
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "human",
+          "from": null,
+          "to": "new",
+          "note": "Project-owner feedback received via Telegram."
+        },
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "planned",
+          "note": "Triaged into short-term implementation backlog through Step 4."
+        },
+        {
+          "at": "2026-05-06T19:16:03Z",
+          "actor": "hermes",
+          "from": "planned",
+          "to": "in_progress",
+          "note": "Backend Step 2 worker implementation completed and entered review."
+        },
+        {
+          "at": "2026-05-06T19:25:06Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "in_progress",
+          "note": "Backend default voice slice reviewed and accepted; frontend Voices tab integration still pending."
+        },
+        {
+          "at": "2026-05-06T19:30:20Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "in_progress",
+          "note": "Frontend default voice UX slice implemented and awaiting review."
+        },
+        {
+          "at": "2026-05-06T19:38:39Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "verified",
+          "note": "Step 2 full implementation passed review; no must-fix issues."
+        }
+      ]
+    },
+    {
+      "id": "fb_20260506_short_step3_immediate_synthesis",
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-07T06:22:10Z",
+      "created_by": "human",
+      "source": "telegram",
+      "state": "verified",
+      "title": "Short-term Step 3: upload starts segmentation and synthesis immediately with default voice",
+      "body_file": "feedback/fb_20260506_short_step3_immediate_synthesis.md",
+      "category": "backend",
+      "priority": "high",
+      "affects_design": true,
+      "linked_design_sections": [
+        "Scope",
+        "Current Direction",
+        "Architecture",
+        "Constraints",
+        "Design Decisions",
+        "Human Steering Incorporated"
+      ],
+      "linked_backlog_items": [
+        "blg_short_step3_default_voice_auto_mapping"
+      ],
+      "linked_worker_runs": [
+        "wr_20260507_steps3_4_default_voice_remap"
+      ],
+      "resolution": {
+        "status": "implemented",
+        "at": "2026-05-07T06:22:10Z",
+        "note": "Default voice auto-mapping now persists a voice map and immediately queues discovered personas for synthesis without manual mapping."
+      },
+      "history": [
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "human",
+          "from": null,
+          "to": "new",
+          "note": "Project-owner feedback received via Telegram."
+        },
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "planned",
+          "note": "Triaged into short-term implementation backlog through Step 4."
+        },
+        {
+          "at": "2026-05-07T06:22:10Z",
+          "actor": "hermes",
+          "from": "planned",
+          "to": "in_progress",
+          "note": "Direct TDD implementation started for Step 3 together with Step 4."
+        },
+        {
+          "at": "2026-05-07T06:22:10Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "verified",
+          "note": "Implemented and verified default voice auto-mapping with persisted voice map and immediate synthesis tests."
+        }
+      ]
+    },
+    {
+      "id": "fb_20260506_short_step4_remap_stale_resynthesis",
+      "created_at": "2026-05-06T18:49:55Z",
+      "updated_at": "2026-05-07T06:22:10Z",
+      "created_by": "human",
+      "source": "telegram",
+      "state": "verified",
+      "title": "Short-term Step 4: persona remap marks old audio stale and prioritizes new segments",
+      "body_file": "feedback/fb_20260506_short_step4_remap_stale_resynthesis.md",
+      "category": "backend",
+      "priority": "high",
+      "affects_design": true,
+      "linked_design_sections": [
+        "Scope",
+        "Current Direction",
+        "Architecture",
+        "Constraints",
+        "Design Decisions",
+        "Human Steering Incorporated"
+      ],
+      "linked_backlog_items": [
+        "blg_short_step4_remap_stale_resynthesis"
+      ],
+      "linked_worker_runs": [
+        "wr_20260507_steps3_4_default_voice_remap"
+      ],
+      "resolution": {
+        "status": "implemented",
+        "at": "2026-05-07T06:22:10Z",
+        "note": "Persona remaps now mark old/in-flight old-voice audio stale, prioritize fresh/current synthesis, and regenerate stale audio after current synthesis drains."
+      },
+      "history": [
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "human",
+          "from": null,
+          "to": "new",
+          "note": "Project-owner feedback received via Telegram."
+        },
+        {
+          "at": "2026-05-06T18:49:55Z",
+          "actor": "hermes",
+          "from": "new",
+          "to": "planned",
+          "note": "Triaged into short-term implementation backlog through Step 4."
+        },
+        {
+          "at": "2026-05-07T06:22:10Z",
+          "actor": "hermes",
+          "from": "planned",
+          "to": "in_progress",
+          "note": "Direct TDD implementation started for Step 4 together with Step 3."
+        },
+        {
+          "at": "2026-05-07T06:22:10Z",
+          "actor": "hermes",
+          "from": "in_progress",
+          "to": "verified",
+          "note": "Implemented and verified stale remap behavior, fresh-first queueing, stale retries, and in-flight stale marking."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "review_id": "rv_20260430_006",
+  "target_run_id": "wr_20260430_006",
+  "backlog_item_id": "blg_backend_requeue_failed_segments",
+  "reviewer_role": "reviewer",
+  "model_tier": "hermes_supervisor_with_opencode_go_glm_5_1_readonly_review",
+  "review_type": "implementation_gate",
+  "verdict": "approve",
+  "created_at": "2026-04-30T22:16:00Z",
+  "summary": "Approved bounded hybrid TTS retry/requeue implementation after Hermes reconciliation and read-only OpenCode GLM-5.1 review. Scope is limited to pipeline queue/retry state, hybrid worker completion semantics, and focused Go tests. The read-only review identified a narrow activeSynthesis visibility race; Hermes fixed it by reserving activeSynthesis before dequeue and releasing it on nil dequeue.",
+  "findings": [],
+  "required_changes": [],
+  "accepted_changes": [
+    "SegmentQueue now tracks failed synthesis attempts and permanent failure state per segment.",
+    "Hybrid ttsWorker requeues failed mapped segments up to a bounded retry budget and clears retry state on later success.",
+    "Hybrid ttsWorker reserves activeSynthesis before dequeue so an in-flight segment is visible to other idle workers before completion checks.",
+    "Hybrid completePipeline marks book/status error when permanent failures or incomplete synthesis remain, instead of silently setting synthesized.",
+    "Focused tests cover queue retry lifecycle, retry-then-success, and exhausted retry budget error handling."
+  ],
+  "security_review": {
+    "hardcoded_secrets": false,
+    "path_traversal_risk": false,
+    "remote_changed": false,
+    "notes": "No secrets or remote changes were introduced. Origin remote remains the expected HTTPS GitHub URL."
+  },
+  "quality_review": {
+    "scope_control": "passed",
+    "type_safety": "go_compile_blocked_in_environment",
+    "regression_risk": "medium_until_go_tests_run",
+    "notes": "Static review found no obvious provider interface changes or API contract breaks. Go compile/tests are blocked because go is missing."
+  },
+  "validation": [
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    },
+    {
+      "command": "cd web-client && npx tsc --noEmit",
+      "status": "passed"
+    },
+    {
+      "command": "cd web-client && npm run build",
+      "status": "passed",
+      "notes": "Existing expo-av deprecation warning remains."
+    },
+    {
+      "command": "go test ./internal/pipeline",
+      "status": "blocked",
+      "notes": "go binary not installed"
+    }
+  ],
+  "escalation": {
+    "required": false,
+    "reason": null
+  },
+  "next_action": "commit_accepted_changes_then_continue_remaining_backend_followups_if_time_allows"
+}

@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "review_id": "rv_20260430_010",
+  "run_id": "wr_20260430_010",
+  "backlog_item_id": "blg_frontend_deerflow_signature",
+  "created_at": "2026-04-30T23:55:31Z",
+  "reviewer": "hermes-supervisor",
+  "decision": "approved",
+  "summary": "Approved after Hermes review adjusted OpenCode output to place the signature in the tab shell instead of wrapping the root Stack. The final implementation is a small reusable Pressable attribution badge rendered above the tab bar, preserving navigation layout and dark/slate/blue styling.",
+  "checks": [
+    {
+      "name": "scope",
+      "status": "pass",
+      "notes": "Visible Created By Deerflow text links to https://deerflow.tech and opens externally/new tab on web."
+    },
+    {
+      "name": "design",
+      "status": "pass",
+      "notes": "Uses existing color tokens, low opacity, compact pill styling, and avoids visual competition with content."
+    },
+    {
+      "name": "security",
+      "status": "pass",
+      "notes": "No secrets or remote changes; external URL is fixed Deerflow attribution."
+    },
+    {
+      "name": "validation",
+      "status": "pass",
+      "notes": "Hermes terminal validation passed: cd web-client && npx tsc --noEmit; cd web-client && npm run build."
+    },
+    {
+      "name": "go-tests",
+      "status": "blocked",
+      "notes": "go is not installed on PATH in this Hermes environment."
+    }
+  ],
+  "must_fix": [],
+  "nice_to_have": []
+}

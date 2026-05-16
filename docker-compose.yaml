@@ -1,16 +1,41 @@
 version: "3.9"
 
 services:
-  twelvereader:
+  qwen3-tts:
+    build:
+      context: ./qwen3-tts
+      dockerfile: Dockerfile
+    container_name: twelvereader-qwen3-tts
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - REQUIRE_CUDA=1
+      - HF_HOME=/data/hf
+      - TRANSFORMERS_CACHE=/data/hf/transformers
+      - HF_HUB_CACHE=/data/hf/hub
+    volumes:
+      - hf-cache:/data/hf
+    gpus: all
+    # devices:
+    #   - /dev/nvidia0:/dev/nvidia0
+    #   - /dev/nvidiactl:/dev/nvidiactl
+    #   - /dev/nvidia-uvm:/dev/nvidia-uvm
+    #   - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    networks:
+      - twelvereader-network
+
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: twelvereader
+    container_name: twelvereader-backend
     restart: unless-stopped
     ports:
       - "8080:8080"
     volumes:
-      - ./config/docker.yaml:/app/config/config.yaml:ro
+      - ./config/config.yaml:/app/config/config.yaml:ro
       - twelvereader-data:/app/data
     environment:
       # LLM Provider API Keys
@@ -27,53 +52,44 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    depends_on:
+      - qwen3-tts
     networks:
       - twelvereader-network
 
-  web-client:
+  frontend:
     build:
       context: ./web-client
       dockerfile: Dockerfile
-    container_name: twelvereader-web
+    container_name: twelvereader-frontend
     restart: unless-stopped
     ports:
       - "3000:80"
     environment:
-      - API_URL=http://twelvereader:8080
+      - EXPO_PUBLIC_API_URL=http://backend:8080
     depends_on:
-      - twelvereader
+      - backend
     networks:
       - twelvereader-network
 
-  # Optional: MinIO for S3-compatible local storage
-  # minio:
-  #   image: minio/minio:latest
-  #   container_name: twelvereader-minio
-  #   profiles:
-  #     - storage
-  #   restart: unless-stopped
-  #   ports:
-  #     - "9000:9000"
-  #     - "9001:9001"
-  #   volumes:
-  #     - minio-data:/data
-  #   environment:
-  #     - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
-  #     - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
-  #   command: server /data --console-address ":9001"
-  #   healthcheck:
-  #     test: ["CMD", "mc", "ready", "local"]
-  #     interval: 30s
-  #     timeout: 5s
-  #     retries: 3
-  #   networks:
-  #     - twelvereader-network
+  debug-dashboard:
+    build:
+      context: ./debug-dashboard
+      dockerfile: Dockerfile
+    container_name: twelvereader-debug-dashboard
+    restart: unless-stopped
+    ports:
+      - "3003:80"
+    depends_on:
+      - backend
+    networks:
+      - twelvereader-network
 
 volumes:
   twelvereader-data:
     driver: local
-  # minio-data:
-  #   driver: local
+  hf-cache:
+    driver: local
 
 networks:
   twelvereader-network:

@@ -232,8 +232,16 @@ func (r *Registry) InitializeProviders(cfg types.ProvidersConfig) error {
 		if !ocrCfg.Enabled {
 			continue
 		}
-		// Create stub provider for now
-		provider := NewStubOCRProvider(ocrCfg)
+		var provider OCRProvider
+		var err error
+		if ocrCfg.Endpoint != "" {
+			provider, err = NewOpenAIOCRProvider(ocrCfg)
+			if err != nil {
+				return fmt.Errorf("failed to create OpenAI OCR provider %s: %w", ocrCfg.Name, err)
+			}
+		} else {
+			provider = NewStubOCRProvider(ocrCfg)
+		}
 		if err := r.RegisterOCR(provider); err != nil {
 			return err
 		}

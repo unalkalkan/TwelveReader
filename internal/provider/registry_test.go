@@ -2,6 +2,10 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/unalkalkan/TwelveReader/pkg/types"
@@ -197,7 +201,7 @@ func TestInitializeProviders(t *testing.T) {
 	cfg := types.ProvidersConfig{
 		LLM: []types.LLMProviderConfig{
 			{Name: "llm1", Enabled: true},
-			{Name: "llm2", Enabled: false}, // Should not be registered
+			{Name: "llm2", Enabled: false},
 		},
 		TTS: []types.TTSProviderConfig{
 			{Name: "tts1", Enabled: true},
@@ -212,7 +216,6 @@ func TestInitializeProviders(t *testing.T) {
 		t.Fatalf("InitializeProviders failed: %v", err)
 	}
 
-	// Check that only enabled providers were registered
 	llmList := registry.ListLLM()
 	if len(llmList) != 1 || llmList[0] != "llm1" {
 		t.Errorf("Expected LLM list ['llm1'], got %v", llmList)
@@ -227,4 +230,125 @@ func TestInitializeProviders(t *testing.T) {
 	if len(ocrList) != 1 || ocrList[0] != "ocr1" {
 		t.Errorf("Expected OCR list ['ocr1'], got %v", ocrList)
 	}
+}
+
+func TestInitializeProviders_OCRSelection(t *testing.T) {
+	t.Run("StubFallbackWhenNoEndpoint", func(t *testing.T) {
+		registry := NewRegistry()
+
+		cfg := types.ProvidersConfig{
+			OCR: []types.OCRProviderConfig{
+				{
+					Name:    "stub-ocr",
+					Enabled: true,
+				},
+			},
+		}
+
+		err := registry.InitializeProviders(cfg)
+		if err != nil {
+			t.Fatalf("InitializeProviders failed: %v", err)
+		}
+
+		provider, err := registry.GetOCR("stub-ocr")
+		if err != nil {
+			t.Fatalf("Failed to get OCR provider: %v", err)
+		}
+
+		resp, err := provider.ExtractText(context.Background(), OCRRequest{ImageData: []byte("test")})
+		if err != nil {
+			t.Fatalf("ExtractText failed: %v", err)
+		}
+		if resp.Text != "Stub OCR extracted text" {
+			t.Errorf("Expected stub response, got '%s'", resp.Text)
+		}
+	})
+
+	t.Run("EndpointWithoutModelReturnsConfigurationError", func(t *testing.T) {
+		registry := NewRegistry()
+
+		cfg := types.ProvidersConfig{
+			OCR: []types.OCRProviderConfig{
+				{
+					Name:     "stub-ocr-no-model",
+					Enabled:  true,
+					Endpoint: "https://api.openai.com/v1",
+					Options:  map[string]string{},
+				},
+			},
+		}
+
+		err := registry.InitializeProviders(cfg)
+		if err == nil {
+			t.Fatal("Expected OCR provider configuration error")
+		}
+		if !strings.Contains(err.Error(), "model is required") {
+			t.Fatalf("Expected missing model error, got %v", err)
+		}
+	})
+
+	t.Run("RealProviderWhenEndpointAndModel", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			resp := chatCompletionResponse{
+				Choices: []choice{{Message: message{Role: "assistant", Content: "OCR text"}, FinishReason: "stop"}},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+		}))
+		defer server.Close()
+
+		registry := NewRegistry()
+
+		cfg := types.ProvidersConfig{
+			OCR: []types.OCRProviderConfig{
+				{
+					Name:     "openai-ocr",
+					Enabled:  true,
+					Endpoint: server.URL,
+					Options: map[string]string{
+						"model": "gpt-4o",
+					},
+				},
+			},
+		}
+
+		err := registry.InitializeProviders(cfg)
+		if err != nil {
+			t.Fatalf("InitializeProviders failed: %v", err)
+		}
+
+		provider, err := registry.GetOCR("openai-ocr")
+		if err != nil {
+			t.Fatalf("Failed to get OCR provider: %v", err)
+		}
+
+		ctx := context.Background()
+		resp, err := provider.ExtractText(ctx, OCRRequest{ImageData: []byte("test image"), Language: "en"})
+		if err != nil {
+			t.Fatalf("ExtractText failed: %v", err)
+		}
+		if resp.Text != "OCR text" {
+			t.Errorf("Expected 'OCR text', got '%s'", resp.Text)
+		}
+	})
+
+	t.Run("DisabledProviderNotRegistered", func(t *testing.T) {
+		registry := NewRegistry()
+
+		cfg := types.ProvidersConfig{
+			OCR: []types.OCRProviderConfig{
+				{Name: "disabled-ocr", Enabled: false},
+			},
+		}
+
+		err := registry.InitializeProviders(cfg)
+		if err != nil {
+			t.Fatalf("InitializeProviders failed: %v", err)
+		}
+
+		ocrList := registry.ListOCR()
+		if len(ocrList) != 0 {
+			t.Errorf("Expected no OCR providers, got %v", ocrList)
+		}
+	})
 }

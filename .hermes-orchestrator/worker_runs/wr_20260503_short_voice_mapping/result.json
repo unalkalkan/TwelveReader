@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "run_id": "wr_20260503_short_voice_mapping",
+  "task_id": "blg_short_book_voice_mapping_unblock",
+  "status": "success",
+  "completed_at": "2026-05-03T18:03:39Z",
+  "summary": "Applied initial voice mapping for the affected book, verified synthesized status and audio. Fixed short-book pipeline fallback, UI polling for voice_mapping, OpenAI-compatible TTS audio format detection, and Qwen3 voice-listing low-VRAM behavior. Rebuilt/redeployed backend/frontend containers and verified health/status/personas/audio/frontend HTML.",
+  "validation": [
+    "go test ./internal/pipeline ./internal/provider via golang:1.24-alpine",
+    "cd web-client && npm run build",
+    "git diff --check",
+    "live backend health/status/personas/audio checks",
+    "frontend HTML on port 3002"
+  ],
+  "changed_files": [
+    "internal/pipeline/orchestrator_hybrid.go",
+    "internal/pipeline/orchestrator_hybrid_test.go",
+    "internal/provider/openai_tts.go",
+    "internal/provider/openai_tts_test.go",
+    "web-client/src/api/hooks.ts",
+    "qwen3-tts/openai_server.py"
+  ]
+}
