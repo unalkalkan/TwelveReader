@@ -130,6 +130,18 @@ export function deriveJourney(
     if (!event.segment_id) continue;
     playbackBySegment.set(event.segment_id, [...(playbackBySegment.get(event.segment_id) || []), event]);
   }
+  // Track which segments have actually been synthesized (by audio artifact existence)
+  const verifiedSynth = new Map<string, boolean>();
+  if (debug?.audioValidations) {
+    for (const v of debug.audioValidations) {
+      verifiedSynth.set(v.segment_id, v.status === 'attached' || v.status === 'stale');
+    }
+  }
+
+  // Fallback: use book.synthesized_segments count as authoritative source when audio validations aren't available
+  const synthCount = book.synthesized_segments ?? 0;
+  const hasVerifiedAudio = verifiedSynth.size > 0; // Only trust this if we actually got validation data
+
   const segments: SegmentInspection[] = rawSegments.map((item, idx) => {
     if ('segment' in item) return item;
     const segment = item as Segment;
@@ -139,7 +151,19 @@ export function deriveJourney(
     const playbackEvents = playbackBySegment.get(segment.id) || [];
     const playbackFailures = playbackEvents.filter((event) => event.event_type === 'failed' || event.error).length;
     const completedListens = playbackEvents.filter((event) => event.event_type === 'complete').length;
-    const hasAudio = audioValidation ? audioValidation.status === 'attached' || audioValidation.status === 'stale' : Boolean(segment.audio_url || segment.timestamps || segment.voice_id);
+
+    // Determine if audio actually exists — priority: explicit validation > timestamp proof > synthesized count fallback
+    const verifiedHasAudio = verifiedSynth.get(segment.id);
+    const hasTimestamps = !!(segment.timestamps && segment.timestamps.items?.length > 0);
+    const isWithinSynthCount = synthCount > 0 && !hasVerifiedAudio && Boolean(segment.voice_id) && idx < synthCount;
+    const hasAudio = (audioValidation?.status === 'attached' || audioValidation?.status === 'stale')
+      ? true // Explicit validation says audio is present
+      : verifiedHasAudio !== undefined
+        ? verifiedHasAudio // Trust explicit verification result
+        : hasTimestamps
+          ? true // Timestamps only set after actual TTS generation
+          : isWithinSynthCount; // Fallback: segment has voice_id and falls within synthesized count
+
     const audioState = audioValidation?.status === 'invalid' ? 'invalid' : audioValidation?.status === 'stale' ? 'stale' : playbackFailures > 0 ? 'playback_failed' : hasAudio ? 'attached' : 'missing';
     const synthState = synthJob?.status === 'completed' ? 'completed' : synthJob?.status === 'failed' || synthJob?.status === 'exhausted' ? 'failed' : synthJob?.status === 'running' ? 'running' : synthJob?.status === 'retrying' ? 'retrying' : stale ? 'stale' : hasAudio ? 'completed' : book.status === 'synthesizing' ? 'queued' : 'not_created';
     return {
@@ -162,7 +186,7 @@ export function deriveJourney(
 
   const total = Math.max(book.total_segments || segments.length, segments.length, 1);
   const textReadyCount = segments.length || book.total_segments || 0;
-  const audioReadyCount = segments.filter((s) => s.audioState === 'attached').length || book.synthesized_segments || 0;
+  const audioReadyCount = book.synthesized_segments ?? segments.filter((s) => s.audioState === 'attached').length;
   const staleAudioCount = segments.filter((s) => s.audioState === 'stale').length;
   const failedAudioCount = segments.filter((s) => s.audioState === 'playback_failed' || s.synthState === 'failed').length;
   const readinessScore = Math.round(((textReadyCount / total) * 0.4 + (audioReadyCount / total) * 0.6) * 100);
