@@ -171,25 +171,36 @@ export function App() {
     <div className="page debug-shell">
       <aside className="debug-sidebar navbar navbar-vertical navbar-expand-lg">
         <div className="container-fluid flex-column align-items-stretch">
-          <div className="navbar-brand navbar-brand-autodark justify-content-start gap-2 py-3">
-            <span className="brand-glyph"><IconWaveSine size={20} /></span>
+          <div className="navbar-brand navbar-brand-autodark justify-content-start gap-2">
+            <span className="brand-glyph"><IconWaveSine size={18} /></span>
             <div>
               <div className="fw-bold">TwelveReader</div>
-              <div className="text-secondary small">Debug View</div>
+              <div className="text-secondary small">Debug Dashboard</div>
             </div>
           </div>
-          <div className="navbar-nav pt-3">
+          <div className="nav-section-label">System</div>
+          <div className="navbar-nav">
             {[
               ['Overview', IconActivity],
               ['Books', IconBook2],
               ['Segments', IconDatabase],
               ['Synth Jobs', IconHeadphones],
+            ].map(([label, Icon]: any, index) => (
+              <a key={label} className={cls('nav-link', index === 0 && 'active')} href={`#${String(label).toLowerCase().replace(' ', '-')}`}>
+                <span className="nav-link-icon d-md-none d-lg-inline-block"><Icon size={17} /></span>
+                <span className="nav-link-title">{label}</span>
+              </a>
+            ))}
+          </div>
+          <div className="nav-section-label">Inspection</div>
+          <div className="navbar-nav">
+            {[
               ['Audio Artifacts', IconPlayerPlay],
               ['User Journey', IconUserCheck],
               ['Events', IconHeartbeat],
-            ].map(([label, Icon]: any, index) => (
-              <a key={label} className={cls('nav-link', index === 0 && 'active')} href={`#${String(label).toLowerCase().replace(' ', '-')}`}>
-                <span className="nav-link-icon d-md-none d-lg-inline-block"><Icon size={18} /></span>
+            ].map(([label, Icon]: any) => (
+              <a key={label} className="nav-link" href={`#${String(label).toLowerCase().replace(' ', '-')}`}>
+                <span className="nav-link-icon d-md-none d-lg-inline-block"><Icon size={17} /></span>
                 <span className="nav-link-title">{label}</span>
               </a>
             ))}
@@ -207,15 +218,21 @@ export function App() {
       <div className="page-wrapper debug-main">
         <header className="navbar navbar-expand-md debug-topbar">
           <div className="container-xl">
-            <div className="page-pretitle">Live State Inspector</div>
+            <div className="navbar-nav flex-row">
+              <a className="nav-link active" href="#overview"><IconActivity size={16} /> Overview</a>
+              <a className="nav-link" href="#segments"><IconDatabase size={16} /> Segments</a>
+              <a className="nav-link" href="#user-journey"><IconUserCheck size={16} /> Journey</a>
+              <a className="nav-link" href="#events"><IconHeartbeat size={16} /> Events</a>
+            </div>
             <div className="ms-auto d-flex align-items-center gap-2 flex-wrap">
+              <span className="text-secondary small d-none d-xl-inline">Live State Inspector</span>
               <span className={cls('badge', `bg-${statusColor(health?.status)}-lt`)}>
                 <IconServer size={14} /> API {health?.status || 'unknown'}
               </span>
               <span className="badge bg-blue-lt">TTS {providers?.tts?.length ?? 0}</span>
               <span className="badge bg-secondary-lt">LLM {providers?.llm?.length ?? 0}</span>
               <button className="btn btn-primary btn-sm" onClick={() => window.location.reload()}>
-                <IconRefresh size={15} /> Refresh shell
+                <IconRefresh size={15} /> Refresh
               </button>
             </div>
           </div>
@@ -293,16 +310,15 @@ export function App() {
 
 function Metric({ title, value, icon, tone, detail }: { title: string; value: number | string; icon: React.ReactNode; tone: string; detail: string }) {
   return (
-    <div className="col-sm-6 col-lg-4 col-xl-2">
+    <div className="col-sm-6 col-lg-4 col-xxl-2">
       <div className="card metric-card">
         <div className="card-body">
-          <div className="d-flex align-items-center justify-content-between mb-2">
-            <div className={`metric-icon text-${tone}`}>{icon}</div>
-            <span className={`status status-${tone}`} />
+          <div className={`metric-icon text-${tone}`}>{icon}</div>
+          <div className="metric-content min-w-0">
+            <div className="h2 mb-0">{value}</div>
+            <div className="fw-medium text-truncate">{title}</div>
+            <div className="text-secondary xsmall text-truncate">{detail}</div>
           </div>
-          <div className="h1 mb-0">{value}</div>
-          <div className="text-secondary small">{title}</div>
-          <div className="text-secondary xsmall mt-1">{detail}</div>
         </div>
       </div>
     </div>
