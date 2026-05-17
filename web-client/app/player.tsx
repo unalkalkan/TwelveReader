@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Platform,
   Alert,
+  type GestureResponderEvent,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,6 +27,17 @@ import { useAudioPlayer } from '../src/hooks/useAudioPlayer';
 import { ChapterList } from '../src/components/ChapterList';
 import { VoiceMappingModal } from '../src/components/VoiceMappingModal';
 import { getDownloadUrl } from '../src/api/client';
+import {
+  getPreviewDirectionFromVerticalDelta,
+  getPreviewIndex,
+  READER_PREVIEW_DRAG_THRESHOLD_PX,
+} from '../src/playerPreview';
+
+type WheelEventPayload = {
+  nativeEvent?: {
+    deltaY?: number;
+  };
+};
 
 export default function PlayerScreen() {
   const theme = useColorScheme();
@@ -72,6 +84,17 @@ export default function PlayerScreen() {
 
   const currentSegment = segments?.[currentSegmentIndex];
   const totalSegments = segments?.length ?? 0;
+  const [previewSegmentIndex, setPreviewSegmentIndex] = useState(currentSegmentIndex);
+  const dragLastPreviewYRef = useRef<number | null>(null);
+  const displayedSegmentIndex =
+    totalSegments > 0
+      ? Math.min(Math.max(previewSegmentIndex, 0), totalSegments - 1)
+      : currentSegmentIndex;
+
+  useEffect(() => {
+    setPreviewSegmentIndex(currentSegmentIndex);
+    dragLastPreviewYRef.current = null;
+  }, [currentSegmentIndex, bookId]);
 
   // Progress based on segments + current audio position
   const withinSegmentProgress =
@@ -135,6 +158,55 @@ export default function PlayerScreen() {
     }
     Alert.alert('Download ready', getDownloadUrl(bookId));
   }, [bookId]);
+
+  const previewAdjacentSegment = useCallback(
+    (direction: 'previous' | 'next') => {
+      setPreviewSegmentIndex((currentPreviewIndex) =>
+        getPreviewIndex(
+          currentPreviewIndex,
+          currentSegmentIndex,
+          totalSegments,
+          direction,
+        ),
+      );
+    },
+    [currentSegmentIndex, totalSegments],
+  );
+
+  const handleReaderWheel = useCallback(
+    (event: WheelEventPayload) => {
+      const deltaY = event.nativeEvent?.deltaY ?? 0;
+      const direction = getPreviewDirectionFromVerticalDelta(deltaY, 1);
+      if (direction) previewAdjacentSegment(direction);
+    },
+    [previewAdjacentSegment],
+  );
+
+  const handleReaderTouchStart = useCallback((event: GestureResponderEvent) => {
+    dragLastPreviewYRef.current = event.nativeEvent.pageY;
+  }, []);
+
+  const handleReaderTouchMove = useCallback(
+    (event: GestureResponderEvent) => {
+      const lastPreviewY = dragLastPreviewYRef.current;
+      if (lastPreviewY === null) return;
+
+      const navigationDeltaY = lastPreviewY - event.nativeEvent.pageY;
+      const direction = getPreviewDirectionFromVerticalDelta(
+        navigationDeltaY,
+        READER_PREVIEW_DRAG_THRESHOLD_PX,
+      );
+      if (!direction) return;
+
+      previewAdjacentSegment(direction);
+      dragLastPreviewYRef.current = event.nativeEvent.pageY;
+    },
+    [previewAdjacentSegment],
+  );
+
+  const handleReaderTouchEnd = useCallback(() => {
+    dragLastPreviewYRef.current = null;
+  }, []);
 
   // ── Word-level highlighting ──────────────────────────────────────────
   const renderSegmentText = useCallback(
@@ -227,6 +299,10 @@ export default function PlayerScreen() {
         style={styles.readingArea}
         contentContainerStyle={styles.readingContent}
         showsVerticalScrollIndicator={false}
+        onWheel={handleReaderWheel as never}
+        onTouchStart={handleReaderTouchStart}
+        onTouchMove={handleReaderTouchMove}
+        onTouchEnd={handleReaderTouchEnd}
       >
         {isProcessing && (
           <View style={[styles.processingBanner, { backgroundColor: colors.surface }]}>
@@ -263,13 +339,14 @@ export default function PlayerScreen() {
         {segments && segments.length > 0 ? (
           segments
             .slice(
-              Math.max(0, currentSegmentIndex - 1),
-              currentSegmentIndex + 3,
+              Math.max(0, displayedSegmentIndex - 1),
+              displayedSegmentIndex + 3,
             )
             .map((seg, displayIdx) => {
               const actualIdx =
-                Math.max(0, currentSegmentIndex - 1) + displayIdx;
+                Math.max(0, displayedSegmentIndex - 1) + displayIdx;
               const isCurrent = actualIdx === currentSegmentIndex;
+              const isPreviewed = actualIdx === displayedSegmentIndex;
 
               return (
                 <TouchableOpacity
@@ -278,7 +355,7 @@ export default function PlayerScreen() {
                   onPress={() => seekToSegment(actualIdx)}
                 >
                   {/* Show persona label if available */}
-                  {isCurrent && seg.person && (
+                  {isPreviewed && seg.person && (
                     <Text style={[styles.personLabel, { color: colors.accent }]}>
                       {seg.person}
                     </Text>
