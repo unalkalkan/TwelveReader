@@ -139,3 +139,15 @@ To use this in the voice mapping workflow:
 3. User calls `/api/v1/voices` to see available voices
 4. User sets voice mappings via `/api/v1/books/:id/voice-map` endpoint (already implemented)
 5. System uses the mapped voices during TTS synthesis
+
+---
+
+## SaaS Vision Update
+
+TwelveReader is evolving into an open-source AI audiobook platform that supports both a hosted SaaS service and self-hosted servers. The client should allow users to choose the official server or a custom server before login. The SaaS roadmap adds account-based private libraries, usage metering, quotas, lazy generation, Admin Dashboard operations, billing, user voice catalogs, exportable completed books, Explore repositories, user public repositories, mobile OAuth, and production hardening.
+
+Canonical roadmap documents:
+
+- [Manifest.md](Manifest.md)
+- [Milestones.md](Milestones.md)
+- [docs/SAAS_MANIFEST.md](docs/SAAS_MANIFEST.md)

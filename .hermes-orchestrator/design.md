@@ -2,9 +2,9 @@
 
 **Project Name:** TwelveReader
 **Project ID:** `twelvereader`
-**Updated At:** 2026-05-06T18:49:55Z
+**Updated At:** 2026-05-17T18:30:00Z
 
-This is the canonical design state for TwelveReader on the `ui` branch.
+This is the canonical design state for TwelveReader on the `develop` branch.
 
 ## Purpose
 TwelveReader is an AI audiobook generation and playback system. It turns uploaded source material into segmented, voice-attributed, synchronized text/audio output. The current focus is the web/Expo UI that exercises backend features end-to-end.
@@ -29,7 +29,7 @@ Current scope includes:
 - A separate orchestration service inside the app; project orchestration remains in `.hermes-orchestrator/`.
 
 ## Current Direction
-Prioritize short-term core Qwen3-TTS UX hardening through Step 4 only. Skip quality/production rollout, medium-term enhancements, and any vLLM-omni/workstation changes for now. The app should feel sound from upload through playback: one default voice exists, books begin processing immediately with that voice, and persona-specific remapping can happen later without blocking new synthesis.
+Prioritize the SaaS transition in isolated milestones: instrumentation, usage metering, quota enforcement, lazy generation, Admin Dashboard shell, accounts, client server/login flow, private user library, internal billing, Stripe, voice catalogs, exports, repositories, mobile OAuth, and operations hardening. The current Qwen3-TTS UX remains the baseline capability, but new work should move toward the account-based, quota-controlled, self-hostable SaaS model described in `docs/SAAS_MANIFEST.md`.
 
 ## Architecture
 - `cmd/server/main.go` exposes a Go HTTP API under `/api/v1` plus health endpoints.
@@ -64,6 +64,9 @@ Prioritize short-term core Qwen3-TTS UX hardening through Step 4 only. Skip qual
 - **DEC-007 accepted:** Model account behavior as exactly one user with a persisted default voice until real accounts exist.
 - **DEC-008 accepted:** Book processing should auto-map personas to the default voice so segmentation/synthesis starts immediately; later persona remaps mark old audio stale and prioritize fresh synthesis.
 
+- **DEC-009 accepted:** TwelveReader will evolve into an open-source AI audiobook SaaS plus self-hostable server ecosystem with server selection before login, private user libraries, usage quotas, billing, Admin Dashboard, official public-domain repository, and user public repositories.
+- **DEC-010 accepted:** SaaS work should be delivered through isolated milestones from minimal foundation changes to larger product changes; future milestone details may be revised without invalidating completed foundations.
+
 ## Human Steering Incorporated
 - `fb_20260430_001`: Initialize Hermes Orchestrator, assess WIP `ui` branch, create backlog, implement missing pieces directly, and continue until deadline or working product.
 - `fb_20260505_voice_samples`: Voice preview playback must use persisted test samples generated after backend startup/TTS connection instead of synthesizing on every click.
@@ -78,3 +81,5 @@ Prioritize short-term core Qwen3-TTS UX hardening through Step 4 only. Skip qual
 - 2026-04-30T20:43:00Z — Initial real design assessment for the `ui` branch after repository inspection.
 - 2026-05-05T09:13:01Z — Added persistent cached voice preview sample behavior to backend scope/storage constraints.
 - 2026-05-06T18:49:55Z — Added short-term Qwen3-TTS default voice and remap/stale regeneration direction from project-owner feedback.
+
+- 2026-05-17T18:30:00Z — Added SaaS vision, milestone/MVP structure, server-selection/self-hosting direction, repositories, quotas, billing, and Admin Dashboard direction.

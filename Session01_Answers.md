@@ -47,3 +47,15 @@ Support every major format (PDF/ePUB/TXT/Markdown) plus optional OCR so scans ca
 
 ## Table of Contents
 The ingestion pipeline preserves TOC hierarchy so clients can present chapters/sections alongside synchronized playback.
+
+---
+
+## SaaS Vision Update
+
+TwelveReader is evolving into an open-source AI audiobook platform that supports both a hosted SaaS service and self-hosted servers. The client should allow users to choose the official server or a custom server before login. The SaaS roadmap adds account-based private libraries, usage metering, quotas, lazy generation, Admin Dashboard operations, billing, user voice catalogs, exportable completed books, Explore repositories, user public repositories, mobile OAuth, and production hardening.
+
+Canonical roadmap documents:
+
+- [Manifest.md](Manifest.md)
+- [Milestones.md](Milestones.md)
+- [docs/SAAS_MANIFEST.md](docs/SAAS_MANIFEST.md)

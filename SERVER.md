@@ -231,3 +231,21 @@ The next milestone will implement:
 - Voice mapping interface
 
 See `Milestones.md` for the complete roadmap.
+
+
+## SaaS Server Direction
+
+The server should remain self-hostable while gaining hosted SaaS capabilities.
+
+Near-term server priorities:
+
+1. `/api/v1` readiness endpoints: health, server-info, features.
+2. Usage metering in shadow mode.
+3. Daily/weekly/monthly quota engine.
+4. Lazy `next N segments` generation pipeline.
+5. Admin Dashboard data surfaces.
+6. Accounts, sessions, roles, ownership, and audit logs.
+7. User-scoped libraries and progress sync.
+8. Internal plans/credits before Stripe.
+
+Self-hosted deployments should be able to run without official billing integrations. Hosted deployments can enable quotas, plans, Stripe, public repositories, and admin/support tooling through configuration and feature flags.

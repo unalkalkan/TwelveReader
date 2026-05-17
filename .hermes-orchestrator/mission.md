@@ -28,3 +28,8 @@ The product lets a user turn text/PDF/ePUB/TXT content into a listenable multi-v
 
 ## Success definition
 A working MVP has a compiling web client, durable orchestration state, a clear backlog, upload/library/voice browsing/player flows that connect to real API contracts, a usable voice-mapping flow for books waiting on persona assignment, resilient error/empty/loading states, and committed checkpoints that can be resumed by Hermes Orchestrator.
+
+
+## SaaS Mission Update
+
+TwelveReader should become an open-source AI audiobook platform that works as both hosted SaaS and self-hosted server. The immediate mission is to move from the current single-user generation flow toward usage-metered, quota-controlled, account-based private libraries, then billing, repositories, and production hardening. See `docs/SAAS_MANIFEST.md`.

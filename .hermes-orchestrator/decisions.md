@@ -27,3 +27,18 @@
 - Context: Backend can set books to `voice_mapping`, which blocks synthesis until the user maps discovered personas.
 - Decision: Add an in-player voice mapping panel/dialog connected to personas, voices, and voice-map endpoints.
 - Consequences: UI MVP is not complete until a user can resolve mapping waits from the app.
+
+
+## DEC-009: SaaS and Self-Hosted Product Direction
+
+**Status:** Accepted
+**Date:** 2026-05-17
+
+TwelveReader will evolve into an open-source AI audiobook platform that supports both hosted SaaS and self-hosted servers. The hosted service will add user accounts, private libraries, usage metering, quotas, lazy generation, billing, Admin Dashboard operations, public-domain official repositories, user public repositories, and mobile OAuth. Self-hosted servers remain first-class, and the client must support changing the server before login.
+
+## DEC-010: Isolated Milestone Delivery
+
+**Status:** Accepted
+**Date:** 2026-05-17
+
+SaaS work should be delivered through isolated milestones. Each milestone must have one clear target, explicit out-of-scope boundaries, and acceptance criteria. MVPs are parent scopes; milestones are child scopes; actual work tasks are children of milestones on the TwelveReader Kanban board.

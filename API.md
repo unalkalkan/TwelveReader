@@ -575,3 +575,35 @@ The following endpoints are planned for future milestones:
 
 - Native client (Android) synchronization endpoints
 - Re-voicing workflow endpoints
+
+
+## SaaS API Direction
+
+New SaaS-facing APIs should use `/api/v1` and return structured errors with request IDs.
+
+Planned API groups:
+
+- Auth API
+- User API
+- Library API
+- Book API
+- Upload/import API
+- TTS jobs API
+- Audio playback/download API
+- Progress sync API
+- Usage/quota API
+- Billing API
+- Repository/Explore API
+- Voice catalog API
+- Admin API
+- Debug/internal API
+
+Important rules:
+
+- Separate user APIs from admin APIs.
+- Enforce ownership checks on every user-owned resource.
+- Do not leak private book text, uploaded files, generated audio, or private voice assets.
+- Use stable structured quota errors so the client can explain blocked actions.
+- Add rate limits and request IDs before expanding public SaaS usage.
+
+See [docs/SAAS_MANIFEST.md](docs/SAAS_MANIFEST.md) for the full API-related roadmap.

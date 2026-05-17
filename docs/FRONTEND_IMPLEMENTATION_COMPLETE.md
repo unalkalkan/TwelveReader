@@ -532,3 +532,15 @@ The frontend implementation is **code-complete** and ready for testing. All comp
 - ✅ Efficient data fetching with TanStack Query
 
 The hybrid pipeline is now **fully functional** from end to end, pending manual testing and bug fixes.
+
+---
+
+## SaaS Vision Update
+
+TwelveReader is evolving into an open-source AI audiobook platform that supports both a hosted SaaS service and self-hosted servers. The client should allow users to choose the official server or a custom server before login. The SaaS roadmap adds account-based private libraries, usage metering, quotas, lazy generation, Admin Dashboard operations, billing, user voice catalogs, exportable completed books, Explore repositories, user public repositories, mobile OAuth, and production hardening.
+
+Canonical roadmap documents:
+
+- [Manifest.md](../Manifest.md)
+- [Milestones.md](../Milestones.md)
+- [SAAS_MANIFEST.md](SAAS_MANIFEST.md)

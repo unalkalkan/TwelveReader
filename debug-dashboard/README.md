@@ -58,3 +58,23 @@ The dashboard polls the TwelveReader API every 2.5 seconds and updates the page 
 ## Known limitation
 
 The current backend does not expose durable user playback telemetry or explicit synth job records. The dashboard derives user-perspective state from available book, segment, stream, pipeline, and audio fields. Once backend telemetry endpoints exist, plug them into `src/api.ts` and `src/state.ts`.
+
+
+## Admin Dashboard Direction
+
+The Debug Dashboard should become the Debug section inside the broader Admin Dashboard.
+
+Target sections:
+
+- Overview
+- Users
+- Books
+- Jobs
+- Voices / Models
+- Storage
+- Billing / Usage
+- Support
+- Debug
+- Audit Log
+
+The existing debug tools should be preserved, not removed. They should move under `Admin -> Debug` once dashboard roles and navigation exist.

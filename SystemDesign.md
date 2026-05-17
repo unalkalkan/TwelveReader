@@ -45,3 +45,25 @@ Both modes reuse the same storage format; the difference lies in delivery timing
 - Should the Voice Mapping UI live inside the Golang server or a separate admin portal?
 - Do we need a lightweight DB schema draft now or postpone until server scaffolding?
 - What observability stack (metrics/logging) best fits the streaming pipeline?
+
+
+## SaaS Architecture Direction
+
+TwelveReader is moving toward a hosted SaaS plus self-hostable server architecture.
+
+Production components should evolve toward:
+
+- Web/API server
+- Mobile-first TwelveReader client
+- Admin Dashboard with Debug section
+- Database for users, books, jobs, progress, quotas, plans, and audit logs
+- Object storage for original files, covers, generated audio, export packages, and voice assets
+- Queue/worker system for ingestion, segmentation, synthesis, export, and cleanup
+- TTS inference service
+- CDN/signed URL layer for private assets
+- Background scheduler
+- Monitoring/alerting
+
+The client must be server-aware before login. It should validate compatible servers using `/api/v1/server-info`, support the official hosted server by default, and allow users to choose self-hosted servers.
+
+SaaS evolution should follow the isolated milestones in [Milestones.md](Milestones.md) and the full scope in [docs/SAAS_MANIFEST.md](docs/SAAS_MANIFEST.md).

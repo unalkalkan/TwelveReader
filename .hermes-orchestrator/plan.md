@@ -44,3 +44,8 @@ Phase 2 then Phase 3: compile fix, voice-mapping UI, and player/library polish.
 - Quality/production rollout steps.
 - Medium-term enhancements.
 - vLLM-omni/workstation integration.
+
+
+## SaaS Milestone Plan
+
+Use the sequence in `Milestones.md`: readiness baseline, usage metering, quotas, lazy generation, Admin Dashboard shell, accounts, client login/server selection, private library, internal billing, Stripe, voices, exports, repositories, mobile OAuth, private external repos, and operations hardening.

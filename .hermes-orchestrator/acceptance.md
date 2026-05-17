@@ -37,3 +37,8 @@
 - Book upload starts segmentation and synthesis immediately using the default voice without waiting for manual voice mapping.
 - Persona mapping can be changed any time; new/future segments use the new voice first.
 - Existing audio produced with an older persona voice is marked stale and regenerated only after current fresh synthesis work is complete.
+
+
+## SaaS Acceptance Direction
+
+Each SaaS milestone must have one target, explicit out-of-scope boundaries, and acceptance criteria. MVP parent tasks, milestone child tasks, and work-task children should start in Kanban Triage unassigned until the project owner assigns them.

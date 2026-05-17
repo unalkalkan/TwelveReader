@@ -1,7 +1,42 @@
-# Twelve Reader
+# TwelveReader
 
 ## Product Overview
-Twelve Reader is a split application: a Golang server orchestrates book ingestion, LLM-driven segmentation, voice assignment, and TTS synthesis, while a Web client (React + TypeScript) provides the interface for testing and using all server functionalities. The Web client streams or downloads synchronized audio-text experiences and will be followed by native clients (Android/Kotlin) in future milestones. Both server and client are designed to swap LLM/TTS/storage providers via configuration so first-party hardware and hosted services can coexist.
+
+TwelveReader is an open-source AI audiobook platform. It turns uploaded books into segmented, voice-attributed, synchronized audio/text experiences and is evolving from a single-user generation app into a proper SaaS plus self-hostable server ecosystem.
+
+The product direction is:
+
+- Hosted TwelveReader SaaS with accounts, quotas, billing, admin/support tooling, and managed TTS generation.
+- Self-hosted TwelveReader servers that users can choose from the client before login.
+- Mobile-first client built with the current web-native stack.
+- Private user libraries by default.
+- Explore as a collection of public audiobook repositories.
+- Official TwelveReader repository limited to public-domain books.
+- User public repositories for completed/exportable books.
+
+## Current SaaS Roadmap
+
+The canonical SaaS manifest and roadmap lives in [docs/SAAS_MANIFEST.md](docs/SAAS_MANIFEST.md).
+
+Current milestone sequence:
+
+1. SaaS Readiness Baseline
+2. Usage Metering Ledger, Shadow Mode
+3. Quota Engine, Non-Billing Enforcement
+4. Lazy Generation Pipeline
+5. Admin Dashboard Shell
+6. Accounts and Sessions
+7. Client Server Selection and Login
+8. Private User Library
+9. Plans, Credits, and Subscriptions Without Stripe
+10. Stripe Billing Integration
+11. Voice Catalogs
+12. Exportable Completed Books
+13. Public Repository Format and Official Public-Domain Catalog
+14. User Public Repositories
+15. OAuth for Mobile Platforms
+16. Private/Authenticated External Repositories
+17. SaaS Operations Hardening
 
 ## System Architecture
 ```

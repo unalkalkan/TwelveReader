@@ -84,3 +84,28 @@ After the uploader completes persona assignments, a `voice-map.json` file is sto
 }
 ```
 This file is bundled into offline ZIPs and referenced during re-voicing operations.
+
+
+## SaaS Data and Repository Direction
+
+The SaaS model keeps each user's library isolated. No internal deduplication or shared object ownership is planned for the current scope.
+
+Core SaaS data areas:
+
+- Users, roles, sessions, refresh tokens
+- Books, book files, chapters, segments, personas, voice mappings
+- TTS jobs, segment jobs, export jobs, retry/cancel state
+- Generated audio assets attached permanently to their book unless deleted
+- Reading and playback progress
+- Usage events and rollups
+- Quota grants and quota windows
+- Plans, subscriptions, credits, and credit transactions
+- System voices and user private voices
+- Admin audit logs
+- Public repository manifests
+
+Completed books must be exportable in the TwelveReader export format before they can be published to a user's public repository.
+
+Explore repositories should expose a versioned manifest, book metadata, cover/audio asset URLs, compatibility fields, and enough validation data for the client to reject incompatible or broken repositories cleanly.
+
+See [docs/SAAS_MANIFEST.md](docs/SAAS_MANIFEST.md) for detailed milestone sequencing.
