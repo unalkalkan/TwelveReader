@@ -349,6 +349,179 @@ func TestOpenAITTSProvider_DetectsWAVResponse(t *testing.T) {
 	}
 }
 
+func TestOpenAITTSProvider_SplitsLongTextIntoSequentialChunks(t *testing.T) {
+	var requests []ttsAPIRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody ttsAPIRequest
+		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+			t.Errorf("Failed to decode request: %v", err)
+		}
+		requests = append(requests, reqBody)
+		w.Header().Set("Content-Type", "audio/wav")
+		switch len(requests) {
+		case 1:
+			w.Write(testWAVBytes(10))
+		case 2:
+			w.Write(testWAVBytes(20))
+		default:
+			t.Fatalf("unexpected request %d", len(requests))
+		}
+	}))
+	defer server.Close()
+
+	provider, err := NewOpenAITTSProvider(types.TTSProviderConfig{
+		Name:           "test-openai-tts",
+		Enabled:        true,
+		Endpoint:       server.URL,
+		MaxSegmentSize: 13,
+		Options: map[string]string{
+			"model":          "qwen3-tts-customvoice-1.7b",
+			"max_new_tokens": "192",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
+
+	resp, err := provider.Synthesize(context.Background(), TTSRequest{
+		Text:    "Hello world. Goodbye moon.",
+		VoiceID: "aiden",
+	})
+	if err != nil {
+		t.Fatalf("Synthesize failed: %v", err)
+	}
+
+	if len(requests) != 2 {
+		t.Fatalf("Expected 2 chunk requests, got %d", len(requests))
+	}
+	if requests[0].Input != "Hello world." || requests[1].Input != "Goodbye moon." {
+		t.Fatalf("Unexpected chunk inputs: %#v", []string{requests[0].Input, requests[1].Input})
+	}
+	for i, req := range requests {
+		if req.ResponseFormat != "wav" {
+			t.Fatalf("request %d response_format = %q, want wav", i, req.ResponseFormat)
+		}
+		if req.MaxNewTokens != 192 {
+			t.Fatalf("request %d max_new_tokens = %d, want 192", i, req.MaxNewTokens)
+		}
+	}
+	if resp.Format != "wav" {
+		t.Fatalf("Expected concatenated wav response, got %q", resp.Format)
+	}
+	if !strings.HasPrefix(string(resp.AudioData), "RIFF") {
+		t.Fatalf("Expected RIFF response, got %q", string(resp.AudioData[:4]))
+	}
+	if got := wavDataLen(resp.AudioData); got != 30 {
+		t.Fatalf("Expected concatenated data length 30, got %d", got)
+	}
+}
+
+func TestOpenAITTSProvider_SplitsLongWordByMaxSegmentSize(t *testing.T) {
+	var inputs []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody ttsAPIRequest
+		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+			t.Errorf("Failed to decode request: %v", err)
+		}
+		inputs = append(inputs, reqBody.Input)
+		w.Header().Set("Content-Type", "audio/wav")
+		w.Write(testWAVBytes(1))
+	}))
+	defer server.Close()
+
+	provider, err := NewOpenAITTSProvider(types.TTSProviderConfig{
+		Name:           "test-openai-tts",
+		Enabled:        true,
+		Endpoint:       server.URL,
+		MaxSegmentSize: 5,
+		Options: map[string]string{
+			"model": "qwen3-tts-customvoice-1.7b",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
+
+	_, err = provider.Synthesize(context.Background(), TTSRequest{Text: "abcdefghijk", VoiceID: "aiden"})
+	if err != nil {
+		t.Fatalf("Synthesize failed: %v", err)
+	}
+	want := []string{"abcde", "fghij", "k"}
+	if strings.Join(inputs, "|") != strings.Join(want, "|") {
+		t.Fatalf("Expected inputs %#v, got %#v", want, inputs)
+	}
+}
+
+func testWAVBytes(dataLen int) []byte {
+	data := make([]byte, dataLen)
+	for i := range data {
+		data[i] = byte(i % 255)
+	}
+	chunkSize := 36 + dataLen
+	out := make([]byte, 44+dataLen)
+	copy(out[0:4], "RIFF")
+	putLE32(out[4:8], uint32(chunkSize))
+	copy(out[8:12], "WAVE")
+	copy(out[12:16], "fmt ")
+	putLE32(out[16:20], 16)
+	out[20] = 1
+	out[22] = 1
+	putLE32(out[24:28], 24000)
+	putLE32(out[28:32], 48000)
+	out[32] = 2
+	out[34] = 16
+	copy(out[36:40], "data")
+	putLE32(out[40:44], uint32(dataLen))
+	copy(out[44:], data)
+	return out
+}
+
+func putLE32(dst []byte, v uint32) {
+	dst[0] = byte(v)
+	dst[1] = byte(v >> 8)
+	dst[2] = byte(v >> 16)
+	dst[3] = byte(v >> 24)
+}
+
+func wavDataLen(body []byte) int {
+	if len(body) < 44 || string(body[0:4]) != "RIFF" || string(body[8:12]) != "WAVE" || string(body[36:40]) != "data" {
+		return -1
+	}
+	return int(uint32(body[40]) | uint32(body[41])<<8 | uint32(body[42])<<16 | uint32(body[43])<<24)
+}
+
+func TestOpenAITTSProvider_NormalizesISOLanguageForQwen3TTS(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody ttsAPIRequest
+		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+			t.Errorf("Failed to decode request: %v", err)
+		}
+		if reqBody.Language != "English" {
+			t.Fatalf("Expected normalized language English, got %q", reqBody.Language)
+		}
+		w.Header().Set("Content-Type", "audio/wav")
+		w.Write(testWAVBytes(10))
+	}))
+	defer server.Close()
+
+	provider, err := NewOpenAITTSProvider(types.TTSProviderConfig{
+		Name:     "test-openai-tts",
+		Enabled:  true,
+		Endpoint: server.URL,
+		Options: map[string]string{
+			"model": "qwen3-tts-customvoice-1.7b",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to create provider: %v", err)
+	}
+
+	_, err = provider.Synthesize(context.Background(), TTSRequest{Text: "Hello", VoiceID: "aiden", Language: "en"})
+	if err != nil {
+		t.Fatalf("Synthesize failed: %v", err)
+	}
+}
+
 func TestOpenAITTSProvider_RetryOptions(t *testing.T) {
 	cfg := types.TTSProviderConfig{
 		Name:     "test-openai-tts",

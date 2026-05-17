@@ -1,14 +1,18 @@
 package provider
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/unalkalkan/TwelveReader/pkg/types"
 )
@@ -21,6 +25,8 @@ type OpenAITTSProvider struct {
 	model          string
 	maxRetries     int
 	retryBackoffMs int
+	responseFormat string
+	maxNewTokens   int
 }
 
 // NewOpenAITTSProvider creates a new OpenAI-compatible TTS provider
@@ -45,6 +51,14 @@ func NewOpenAITTSProvider(config types.TTSProviderConfig) (*OpenAITTSProvider, e
 	}
 
 	maxRetries, retryBackoffMs := parseRetryOptions(config.Options)
+	responseFormat := strings.TrimSpace(config.Options["response_format"])
+	if responseFormat == "" {
+		responseFormat = "wav"
+	}
+	maxNewTokens := 0
+	if raw := strings.TrimSpace(config.Options["max_new_tokens"]); raw != "" {
+		fmt.Sscanf(raw, "%d", &maxNewTokens)
+	}
 
 	return &OpenAITTSProvider{
 		name:           config.Name,
@@ -53,6 +67,8 @@ func NewOpenAITTSProvider(config types.TTSProviderConfig) (*OpenAITTSProvider, e
 		model:          model,
 		maxRetries:     maxRetries,
 		retryBackoffMs: retryBackoffMs,
+		responseFormat: responseFormat,
+		maxNewTokens:   maxNewTokens,
 	}, nil
 }
 
@@ -62,30 +78,57 @@ func (o *OpenAITTSProvider) Name() string {
 
 // Synthesize converts text to speech using OpenAI-compatible API
 func (o *OpenAITTSProvider) Synthesize(ctx context.Context, req TTSRequest) (*TTSResponse, error) {
-	// Build the API request
-	apiReq := ttsAPIRequest{
-		Model: o.model,
-		Input: req.Text,
-		Voice: req.VoiceID,
+	chunks := splitTextForTTS(req.Text, o.config.MaxSegmentSize)
+	if len(chunks) == 0 {
+		chunks = []string{req.Text}
 	}
 
-	// Add instructions if voice description is provided
-	if req.VoiceDescription != "" {
-		apiReq.Instructions = req.VoiceDescription
+	var audioChunks [][]byte
+	var format string
+	for i, chunk := range chunks {
+		apiReq := ttsAPIRequest{
+			Model:          o.model,
+			Input:          chunk,
+			Voice:          req.VoiceID,
+			ResponseFormat: o.responseFormat,
+		}
+		if o.maxNewTokens > 0 {
+			apiReq.MaxNewTokens = o.maxNewTokens
+		}
+		if req.Language != "" {
+			apiReq.Language = normalizeTTSLanguage(req.Language)
+		}
+		if req.VoiceDescription != "" {
+			apiReq.Instructions = req.VoiceDescription
+		}
+
+		audioData, detectedFormat, err := o.callTTSAPI(ctx, apiReq)
+		if err != nil {
+			return nil, fmt.Errorf("failed to call TTS API for chunk %d/%d: %w", i+1, len(chunks), err)
+		}
+		if format == "" {
+			format = detectedFormat
+		}
+		if detectedFormat != format {
+			return nil, fmt.Errorf("TTS chunks returned mixed formats: %s then %s", format, detectedFormat)
+		}
+		audioChunks = append(audioChunks, audioData)
 	}
 
-	// Note: Language field is not used in the API request as OpenAI TTS API
-	// doesn't have a direct language parameter. The model infers language from input.
-	// This can be handled later if needed.
-
-	// Call the API
-	audioData, format, err := o.callTTSAPI(ctx, apiReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call TTS API: %w", err)
+	audioData := audioChunks[0]
+	if len(audioChunks) > 1 {
+		var err error
+		switch format {
+		case "wav":
+			audioData, err = concatWAV(audioChunks)
+		default:
+			return nil, fmt.Errorf("cannot concatenate %d TTS chunks with format %s", len(audioChunks), format)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to concatenate TTS chunks: %w", err)
+		}
 	}
 
-	// Return the response
-	// Note: OpenAI TTS API doesn't provide word-level timestamps by default
 	return &TTSResponse{
 		AudioData:  audioData,
 		Format:     format,
@@ -193,10 +236,13 @@ func (o *OpenAITTSProvider) Close() error {
 
 // ttsAPIRequest represents the OpenAI TTS API request structure
 type ttsAPIRequest struct {
-	Model        string `json:"model"`
-	Input        string `json:"input"`
-	Voice        string `json:"voice"`
-	Instructions string `json:"instructions,omitempty"`
+	Model          string `json:"model"`
+	Input          string `json:"input"`
+	Voice          string `json:"voice"`
+	Instructions   string `json:"instructions,omitempty"`
+	Language       string `json:"language,omitempty"`
+	ResponseFormat string `json:"response_format,omitempty"`
+	MaxNewTokens   int    `json:"max_new_tokens,omitempty"`
 }
 
 // ttsAPIErrorResponse represents an error response from the TTS API
@@ -301,6 +347,188 @@ func (o *OpenAITTSProvider) callTTSAPI(ctx context.Context, req ttsAPIRequest) (
 	format := audioFormatFromBytes(body)
 	log.Printf("[TTS-%s] Response payload: audio_size=%d bytes, detected_format=%s", o.name, len(body), format)
 	return body, format, nil
+}
+
+func splitTextForTTS(text string, maxChars int) []string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+	if maxChars <= 0 || utf8.RuneCountInString(text) <= maxChars {
+		return []string{text}
+	}
+
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return nil
+	}
+
+	var chunks []string
+	var current strings.Builder
+	flush := func() {
+		if current.Len() == 0 {
+			return
+		}
+		chunks = append(chunks, strings.TrimSpace(current.String()))
+		current.Reset()
+	}
+
+	for _, word := range words {
+		for utf8.RuneCountInString(word) > maxChars {
+			flush()
+			prefix, rest := splitAtRuneLimit(word, maxChars)
+			chunks = append(chunks, prefix)
+			word = rest
+		}
+		if word == "" {
+			continue
+		}
+		candidate := word
+		if current.Len() > 0 {
+			candidate = current.String() + " " + word
+		}
+		if utf8.RuneCountInString(candidate) > maxChars {
+			flush()
+		}
+		if current.Len() > 0 {
+			current.WriteByte(' ')
+		}
+		current.WriteString(word)
+	}
+	flush()
+
+	return splitChunksAtSentenceBoundaries(chunks, maxChars)
+}
+
+func splitChunksAtSentenceBoundaries(chunks []string, maxChars int) []string {
+	var out []string
+	endSentence := regexp.MustCompile(`(?s)^(.+[.!?])\s+(.+)$`)
+	for _, chunk := range chunks {
+		if utf8.RuneCountInString(chunk) <= maxChars {
+			out = append(out, chunk)
+			continue
+		}
+		parts := endSentence.FindStringSubmatch(chunk)
+		if len(parts) == 3 && utf8.RuneCountInString(parts[1]) <= maxChars && utf8.RuneCountInString(parts[2]) <= maxChars {
+			out = append(out, strings.TrimSpace(parts[1]), strings.TrimSpace(parts[2]))
+			continue
+		}
+		out = append(out, chunk)
+	}
+	return out
+}
+
+func splitAtRuneLimit(s string, limit int) (string, string) {
+	if limit <= 0 {
+		return "", s
+	}
+	count := 0
+	for idx := range s {
+		if count == limit {
+			return s[:idx], s[idx:]
+		}
+		count++
+	}
+	return s, ""
+}
+
+func normalizeTTSLanguage(language string) string {
+	switch strings.ToLower(strings.TrimSpace(language)) {
+	case "en", "eng":
+		return "English"
+	case "zh", "zh-cn", "zh-tw", "ch", "chi", "zho":
+		return "Chinese"
+	case "ja", "jp", "jpn":
+		return "Japanese"
+	case "ko", "kor":
+		return "Korean"
+	case "fr", "fra", "fre":
+		return "French"
+	case "de", "deu", "ger":
+		return "German"
+	case "it", "ita":
+		return "Italian"
+	case "pt", "por":
+		return "Portuguese"
+	case "ru", "rus":
+		return "Russian"
+	case "es", "spa":
+		return "Spanish"
+	case "", "auto":
+		return "Auto"
+	default:
+		return language
+	}
+}
+
+func concatWAV(chunks [][]byte) ([]byte, error) {
+	if len(chunks) == 0 {
+		return nil, fmt.Errorf("no wav chunks")
+	}
+	if len(chunks) == 1 {
+		return chunks[0], nil
+	}
+
+	first, err := parseSimpleWAV(chunks[0])
+	if err != nil {
+		return nil, err
+	}
+	var data bytes.Buffer
+	data.Write(first.data)
+	for i, chunk := range chunks[1:] {
+		parsed, err := parseSimpleWAV(chunk)
+		if err != nil {
+			return nil, fmt.Errorf("chunk %d: %w", i+2, err)
+		}
+		if !bytes.Equal(parsed.fmtChunk, first.fmtChunk) {
+			return nil, fmt.Errorf("chunk %d has different WAV format", i+2)
+		}
+		data.Write(parsed.data)
+	}
+
+	dataBytes := data.Bytes()
+	out := make([]byte, 44+len(dataBytes))
+	copy(out[0:4], "RIFF")
+	binary.LittleEndian.PutUint32(out[4:8], uint32(36+len(dataBytes)))
+	copy(out[8:12], "WAVE")
+	copy(out[12:16], "fmt ")
+	binary.LittleEndian.PutUint32(out[16:20], 16)
+	copy(out[20:36], first.fmtChunk)
+	copy(out[36:40], "data")
+	binary.LittleEndian.PutUint32(out[40:44], uint32(len(dataBytes)))
+	copy(out[44:], dataBytes)
+	return out, nil
+}
+
+type simpleWAV struct {
+	fmtChunk []byte
+	data     []byte
+}
+
+func parseSimpleWAV(body []byte) (*simpleWAV, error) {
+	if len(body) < 44 || string(body[0:4]) != "RIFF" || string(body[8:12]) != "WAVE" {
+		return nil, fmt.Errorf("not a RIFF/WAVE file")
+	}
+	if string(body[12:16]) != "fmt " {
+		return nil, fmt.Errorf("unsupported WAV layout: missing fmt chunk")
+	}
+	fmtLen := int(binary.LittleEndian.Uint32(body[16:20]))
+	if fmtLen < 16 || len(body) < 20+fmtLen+8 {
+		return nil, fmt.Errorf("invalid WAV fmt chunk")
+	}
+	dataHeader := 20 + fmtLen
+	if string(body[dataHeader:dataHeader+4]) != "data" {
+		return nil, fmt.Errorf("unsupported WAV layout: missing data chunk")
+	}
+	dataLen := int(binary.LittleEndian.Uint32(body[dataHeader+4 : dataHeader+8]))
+	dataStart := dataHeader + 8
+	if len(body) < dataStart+dataLen {
+		return nil, fmt.Errorf("truncated WAV data")
+	}
+	return &simpleWAV{
+		fmtChunk: append([]byte(nil), body[20:20+fmtLen]...),
+		data:     append([]byte(nil), body[dataStart:dataStart+dataLen]...),
+	}, nil
 }
 
 func audioFormatFromBytes(body []byte) string {

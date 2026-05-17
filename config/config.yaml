@@ -40,12 +40,18 @@ providers:
       enabled: true
       endpoint: "http://qwen3-tts:8000/v1"
       api_key: ""                       # Set via TR_TTS_OPENAI_API_KEY env var
-      max_segment_size: 4096
-      concurrency: 5
-      rate_limit_qps: 10.0
+      # GTX 1050 Ti / 4GB-safe defaults: synthesize short chunks sequentially.
+      max_segment_size: 80
+      concurrency: 1
+      rate_limit_qps: 0.5
       timestamp_precision: "sentence"
       options:
         model: "qwen3-tts-customvoice-1.7b"
+        response_format: "wav"
+        max_new_tokens: "192"
+        timeout: "900"
+        max_retries: "2"
+        retry_backoff_ms: "3000"
 
   # ocr:
   #   - name: "tesseract"
