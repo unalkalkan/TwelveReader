@@ -303,19 +303,6 @@ export default function PlayerScreen() {
         )}
       </ScrollView>
 
-      {/* ─── AI Fab ─── */}
-      <TouchableOpacity
-        style={[
-          styles.aiFab,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-          },
-        ]}
-      >
-        <MaterialIcons name="auto-awesome" size={24} color={colors.accent} />
-      </TouchableOpacity>
-
       {/* ─── Playback controls footer ─── */}
       <View
         style={[
@@ -574,23 +561,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '800',
-  },
-  // AI Fab
-  aiFab: {
-    position: 'absolute',
-    bottom: 320,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
   },
   // Footer
   footer: {
