@@ -75,12 +75,27 @@ func Validate(cfg *types.Config) error {
 		cfg.Pipeline.MaxRetries = 3 // default
 	}
 
+	// Validate environment mode
+	validEnvs := map[string]bool{"local": true, "dev": true, "staging": true, "production": true}
+	if !validEnvs[cfg.Environment] {
+		return fmt.Errorf("invalid environment: %s (must be one of: local, dev, staging, production)", cfg.Environment)
+	}
+
 	return nil
 }
 
 // applyEnvOverrides applies environment variable overrides
 // Environment variables should be prefixed with TR_ (TwelveReader)
 func applyEnvOverrides(cfg *types.Config) {
+	// Environment mode override
+	if val := os.Getenv("TR_ENVIRONMENT"); val != "" {
+		cfg.Environment = val
+	}
+	// Default to "local" if not set
+	if cfg.Environment == "" {
+		cfg.Environment = "local"
+	}
+
 	// Server overrides
 	if val := os.Getenv("TR_SERVER_HOST"); val != "" {
 		cfg.Server.Host = val
@@ -206,5 +221,6 @@ func GetDefault() *types.Config {
 			RetryBackoffMs: 1000,
 			TempDir:        "/tmp/twelvereader",
 		},
+		Environment: "local",
 	}
 }

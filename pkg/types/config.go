@@ -6,6 +6,7 @@ type Config struct {
 	Storage   StorageConfig   `yaml:"storage" json:"storage"`
 	Providers ProvidersConfig `yaml:"providers" json:"providers"`
 	Pipeline  PipelineConfig  `yaml:"pipeline" json:"pipeline"`
+	Environment string        `yaml:"environment" json:"environment"` // local, dev, staging, production
 }
 
 // ServerConfig holds HTTP server settings

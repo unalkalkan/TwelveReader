@@ -1,12 +1,11 @@
 {
-  "version": 1,
   "locked": false,
-  "run_id": null,
-  "status": "idle",
-  "started_at": null,
-  "owner": null,
-  "reason": null,
-  "heartbeat_at": null,
-  "stale_after_seconds": 7200,
-  "updated_at": "2026-05-16T11:32:51Z"
+  "run_id": "run_20260517T150216Z_client_redeploy",
+  "status": "completed",
+  "started_at": "2026-05-17T15:02:16Z",
+  "completed_at": "2026-05-17T15:03:35Z",
+  "owner": "hermes-agent",
+  "reason": "client redeploy completed",
+  "heartbeat_at": "2026-05-17T15:03:35Z",
+  "stale_after_seconds": 1800
 }

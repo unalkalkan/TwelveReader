@@ -15,6 +15,7 @@ import (
 	"github.com/unalkalkan/TwelveReader/internal/api"
 	"github.com/unalkalkan/TwelveReader/internal/book"
 	"github.com/unalkalkan/TwelveReader/internal/config"
+	"github.com/unalkalkan/TwelveReader/internal/features"
 	"github.com/unalkalkan/TwelveReader/internal/health"
 	"github.com/unalkalkan/TwelveReader/internal/parser"
 	"github.com/unalkalkan/TwelveReader/internal/provider"
@@ -35,7 +36,7 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	log.Printf("Starting TwelveReader Server v%s", version)
+	log.Printf("Starting TwelveReader Server v%s (environment: %s)", version, cfg.Environment)
 	log.Printf("Configuration loaded from: %s", *configPath)
 
 	// Initialize storage adapter
@@ -88,17 +89,50 @@ func main() {
 		return health.StatusHealthy, nil
 	})
 
+	// Initialize feature flags (Milestone 0)
+	featureStore := features.NewStore(map[string]bool{
+		"saas_auth":      false,
+		"usage_metering": false,
+		"quota_engine":   false,
+		"repository_pub": false,
+		"user_accounts":  false,
+		"billing":        false,
+	})
+	log.Printf("Feature flags initialized")
+
+	// Create V1 system handler (Milestone 0)
+	v1System := api.NewV1SystemHandler(
+		healthHandler,
+		providerRegistry,
+		featureStore,
+		version,
+		cfg.Environment,
+		cfg.Storage.Adapter,
+		cfg.Pipeline.WorkerPoolSize,
+	)
+
+	// Request ID middleware (Milestone 0): applied to ALL /api/v1 routes via sub-mux
+	reqCtx := &api.RequestContext{}
+
 	// Set up HTTP server and routes
 	mux := http.NewServeMux()
 
-	// Health endpoints
+	// Health endpoints (legacy, non-versioned)
 	mux.HandleFunc("/health/live", healthHandler.LivenessHandler())
 	mux.HandleFunc("/health/ready", healthHandler.ReadinessHandler())
 	mux.HandleFunc("/health", healthHandler.HealthHandler())
 
+	// --- /api/v1 sub-mux (all routes get request ID middleware) ---
+	v1Mux := http.NewServeMux()
+
+	// Milestone 0: Versioned system endpoints
+	v1Mux.HandleFunc("/api/v1/health", v1System.HealthHandler())
+	v1Mux.HandleFunc("/api/v1/server-info", v1System.ServerInfoHandler())
+	v1Mux.HandleFunc("/api/v1/features", v1System.FeaturesHandler())
+
 	// API endpoints (stubs for now)
-	mux.HandleFunc("/api/v1/info", infoHandler(version, cfg))
-	mux.HandleFunc("/api/v1/providers", providersHandler(providerRegistry))
+	v1Mux.HandleFunc("/api/v1/info", infoHandler(version, cfg))
+	v1Mux.HandleFunc("/api/v1/providers", providersHandler(providerRegistry))
 
 	// Voices API endpoint (Milestone 4)
 	voicesHandler := api.NewVoicesHandlerWithRepositoryAndSampleStorage(providerRegistry, bookRepo, storage.NewAdapterSampleStore(storageAdapter))
@@ -109,14 +143,14 @@ func main() {
 			log.Printf("Failed to pre-generate voice samples: %v", err)
 		}
 	}()
-	mux.HandleFunc("/api/v1/voices", voicesHandler.ListVoices)
-	mux.HandleFunc("/api/v1/voices/default", voicesHandler.DefaultVoice)
-	mux.HandleFunc("/api/v1/voices/preview", voicesHandler.PreviewVoice)
+	v1Mux.HandleFunc("/api/v1/voices", voicesHandler.ListVoices)
+	v1Mux.HandleFunc("/api/v1/voices/default", voicesHandler.DefaultVoice)
+	v1Mux.HandleFunc("/api/v1/voices/preview", voicesHandler.PreviewVoice)
 
 	// Book API endpoints (Milestone 3)
 	bookHandler := api.NewBookHandler(bookRepo, parserFactory, providerRegistry, storageAdapter)
 	debugHandler := api.NewDebugHandler(bookRepo, storageAdapter)
-	mux.HandleFunc("/api/v1/books", func(w http.ResponseWriter, r *http.Request) {
+	v1Mux.HandleFunc("/api/v1/books", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			bookHandler.UploadBook(w, r)
 			return
@@ -125,9 +159,9 @@ func main() {
 			bookHandler.ListBooks(w, r)
 			return
 		}
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		api.WriteMethodNotAllowedError(w, r)
 	})
-	mux.HandleFunc("/api/v1/books/", func(w http.ResponseWriter, r *http.Request) {
+	v1Mux.HandleFunc("/api/v1/books/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if r.Method == http.MethodDelete {
 			bookHandler.DeleteBook(w, r)
@@ -155,9 +189,9 @@ func main() {
 			bookHandler.GetBook(w, r)
 		}
 	})
-	mux.HandleFunc("/api/v1/debug/events", debugHandler.Events)
-	mux.HandleFunc("/api/v1/debug/stream", debugHandler.EventStream)
-	mux.HandleFunc("/api/v1/debug/books/", func(w http.ResponseWriter, r *http.Request) {
+	v1Mux.HandleFunc("/api/v1/debug/events", debugHandler.Events)
+	v1Mux.HandleFunc("/api/v1/debug/stream", debugHandler.EventStream)
+	v1Mux.HandleFunc("/api/v1/debug/books/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.HasSuffix(path, "/synth-jobs") {
 			debugHandler.ListSynthJobs(w, r)
@@ -172,9 +206,12 @@ func main() {
 		} else if strings.HasSuffix(path, "/stream") {
 			debugHandler.EventStream(w, r)
 		} else {
-			respondDebugNotFound(w)
+			respondDebugNotFoundStructured(w, r)
 		}
 	})
+
+	// Mount /api/v1 sub-mux behind request ID middleware
+	mux.Handle("/api/v1", reqCtx.Middleware(v1Mux))
 
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
@@ -236,10 +273,16 @@ func providersHandler(registry *provider.Registry) http.HandlerFunc {
 	}
 }
 
+// respondDebugNotFound writes the legacy debug not-found response.
 func respondDebugNotFound(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotFound)
 	fmt.Fprint(w, `{"error":"Debug endpoint not found"}`)
+}
+
+// respondDebugNotFoundStructured writes a structured 404 error response with request ID.
+func respondDebugNotFoundStructured(w http.ResponseWriter, r *http.Request) {
+	api.WriteNotFoundError(w, r, "Debug endpoint")
 }
 
 func toJSON(items []string) string {
