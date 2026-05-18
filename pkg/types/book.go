@@ -35,6 +35,11 @@ type Book struct {
 	UnmappedPersonas    []string `json:"unmapped_personas"`     // Personas waiting for voice mapping
 	PendingSegmentCount int      `json:"pending_segment_count"` // Segments waiting for voice mapping
 	WaitingForMapping   bool     `json:"waiting_for_mapping"`   // Pipeline is waiting for user voice mapping
+
+	// Ownership fields (Milestone 1)
+	// Empty string means the book belongs to the bootstrap/default account.
+	AccountID string `json:"account_id,omitempty"`
+	UserID    string `json:"user_id,omitempty"`
 }
 
 // Chapter represents a chapter in a book

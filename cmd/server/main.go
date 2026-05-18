@@ -154,19 +154,48 @@ func main() {
 	)
 	log.Printf("Auth service initialized (session_ttl=%s, refresh_ttl=%s, link_expiry=%s)", sessionTTL, refreshTTL, linkExpiry)
 
-	// Ensure bootstrap admin user exists at startup
+	// Ensure bootstrap admin user exists at startup, then migrate existing local data
 	adminEmail := cfg.Auth.BootstrapAdminEmail
 	if adminEmail == "" {
 		adminEmail = "admin@twelvereader.local"
 	}
 	go func() {
-		adminCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		migrateCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
-		_, err := authService.EnsureBootstrapAdmin(adminCtx, adminEmail)
+
+		// Step 1: Ensure bootstrap admin user exists
+		adminUser, err := authService.EnsureBootstrapAdmin(migrateCtx, adminEmail)
 		if err != nil {
 			log.Printf("Failed to ensure bootstrap admin: %v", err)
-		} else {
-			log.Printf("Bootstrap admin user ensured (%s)", adminEmail)
+			return
+		}
+		log.Printf("Bootstrap admin user ensured (%s)", adminEmail)
+
+		// Step 2: Get bootstrap account for ownership migration
+		bootstrapAccount, err := identityPool.BootstrapAccount(migrateCtx)
+		if err != nil || bootstrapAccount == nil {
+			log.Printf("Failed to get bootstrap account for migration: %v", err)
+			return
+		}
+
+		// Step 3: Migrate existing local books to bootstrap account/user
+		migrated, err := authService.MigrateLocalBooksToBootstrap(
+			migrateCtx,
+			bootstrapAccount.ID,
+			adminUser.ID,
+			func(ctx context.Context) ([]*types.Book, error) {
+				return bookRepo.ListBooks(ctx)
+			},
+			func(ctx context.Context, book *types.Book) error {
+				return bookRepo.UpdateBook(ctx, book)
+			},
+		)
+		if err != nil {
+			log.Printf("Ownership migration failed: %v", err)
+			return
+		}
+		if migrated > 0 {
+			log.Printf("Migrated %d existing book(s) to bootstrap account (%s)", migrated, bootstrapAccount.ID)
 		}
 	}()
 
