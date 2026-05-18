@@ -131,6 +131,17 @@ func applyAuthDefaults(cfg *types.Config) {
 	if cfg.Auth.SenderFrom == "" {
 		cfg.Auth.SenderFrom = "noreply@twelvereader.local"
 	}
+	// Default sender_mode based on environment (if not explicitly set in YAML).
+	if cfg.Auth.SenderMode == "" {
+		switch cfg.Environment {
+		case "local", "dev":
+			cfg.Auth.SenderMode = "log"
+		case "staging", "production":
+			cfg.Auth.SenderMode = "none"
+		default:
+			cfg.Auth.SenderMode = "log"
+		}
+	}
 }
 
 // applyEnvOverrides applies environment variable overrides
@@ -341,6 +352,31 @@ func applyAuthEnvOverrides(cfg *types.Config) {
 	}
 	if val := os.Getenv("TR_AUTH_BASE_URL"); val != "" {
 		cfg.Auth.BaseURL = val
+	}
+	if val := os.Getenv("TR_AUTH_BOOTSTRAP_ADMIN_EMAIL"); val != "" {
+		cfg.Auth.BootstrapAdminEmail = val
+	}
+
+	// Sender mode override (highest priority)
+	if val := os.Getenv("TR_AUTH_SENDER_MODE"); val != "" {
+		cfg.Auth.SenderMode = val
+	}
+
+	// SMTP configuration overrides
+	if val := os.Getenv("TR_AUTH_SMTP_HOST"); val != "" {
+		cfg.Auth.SMTP.Host = val
+	}
+	if val := os.Getenv("TR_AUTH_SMTP_PORT"); val != "" {
+		fmt.Sscanf(val, "%d", &cfg.Auth.SMTP.Port)
+	}
+	if val := os.Getenv("TR_AUTH_SMTP_USERNAME"); val != "" {
+		cfg.Auth.SMTP.Username = val
+	}
+	if val := os.Getenv("TR_AUTH_SMTP_PASSWORD"); val != "" {
+		cfg.Auth.SMTP.Password = val
+	}
+	if val := os.Getenv("TR_AUTH_SMTP_USE_TLS"); val != "" {
+		cfg.Auth.SMTP.UseTLS = (val == "true" || val == "True" || val == "TRUE" || val == "1")
 	}
 }
 

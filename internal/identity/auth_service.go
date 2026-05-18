@@ -28,7 +28,12 @@ type LogEmailSender struct {
 
 func (l *LogEmailSender) SendMagicLink(to, subject, body string) error {
 	if l.DevMode {
-		log.Printf("[EMAIL][DEV] To: %s, Subject: %s, Body:\n%s", to, subject, body)
+		msg := fmt.Sprintf("[EMAIL][DEV] To: %s, Subject: %s, Body:\n%s", to, subject, body)
+		if l.output != nil {
+			fmt.Fprint(l.output, msg)
+		} else {
+			log.Print(msg)
+		}
 		return nil
 	}
 	// Production-safe: log metadata only, never the token-bearing body.

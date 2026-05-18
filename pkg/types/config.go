@@ -109,6 +109,16 @@ type AuthConfig struct {
 	BaseURL string `yaml:"base_url" json:"base_url"`
 	// BootstrapAdminEmail is the email for the default admin user created at startup.
 	BootstrapAdminEmail string `yaml:"bootstrap_admin_email" json:"bootstrap_admin_email"`
+
+	// SenderMode controls how magic-link emails are delivered.
+	// Valid values: "log" (dev only, prints full body with token to stdout),
+	//               "smtp" (real email via configured SMTP server),
+	//               "none" (fail-closed: reject auth requests with a clear error).
+	// If empty, defaults are applied based on Environment (see config/loader.go).
+	SenderMode string `yaml:"sender_mode" json:"sender_mode"`
+
+	// SMTP is the SMTP configuration used when SenderMode is "smtp".
+	SMTP SMTPConfig `yaml:"smtp" json:"smtp"`
 }
 
 // SMTPConfig holds SMTP server settings for sending emails.

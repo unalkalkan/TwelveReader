@@ -143,16 +143,21 @@ func main() {
 		linkExpiry = 15 * time.Minute
 	}
 
+	// Create environment-aware email sender. Fails closed in staging/production if not configured.
+	emailSender, err := identity.NewEmailSender(&cfg.Auth, cfg.Environment)
+	if err != nil {
+		log.Fatalf("Failed to create email sender: %v", err)
+	}
 	authService := identity.NewAuthService(
 		identityPool,
-		&identity.LogEmailSender{},
+		emailSender,
 		cfg.Auth.BaseURL,
 		cfg.Auth.SenderFrom,
 		sessionTTL,
 		refreshTTL,
 		linkExpiry,
 	)
-	log.Printf("Auth service initialized (session_ttl=%s, refresh_ttl=%s, link_expiry=%s)", sessionTTL, refreshTTL, linkExpiry)
+	log.Printf("Auth service initialized (session_ttl=%s, refresh_ttl=%s, link_expiry=%s, sender_mode=%s)", sessionTTL, refreshTTL, linkExpiry, cfg.Auth.SenderMode)
 
 	// Ensure bootstrap admin user exists at startup, then migrate existing local data
 	adminEmail := cfg.Auth.BootstrapAdminEmail

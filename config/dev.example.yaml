@@ -112,3 +112,17 @@ auth:
   refresh_token_ttl: "168h"                  # Refresh token lifetime (7 days)
   sender_from: "noreply@twelvereader.local"  # SMTP from address for emails
   base_url: ""                               # Base URL for magic link construction (env: TR_AUTH_BASE_URL)
+
+  # Sender mode controls how magic-link emails are delivered:
+  #   "log"   - Dev only. Logs full email body (including token) to stdout. Default for local/dev.
+  #   "smtp"  - Sends real emails via configured SMTP server below.
+  #   "none"  - Fail-closed. Rejects auth requests with a clear error. Default for staging/production.
+  sender_mode: "log"                         # Override env default (env: TR_AUTH_SENDER_MODE)
+
+  # SMTP configuration (required when sender_mode = "smtp").
+  # smtp:
+  #   host: "smtp.example.com"               # Or set via TR_AUTH_SMTP_HOST
+  #   port: 587                              # Or set via TR_AUTH_SMTP_PORT
+  #   username: ""                           # Or set via TR_AUTH_SMTP_USERNAME
+  #   password: ""                           # Or set via TR_AUTH_SMTP_PASSWORD
+  #   use_tls: true                          # Or set via TR_AUTH_SMTP_USE_TLS
