@@ -289,7 +289,7 @@ func main() {
 	// Debug/Admin endpoints (require authentication + admin role)
 	// All /api/v1/debug/... routes are behind RequireAuth + RequireRole("admin")
 	wrapAdmin := func(h http.HandlerFunc) http.Handler {
-		return api.RequireAdminRole(identityPool)(api.RequireAuth(authService)(h))
+		return api.RequireAuth(authService)(api.RequireAdminRole(identityPool)(h))
 	}
 	v1Mux.Handle("/api/v1/debug/events", wrapAdmin(debugHandler.Events))
 	v1Mux.Handle("/api/v1/debug/stream", wrapAdmin(debugHandler.EventStream))
