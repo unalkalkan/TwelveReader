@@ -311,7 +311,7 @@ Common HTTP status codes:
 
 ---
 
-## Book Management Endpoints (Milestone 3)
+## Current Book Management Endpoints
 
 ### POST /api/v1/books
 Upload a book for processing. Supports TXT, PDF (stub), and ePUB (stub) formats.
@@ -489,7 +489,7 @@ Get voice mapping for a book.
 
 ---
 
-## TTS and Packaging Endpoints (Milestone 4)
+## Current TTS and Packaging Endpoints
 
 ### GET /api/v1/books/:id/stream
 Stream book segments as NDJSON (newline-delimited JSON) for progressive playback.
@@ -569,9 +569,9 @@ The book processing pipeline includes these status values:
 
 ---
 
-## Future Endpoints (Milestone 6+)
+## Future Endpoints
 
-The following endpoints are planned for future milestones:
+The following endpoints are planned for future SaaS milestones:
 
 - Native client (Android) synchronization endpoints
 - Re-voicing workflow endpoints

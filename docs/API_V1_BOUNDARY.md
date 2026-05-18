@@ -226,17 +226,17 @@ Per SAAS_MANIFEST, the planned API groupings for later milestones:
 |-------|--------|--------|
 | System | `/api/v1/health`, `/api/v1/server-info`, `/api/v1/features` | Implemented (Milestone 0) |
 | Voices | `/api/v1/voices/*` | Implemented |
-| Books/Library | `/api/v1/books/*` | Implemented (Milestones 3-4) |
-| Auth | `/api/v1/auth/*` | Not started (Milestone 5) |
-| User | `/api/v1/users/*` | Not started (Milestone 5) |
-| Upload/Import | `/api/v1/uploads/*` | Not started (future) |
-| TTS Jobs | `/api/v1/jobs/*` | Not started (Milestone 3+) |
-| Progress Sync | `/api/v1/progress/*` | Not started (Milestone 7) |
-| Usage/Quota | `/api/v1/usage/*`, `/api/v1/quota/*` | Not started (Milestones 1-2) |
-| Billing | `/api/v1/billing/*` | Not started (future) |
-| Repository | `/api/v1/repositories/*` | Not started (future) |
-| Admin | `/api/v1/admin/*` | Not started (Milestone 4+) |
-| Debug | `/api/v1/debug/*` | Implemented (current state) |
+| Books/Library | `/api/v1/books/*` | Implemented (current state; account scoping planned in Milestone 2) |
+| Auth | `/api/v1/auth/*` | Not started (Milestone 1) |
+| User | `/api/v1/users/*` | Not started (Milestone 1) |
+| Upload/Import | `/api/v1/uploads/*` | Not started (Milestone 2) |
+| TTS Jobs | `/api/v1/jobs/*` | Not started (Milestone 4) |
+| Progress Sync | `/api/v1/progress/*` | Not started (Milestone 2) |
+| Usage/Quota | `/api/v1/usage/*`, `/api/v1/quota/*` | Not started (Milestone 3) |
+| Billing | `/api/v1/billing/*` | Not started (Milestones 6-7) |
+| Repository | `/api/v1/repositories/*` | Not started (Milestones 8-9) |
+| Admin | `/api/v1/admin/*` | Not started (Milestone 5) |
+| Debug | `/api/v1/debug/*` | Implemented (current state; moves under Admin -> Debug in Milestone 5) |
 
 ---
 

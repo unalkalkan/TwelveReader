@@ -218,17 +218,15 @@ When adding new features:
 
 See LICENSE file in repository root.
 
-## Next Steps (Milestone 5)
+## Next Steps
 
-The next milestone will implement:
+Near-term work is focused on the SaaS foundation:
 
-- Web Client MVP (React + TypeScript)
-- Tamagui UI components
-- TanStack Query for API integration
-- Zod for schema validation
-- Book upload and management interface
-- Playback UI with text highlighting
-- Voice mapping interface
+- Identity, sessions, roles, ownership, and audit logs.
+- Account-aware client login and server selection.
+- User-scoped books, uploads, audio assets, jobs, and progress sync.
+- Account-aware usage metering and quota enforcement.
+- Admin Dashboard surfaces for users, books, jobs, usage, quotas, debug, and system health.
 
 See `Milestones.md` for the complete roadmap.
 
@@ -239,13 +237,12 @@ The server should remain self-hostable while gaining hosted SaaS capabilities.
 
 Near-term server priorities:
 
-1. `/api/v1` readiness endpoints: health, server-info, features.
-2. Usage metering in shadow mode.
-3. Daily/weekly/monthly quota engine.
-4. Lazy `next N segments` generation pipeline.
-5. Admin Dashboard data surfaces.
-6. Accounts, sessions, roles, ownership, and audit logs.
-7. User-scoped libraries and progress sync.
-8. Internal plans/credits before Stripe.
+1. `/api/v1` readiness endpoints: health, server-info, features. Completed.
+2. Identity, sessions, roles, ownership, and audit logs.
+3. Account-aware user-scoped libraries and progress sync.
+4. Account-aware usage metering and daily/weekly/monthly quota engine.
+5. Lazy `next N segments` generation pipeline with user-owned jobs.
+6. Admin Dashboard data surfaces for users, books, jobs, usage, quotas, debug, and system health.
+7. Internal plans/credits and voice catalogs before Stripe.
 
 Self-hosted deployments should be able to run without official billing integrations. Hosted deployments can enable quotas, plans, Stripe, public repositories, and admin/support tooling through configuration and feature flags.

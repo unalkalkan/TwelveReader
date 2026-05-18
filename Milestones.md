@@ -8,100 +8,98 @@ Each milestone must solve one clear target and avoid cross-target requirements. 
 
 ## Milestones
 
-1. **SaaS Readiness Baseline**
+0. **SaaS Readiness Baseline**
    - Add `/api/v1` foundation, request IDs, structured errors, health/server-info endpoints, environment modes, and feature flags.
+   - Status: completed.
    - No login, quotas, billing, or repository work.
 
-2. **Usage Metering Ledger, Shadow Mode**
-   - Record append-only usage events for storage, uploads/imports, segment creation, TTS synthesis, audio bytes, listen minutes, and voices where available.
-   - No quota enforcement or billing yet.
+1. **Identity, Sessions, and Ownership Foundation**
+   - Add accounts, users, roles, sessions, refresh tokens, email magic-link auth, admin/dashboard auth, ownership migration, ownership helpers, and audit logs.
+   - This is the first active SaaS milestone because the rest of the product needs user/account ownership underneath it.
 
-3. **Quota Engine, Non-Billing Enforcement**
-   - Enforce daily/weekly/monthly quotas from config/manual admin grants.
-   - Cover storage, segments, LLM/token use, TTS minutes, new voices, and listening minutes.
+2. **Account-Aware Client and Private Library**
+   - Add server selection before login, official/custom server validation, token storage/refresh, logout, expired-session UX, user-scoped books/uploads/audio/progress, private library UX, delete/manage flows, and basic profile/quota display.
 
-4. **Lazy Generation Pipeline**
-   - Replace whole-book eager synthesis with `next N segments` generation, resumable jobs, retries, cancellation, partial recovery, and incremental quota use.
+3. **Usage Metering and Quota Foundation**
+   - Record append-only usage events and rollups, then enforce daily/weekly/monthly quotas from config/manual admin grants.
+   - Cover storage, uploads/imports, segments, LLM/token use, TTS, voices, and listening where measurable.
 
-5. **Admin Dashboard Shell**
-   - Turn Debug Dashboard into `Admin -> Debug` and add Admin sections for overview, jobs, books, storage, billing/usage, support, voices/models, and audit log.
+4. **Lazy Generation and Job Management**
+   - Replace whole-book eager synthesis with `next N segments` generation, staged jobs, retries, cancellation, partial recovery, per-user job ownership, and incremental quota consumption.
 
-6. **Accounts and Sessions**
-   - Add users, roles, sessions, refresh tokens, email magic-link auth, dashboard/admin auth, ownership migration, and audit logs.
+5. **Admin Dashboard**
+   - Turn Debug Dashboard into `Admin -> Debug` and add Admin sections for overview, users/accounts, jobs, books, storage, usage/quotas, billing, support, voices/models, audit log, and deployment/status.
 
-7. **Client Server Selection and Login**
-   - Add server selection before login, official/custom server validation, token storage/refresh, logout, expired-session UX, and basic usage/quota display.
+6. **Internal Plans, Credits, and Voice Catalog**
+   - Implement internal plans, subscriptions, credit balances, credit transactions, quota grants, manual admin assignments, system voice catalog, private user voices, voice quotas, and billing/voice auditability.
 
-8. **Private User Library**
-   - Add user-scoped books, uploads/imports, audio assets, progress sync, ownership checks, delete/manage flows, and quota-aware private library UX.
+7. **Paid Hosted SaaS**
+   - Add Stripe customer creation, checkout, webhooks, subscription sync, invoices, failed-payment handling, plan upgrade/downgrade flows, and entitlement/quota grant sync.
 
-9. **Plans, Credits, and Subscriptions Without Stripe**
-   - Implement internal plans, subscriptions, credit balances, credit transactions, quota grants, manual admin assignments, and billing auditability.
+8. **Explore and Public Repository**
+   - Add completed-book export readiness, TwelveReader export packages, public repository manifests, official public-domain catalog, user public repositories, publish/unpublish, copyright responsibility modal, and admin takedown.
 
-10. **Stripe Billing Integration**
-    - Add Stripe customer creation, checkout, webhooks, subscription sync, invoices, failed-payment handling, and plan upgrade/downgrade flows.
-
-11. **Voice Catalogs**
-    - Keep system default voices available and add private user voices with quotas, access control, usage inspection, and admin disable controls.
-
-12. **Exportable Completed Books**
-    - Validate export readiness and package completed books in TwelveReader's export format with attached permanent generated audio assets.
-
-13. **Public Repository Format and Official Public-Domain Catalog**
-    - Define public repository manifests and make Explore load the official public-domain repo plus user-added public repos.
-
-14. **User Public Repositories**
-    - Allow users to publish/unpublish completed books to their own public TwelveReader repo with responsibility modal and admin takedown.
-
-15. **OAuth for Mobile Platforms**
-    - Add Google and Apple-compatible mobile login flows, provider verification, account linking, and consistent session behavior.
-
-16. **Private/Authenticated External Repositories**
-    - Add basic-auth/static-token/password-protected external repository support, preferably with client-side credential use.
-
-17. **SaaS Operations Hardening**
-    - Add backups, restore, monitoring, alerts, migrations, signed URLs, rate limiting, upload validation, legal docs, data export/delete, and deployment rollback processes.
+9. **Mobile Auth, Private Repos, and Production Hardening**
+   - Add Google/Apple-compatible mobile login flows, provider verification, account linking, private/authenticated external repositories, signed URLs, rate limits, upload validation, backups, restore, monitoring, alerts, legal docs, data export/delete, and deployment rollback processes.
 
 ## MVP Scopes
 
-### MVP 0: SaaS Instrumentation MVP
+### MVP 0: SaaS Readiness Baseline
 
-Includes `/api/v1`, health/server-info, request IDs, structured errors, feature flags, usage metering shadow mode, rollups, and debug/admin visibility.
+Includes `/api/v1`, health/server-info, request IDs, structured errors, feature flags, environment modes, and debug visibility for readiness data.
 
-Exit condition: current app works as before, but backend can report resource consumption.
+Exit condition: current app works as before, but the backend has a stable SaaS-ready API/debug foundation.
 
-### MVP 1: Quota-Controlled Local SaaS Core
+### MVP 1: Identity, Sessions, and Ownership Foundation
 
-Includes usage metering, quota enforcement, manual grants, quota errors, lazy `next N segments` generation, job visibility, and Admin Dashboard shell.
+Includes account/user model, roles, sessions, refresh tokens, email magic-link login, admin access control, bootstrap/default user migration, ownership helpers, and audit logs.
 
-Exit condition: expensive actions are controlled through quotas and incremental generation, even before real accounts.
+Exit condition: users can authenticate, admin pages require admin role, existing local data belongs to a bootstrap/default account, and protected endpoints can enforce user/account ownership.
 
-### MVP 2: Account-Based Private Library
+### MVP 2: Account-Aware Client and Private Library
 
-Includes users, roles, sessions, email magic-link login, admin access control, client server selection/login, user-owned books/jobs/assets/progress, private library, upload/import, playback progress sync, and quota display/errors.
+Includes client server selection, official/custom server validation, login/logout/token refresh, profile/quota display, user-owned books/jobs/assets/progress, private library, upload/import, playback/reading progress sync, and delete/manage flows.
 
-Exit condition: user can select a server, log in, upload/import, generate/listen incrementally, sync progress, and manage a private library under quota limits.
+Exit condition: a user can select a server, log in, upload/import a book, generate/listen, sync progress, and manage only their private library.
 
-### MVP 3: Internal Billing and Voice Catalog MVP
+### MVP 3: Usage Metering and Quota Foundation
 
-Includes internal plans, subscriptions, credit balances, credit transactions, quota grants, admin plan/credit operations, default system voices, user private voices, and voice quotas.
+Includes append-only usage events, daily/weekly/monthly/all-time rollups, account/user/book/job attribution, quota categories/windows/grants, manual admin grants, quota denial errors, and permissive local/dev mode.
 
-Exit condition: admins can simulate paid plans/credits and users can consume resources according to plan/credit rules.
+Exit condition: resource usage is visible per account/user and expensive actions can be allowed or denied by quota policy before billing exists.
 
-### MVP 4: Paid Hosted SaaS MVP
+### MVP 4: Lazy Generation and Job Management
 
-Includes Stripe customers, checkout for credits/subscriptions, webhooks, invoices, payment failure handling, plan changes, client billing page, and admin billing management.
+Includes staged import/segment/synthesis/finalize jobs, next-N segment prefetch, retry/cancel/resume/regenerate controls, partial-book usability, user-owned job history, and incremental quota consumption.
 
-Exit condition: hosted users can buy credits or subscribe and receive quota grants from successful payments.
+Exit condition: uploading/importing a book no longer synthesizes the whole book immediately; users can listen while generation continues and failed work can be retried safely.
 
-### MVP 5: Explore and Public Repository MVP
+### MVP 5: Admin Dashboard
 
-Includes public repository format, official public-domain repo, Explore repository management, completed book export validation, user public repositories, publish/unpublish, copyright responsibility modal, and admin takedown.
+Includes Admin Dashboard navigation, Debug as an admin-only section, overview cards, users/accounts, books, jobs, storage, usage/quota, billing, support, voices/models, audit logs, model health, and deployment/status visibility.
 
-Exit condition: users can browse official books, add public repos, and publish completed books to their own public repo.
+Exit condition: admins can inspect and operate users, books, jobs, quotas, usage, audit events, and system health from the dashboard while retaining all existing debug tools.
 
-### MVP 6: Mobile Auth and Production Hardening MVP
+### MVP 6: Internal Plans, Credits, and Voice Catalog
 
-Includes Google/Apple login, account linking, signed URLs, rate limits, upload validation, backup/restore, monitoring/alerts, audit review, legal documents, data export/delete, and production deployment/rollback.
+Includes internal plans, subscriptions, credit balances, credit transactions, quota grants, admin plan/credit operations, default system voices, user private voices, voice quotas, TTS voice selection, and access control for voice assets.
 
-Exit condition: TwelveReader is ready for broader hosted beta usage with mobile-native login and production-grade operations.
+Exit condition: admins can simulate paid plans/credits and users can consume resources according to internal plan/credit rules while using default or private voices.
+
+### MVP 7: Paid Hosted SaaS
+
+Includes Stripe customers, checkout for credits/subscriptions, idempotent webhooks, subscription sync, invoices, payment failure handling, plan changes, client billing page, admin billing management, and quota grants from successful payments.
+
+Exit condition: hosted users can buy credits or subscribe, and successful payments update internal entitlements without corrupting usage/quota history.
+
+### MVP 8: Explore and Public Repository
+
+Includes completed-book export readiness, TwelveReader export packages, public repository format, official public-domain repository, Explore repository management, user public repositories, publish/unpublish, public/private book state, copyright responsibility modal, and admin takedown.
+
+Exit condition: users can browse official books, add public repos, export completed books, and publish completed books to their own public repo.
+
+### MVP 9: Mobile Auth, Private Repos, and Production Hardening
+
+Includes Google/Apple-compatible login, account linking, private/authenticated external repositories, safe credential storage, signed URLs, rate limiting, upload validation, backup/restore, migrations, monitoring/alerts, legal docs, data export/delete, and production deployment/rollback.
+
+Exit condition: TwelveReader is ready for broader hosted beta usage with mobile-native login, private repository support, protected private assets, and production-grade operational controls.

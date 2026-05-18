@@ -20,23 +20,16 @@ The canonical SaaS manifest and roadmap lives in [docs/SAAS_MANIFEST.md](docs/SA
 
 Current milestone sequence:
 
-1. SaaS Readiness Baseline
-2. Usage Metering Ledger, Shadow Mode
-3. Quota Engine, Non-Billing Enforcement
-4. Lazy Generation Pipeline
-5. Admin Dashboard Shell
-6. Accounts and Sessions
-7. Client Server Selection and Login
-8. Private User Library
-9. Plans, Credits, and Subscriptions Without Stripe
-10. Stripe Billing Integration
-11. Voice Catalogs
-12. Exportable Completed Books
-13. Public Repository Format and Official Public-Domain Catalog
-14. User Public Repositories
-15. OAuth for Mobile Platforms
-16. Private/Authenticated External Repositories
-17. SaaS Operations Hardening
+0. SaaS Readiness Baseline
+1. Identity, Sessions, and Ownership Foundation
+2. Account-Aware Client and Private Library
+3. Usage Metering and Quota Foundation
+4. Lazy Generation and Job Management
+5. Admin Dashboard
+6. Internal Plans, Credits, and Voice Catalog
+7. Paid Hosted SaaS
+8. Explore and Public Repository
+9. Mobile Auth, Private Repos, and Production Hardening
 
 ## System Architecture
 ```
@@ -65,7 +58,7 @@ User Upload -> Ingestion Service -> LLM Segmentation -> Voice Mapping UI -> TTS 
 - Provide interfaces for book upload, voice mapping, and playback control.
 - Cache packaged books locally with integrity checks so re-voicing workflows can re-use existing metadata.
 - Surface voice mapping summaries to users (read-only in v1) and allow preference toggles (e.g., narrator vs dialogue balance) for future releases.
-- Web client (Milestone 5) serves as the initial implementation for testing all functionalities before native mobile clients (Milestone 6+).
+- Web client and Admin Dashboard remain the initial implementation surfaces for testing SaaS functionality before native mobile clients.
 
 ## Technology Constraints
 - LLM and TTS clients must speak the OpenAI-compatible protocol to simplify provider integration.
@@ -77,7 +70,7 @@ User Upload -> Ingestion Service -> LLM Segmentation -> Voice Mapping UI -> TTS 
 ### Server Setup
 See [SERVER.md](SERVER.md) for detailed server setup instructions.
 
-### Web Client Setup (Milestone 5)
+### Web Client Setup
 The Web Client MVP is located in the `web-client/` directory.
 
 **Prerequisites:**
