@@ -44,11 +44,66 @@ func (r *sqlRefreshTokenRepo) GetRefreshTokenByHash(ctx context.Context, tokenHa
 }
 
 func (r *sqlRefreshTokenRepo) RevokeRefreshToken(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "UPDATE refresh_tokens SET revoked = 1 WHERE id = ?", id)
+	result, err := r.db.ExecContext(ctx, "UPDATE refresh_tokens SET revoked = 1 WHERE id = ?", id)
 	if err != nil {
 		return fmt.Errorf("revoke refresh token: %w", err)
 	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("revoke refresh token rows affected: %w", err)
+	}
+	if affected != 1 {
+		return fmt.Errorf("revoke refresh token: no row updated (id=%s, may already be revoked or not found)", id)
+	}
 	return nil
+}
+
+// ListActiveByUser returns all active (not revoked, not expired) refresh tokens for a user.
+func (r *sqlRefreshTokenRepo) ListActiveByUser(ctx context.Context, userID string) ([]*types.RefreshToken, error) {
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT id, user_id, token_hash, ip_address, user_agent, expires_at, created_at, revoked, used FROM refresh_tokens WHERE user_id = ? AND revoked = 0 AND expires_at > ?",
+		userID, time.Now().UTC().Format(time.RFC3339),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list active refresh tokens: %w", err)
+	}
+	defer rows.Close()
+	return scanRefreshTokens(rows)
+}
+
+// ConsumeRefreshToken atomically verifies and marks a refresh token as used.
+// Returns the RefreshToken if successful, or error if already used/revoked/expired/not found.
+func (r *sqlRefreshTokenRepo) ConsumeRefreshToken(ctx context.Context, tokenHash string) (*types.RefreshToken, error) {
+	// Atomic conditional update: only succeed if not used, not revoked, and not expired
+	result, err := r.db.ExecContext(ctx,
+		"UPDATE refresh_tokens SET used = 1 WHERE token_hash = ? AND used = 0 AND revoked = 0 AND expires_at > ?",
+		tokenHash, time.Now().UTC().Format(time.RFC3339),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("consume refresh token: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("consume refresh token rows affected: %w", err)
+	}
+	if affected != 1 {
+		return nil, fmt.Errorf("refresh token invalid, already consumed, revoked, or expired")
+	}
+
+	// Fetch the consumed token (now used=1) to return details
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT id, user_id, token_hash, ip_address, user_agent, expires_at, created_at, revoked, used FROM refresh_tokens WHERE token_hash = ?",
+		tokenHash,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("fetch consumed refresh token: %w", err)
+	}
+	defer rows.Close()
+	results, _ := scanRefreshTokens(rows)
+	if len(results) == 0 {
+		return nil, fmt.Errorf("refresh token not found after consume")
+	}
+	return results[0], nil
 }
 
 func (r *sqlRefreshTokenRepo) DeleteExpiredTokens(ctx context.Context) (int64, error) {

@@ -18,9 +18,16 @@ func (r *sqlSessionRepo) CreateSession(ctx context.Context, s *types.Session) er
 	now := time.Now().UTC()
 	s.CreatedAt = now
 	s.LastUsedAt = now
+
+	// Use NULL for refresh_token_id when not set (avoids FK constraint failure with empty string)
+	var refreshTokenID interface{} = nil
+	if s.RefreshTokenID != "" {
+		refreshTokenID = s.RefreshTokenID
+	}
+
 	_, err := r.db.ExecContext(ctx,
-		"INSERT INTO sessions (id, user_id, token_hash, ip_address, user_agent, expires_at, created_at, last_used_at, revoked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)",
-		s.ID, s.UserID, s.TokenHash, s.IPAddress, s.UserAgent, s.ExpiresAt.Format(time.RFC3339), s.CreatedAt.Format(time.RFC3339), s.LastUsedAt.Format(time.RFC3339),
+		"INSERT INTO sessions (id, user_id, token_hash, ip_address, user_agent, expires_at, created_at, last_used_at, revoked, refresh_token_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
+		s.ID, s.UserID, s.TokenHash, s.IPAddress, s.UserAgent, s.ExpiresAt.Format(time.RFC3339), s.CreatedAt.Format(time.RFC3339), s.LastUsedAt.Format(time.RFC3339), refreshTokenID,
 	)
 	if err != nil {
 		return fmt.Errorf("create session: %w", err)
@@ -46,7 +53,7 @@ func (r *sqlSessionRepo) GetSessionByTokenHash(ctx context.Context, tokenHash st
 
 func (r *sqlSessionRepo) ListActiveSessionsByUser(ctx context.Context, userID string) ([]*types.Session, error) {
 	rows, err := r.db.QueryContext(ctx,
-		"SELECT id, user_id, token_hash, ip_address, user_agent, expires_at, created_at, last_used_at, revoked FROM sessions WHERE user_id = ? AND revoked = 0 AND expires_at > ?",
+		"SELECT id, user_id, token_hash, ip_address, user_agent, expires_at, created_at, last_used_at, revoked, refresh_token_id FROM sessions WHERE user_id = ? AND revoked = 0 AND expires_at > ?",
 		userID, time.Now().UTC().Format(time.RFC3339),
 	)
 	if err != nil {
@@ -74,7 +81,7 @@ func (r *sqlSessionRepo) DeleteExpiredSessions(ctx context.Context) (int64, erro
 }
 
 func (r *sqlSessionRepo) getSession(ctx context.Context, where string, arg any) (*types.Session, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT id, user_id, token_hash, ip_address, user_agent, expires_at, created_at, last_used_at, revoked FROM sessions WHERE "+where, arg)
+	rows, err := r.db.QueryContext(ctx, "SELECT id, user_id, token_hash, ip_address, user_agent, expires_at, created_at, last_used_at, revoked, refresh_token_id FROM sessions WHERE "+where, arg)
 	if err != nil {
 		return nil, err
 	}
@@ -92,10 +99,14 @@ func scanSessions(rows *sql.Rows) ([]*types.Session, error) {
 		var s types.Session
 		var revoked int
 		var expiresAt, createdAt, lastUsedAt string
-		if err := rows.Scan(&s.ID, &s.UserID, &s.TokenHash, &s.IPAddress, &s.UserAgent, &expiresAt, &createdAt, &lastUsedAt, &revoked); err != nil {
+		var refreshTokenID sql.NullString
+		if err := rows.Scan(&s.ID, &s.UserID, &s.TokenHash, &s.IPAddress, &s.UserAgent, &expiresAt, &createdAt, &lastUsedAt, &revoked, &refreshTokenID); err != nil {
 			return nil, fmt.Errorf("scan session: %w", err)
 		}
 		s.Revoked = revoked != 0
+		if refreshTokenID.Valid {
+			s.RefreshTokenID = refreshTokenID.String
+		}
 		s.ExpiresAt, _ = time.Parse(time.RFC3339, expiresAt)
 		s.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 		s.LastUsedAt, _ = time.Parse(time.RFC3339, lastUsedAt)

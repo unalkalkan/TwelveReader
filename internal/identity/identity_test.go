@@ -410,8 +410,8 @@ func TestAuditLogRepository(t *testing.T) {
 
 	// Test null user_id / account_id handling
 	entry3 := &types.AuditLogEntry{
-		UserID:    "",
-		EventType: types.AuditEventAdminAction,
+		UserID:      "",
+		EventType:   types.AuditEventAdminAction,
 		Description: "System bootstrap",
 	}
 	err = pool.AuditLog.CreateEntry(ctx, entry3)

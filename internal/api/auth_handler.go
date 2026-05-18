@@ -85,12 +85,17 @@ func (h *AuthHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Security: prevent caching of token-bearing responses
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"user":           result.User,
-		"session_token":  result.SessionToken,
-		"refresh_token":  result.RefreshToken,
+		"user":          result.User,
+		"session_token": result.SessionToken,
+		"refresh_token": result.RefreshToken,
 	})
 }
 
@@ -121,11 +126,16 @@ func (h *AuthHandler) RefreshSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Security: prevent caching of token-bearing responses
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"session_token":  result.SessionToken,
-		"refresh_token":  result.RefreshToken,
+		"session_token": result.SessionToken,
+		"refresh_token": result.RefreshToken,
 	})
 }
 

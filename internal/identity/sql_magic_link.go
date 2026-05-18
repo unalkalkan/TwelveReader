@@ -50,6 +50,41 @@ func (r *sqlMagicLinkRepo) MarkUsed(ctx context.Context, id string) error {
 	return nil
 }
 
+// ConsumeMagicLink atomically verifies and marks a magic link as used.
+// Returns the MagicLink if successful, or error if already used/expired/not found.
+func (r *sqlMagicLinkRepo) ConsumeMagicLink(ctx context.Context, tokenHash string) (*types.MagicLink, error) {
+	// Atomic conditional update: only succeed if not used and not expired
+	result, err := r.db.ExecContext(ctx,
+		"UPDATE magic_links SET used = 1 WHERE token_hash = ? AND used = 0 AND expires_at > ?",
+		tokenHash, time.Now().UTC().Format(time.RFC3339),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("consume magic link: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("consume magic link rows affected: %w", err)
+	}
+	if affected != 1 {
+		return nil, fmt.Errorf("magic link invalid, already used, or expired")
+	}
+
+	// Fetch the consumed link (now used=1) to return email
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT id, email, token_hash, used, expires_at, created_at FROM magic_links WHERE token_hash = ?",
+		tokenHash,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("fetch consumed magic link: %w", err)
+	}
+	defer rows.Close()
+	results, _ := scanMagicLinks(rows)
+	if len(results) == 0 {
+		return nil, fmt.Errorf("magic link not found after consume")
+	}
+	return results[0], nil
+}
+
 func (r *sqlMagicLinkRepo) DeleteExpiredLinks(ctx context.Context) (int64, error) {
 	result, err := r.db.ExecContext(ctx,
 		"DELETE FROM magic_links WHERE expires_at < ? OR used = 1",

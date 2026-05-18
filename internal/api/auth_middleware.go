@@ -36,6 +36,12 @@ func SessionAuthMiddleware(authService *identity.AuthService) func(http.Handler)
 				return
 			}
 
+			// Reject non-active users (suspended, deleted, etc.)
+			if user.Status != "active" || user.DeletedAt != nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			ctx := context.WithValue(r.Context(), sessionIDKey{}, session.ID)
 			ctx = context.WithValue(ctx, userContextKey{}, user)
 
@@ -63,6 +69,12 @@ func RequireAuth(authService *identity.AuthService) func(http.Handler) http.Hand
 			user, err := authService.GetUserByID(r.Context(), session.UserID)
 			if err != nil {
 				WriteStructuredError(w, r, ErrCodeUnauthorized, "user not found", http.StatusUnauthorized)
+				return
+			}
+
+			// Reject non-active users (suspended, deleted, etc.)
+			if user.Status != "active" || user.DeletedAt != nil {
+				WriteStructuredError(w, r, ErrCodeUnauthorized, "account inactive", http.StatusUnauthorized)
 				return
 			}
 

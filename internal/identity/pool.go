@@ -27,10 +27,21 @@ func NewDBPool(dbPath string) (*DBPool, error) {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 
+	// Serialize writes: SQLite handles concurrent reads fine but not writes.
+	// MaxOpenConns(1) prevents SQLITE_BUSY errors from multiple writers.
+	db.SetMaxOpenConns(1)
+
 	// Enable WAL mode for better concurrent read performance.
 	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("pragma wal: %w", err)
+	}
+
+	// Busy timeout: if another connection holds a write lock, wait up to 5s
+	// instead of returning SQLITE_BUSY immediately.
+	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("pragma busy_timeout: %w", err)
 	}
 
 	// Enable foreign keys.

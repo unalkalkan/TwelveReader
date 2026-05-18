@@ -25,7 +25,7 @@ func newTestAuthHandler(t *testing.T) (*AuthHandler, *identity.AuthService, *ide
 	}
 	t.Cleanup(func() { pool.Close() })
 
-	sender := &identity.LogEmailSender{}
+	sender := &identity.LogEmailSender{DevMode: true}
 	svc := identity.NewAuthService(pool, sender, "http://localhost:3000", "noreply@example.com",
 		24*time.Hour, 7*24*time.Hour, 15*time.Minute)
 	handler := NewAuthHandler(svc)
@@ -462,5 +462,131 @@ func TestFullAuthFlow_HTTP(t *testing.T) {
 	meHandler.ServeHTTP(w7, req7)
 	if w7.Code != http.StatusOK {
 		t.Fatalf("step 7: status = %d, want 200 (refreshed session should still be valid)", w7.Code)
+	}
+}
+
+func TestVerifyMagicLink_ResponseCacheHeaders(t *testing.T) {
+	handler, svc, _ := newTestAuthHandler(t)
+
+	rawToken, err := svc.RequestMagicLink(context.Background(), "cache-verify@example.com")
+	if err != nil {
+		t.Fatalf("RequestMagicLink: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/verify?token="+rawToken, nil)
+	w := httptest.NewRecorder()
+
+	handler.VerifyMagicLink(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+
+	// Verify cache headers are present on token-bearing response
+	cacheControl := w.Header().Get("Cache-Control")
+	if cacheControl == "" {
+		t.Fatal("Cache-Control header missing on /auth/verify response")
+	}
+	if !strings.Contains(cacheControl, "no-store") {
+		t.Fatalf("Cache-Control should contain 'no-store', got: %s", cacheControl)
+	}
+}
+
+func TestRefreshSession_ResponseCacheHeaders(t *testing.T) {
+	handler, svc, _ := newTestAuthHandler(t)
+
+	rawToken, err := svc.RequestMagicLink(context.Background(), "cache-refresh@example.com")
+	if err != nil {
+		t.Fatalf("RequestMagicLink: %v", err)
+	}
+	authResult, err := svc.VerifyMagicLink(context.Background(), rawToken, "127.0.0.1", "TestClient/1.0")
+	if err != nil {
+		t.Fatalf("VerifyMagicLink: %v", err)
+	}
+
+	body := json.RawMessage(`{"refresh_token":"` + authResult.RefreshToken + `"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	handler.RefreshSession(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+
+	cacheControl := w.Header().Get("Cache-Control")
+	if cacheControl == "" {
+		t.Fatal("Cache-Control header missing on /auth/refresh response")
+	}
+	if !strings.Contains(cacheControl, "no-store") {
+		t.Fatalf("Cache-Control should contain 'no-store', got: %s", cacheControl)
+	}
+}
+
+func TestMiddleware_RejectsSuspendedUser(t *testing.T) {
+	handler, svc, pool := newTestAuthHandler(t)
+
+	rawToken, err := svc.RequestMagicLink(context.Background(), "suspended-mw@example.com")
+	if err != nil {
+		t.Fatalf("RequestMagicLink: %v", err)
+	}
+	authResult, err := svc.VerifyMagicLink(context.Background(), rawToken, "127.0.0.1", "TestClient/1.0")
+	if err != nil {
+		t.Fatalf("VerifyMagicLink: %v", err)
+	}
+
+	// Suspend the user
+	user, err := pool.Users.GetUserByID(context.Background(), authResult.User.ID)
+	if err != nil {
+		t.Fatalf("GetUserByID: %v", err)
+	}
+	user.Status = "suspended"
+	if err := pool.Users.UpdateUser(context.Background(), user); err != nil {
+		t.Fatalf("UpdateUser: %v", err)
+	}
+
+	// Access /me with suspended user - should fail
+	middleware := SessionAuthMiddleware(svc)
+	wrapped := middleware(http.HandlerFunc(handler.Me))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	req.Header.Set("Authorization", "Bearer "+authResult.SessionToken)
+	w := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(w, req)
+
+	// The handler should return 401 because middleware doesn't inject user context for suspended users
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("suspended user should be rejected: status = %d, want 401", w.Code)
+	}
+}
+
+func TestMiddleware_RejectsDeletedUser(t *testing.T) {
+	handler, svc, pool := newTestAuthHandler(t)
+
+	rawToken, err := svc.RequestMagicLink(context.Background(), "deleted-mw@example.com")
+	if err != nil {
+		t.Fatalf("RequestMagicLink: %v", err)
+	}
+	authResult, err := svc.VerifyMagicLink(context.Background(), rawToken, "127.0.0.1", "TestClient/1.0")
+	if err != nil {
+		t.Fatalf("VerifyMagicLink: %v", err)
+	}
+
+	// Delete the user
+	pool.Users.DeleteUser(context.Background(), authResult.User.ID)
+
+	middleware := SessionAuthMiddleware(svc)
+	wrapped := middleware(http.HandlerFunc(handler.Me))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	req.Header.Set("Authorization", "Bearer "+authResult.SessionToken)
+	w := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("deleted user should be rejected: status = %d, want 401", w.Code)
 	}
 }

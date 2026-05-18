@@ -52,6 +52,8 @@ type RefreshTokenRepository interface {
 	GetRefreshTokenByID(ctx context.Context, id string) (*types.RefreshToken, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (*types.RefreshToken, error)
 	RevokeRefreshToken(ctx context.Context, id string) error
+	ListActiveByUser(ctx context.Context, userID string) ([]*types.RefreshToken, error)
+	ConsumeRefreshToken(ctx context.Context, tokenHash string) (*types.RefreshToken, error)
 	DeleteExpiredTokens(ctx context.Context) (int64, error)
 }
 
@@ -69,6 +71,6 @@ type MagicLinkRepository interface {
 	CreateMagicLink(ctx context.Context, ml *types.MagicLink) error
 	GetMagicLinkByTokenHash(ctx context.Context, tokenHash string) (*types.MagicLink, error)
 	MarkUsed(ctx context.Context, id string) error
+	ConsumeMagicLink(ctx context.Context, tokenHash string) (*types.MagicLink, error)
 	DeleteExpiredLinks(ctx context.Context) (int64, error)
 }
-
