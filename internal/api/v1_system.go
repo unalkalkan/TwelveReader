@@ -56,9 +56,21 @@ func NewV1SystemHandler(
 	}
 }
 
+// getOnly wraps a handler so it only accepts GET requests.
+// Non-GET methods receive a structured 405 JSON error response.
+func (h *V1SystemHandler) getOnly(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			WriteMethodNotAllowedError(w, r)
+			return
+		}
+		next(w, r)
+	}
+}
+
 // HealthHandler returns an HTTP handler for GET /api/v1/health
 func (h *V1SystemHandler) HealthHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return h.getOnly(func(w http.ResponseWriter, r *http.Request) {
 		response := h.healthHandler.RunChecks(r.Context())
 
 		w.Header().Set("Content-Type", "application/json")
@@ -68,12 +80,12 @@ func (h *V1SystemHandler) HealthHandler() http.HandlerFunc {
 		}
 		w.WriteHeader(statusCode)
 		json.NewEncoder(w).Encode(response)
-	}
+	})
 }
 
 // ServerInfoHandler returns an HTTP handler for GET /api/v1/server-info
 func (h *V1SystemHandler) ServerInfoHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return h.getOnly(func(w http.ResponseWriter, r *http.Request) {
 		llmProviders := h.providerReg.ListLLM()
 		ttsProviders := h.providerReg.ListTTS()
 		ocrProviders := h.providerReg.ListOCR()
@@ -100,10 +112,10 @@ func (h *V1SystemHandler) ServerInfoHandler() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(resp)
-	}
+	})
 }
 
 // FeaturesHandler returns an HTTP handler for GET /api/v1/features
 func (h *V1SystemHandler) FeaturesHandler() http.HandlerFunc {
-	return h.featureStore.HTTPHandler()
+	return h.getOnly(h.featureStore.HTTPHandler())
 }

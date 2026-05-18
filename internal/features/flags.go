@@ -81,6 +81,17 @@ type Response struct {
 // HTTPHandler returns an HTTP handler for GET /api/v1/features
 func (s *Store) HTTPHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": map[string]string{
+					"code":    "METHOD_NOT_ALLOWED",
+					"message": "Method not allowed",
+				},
+			})
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(Response{

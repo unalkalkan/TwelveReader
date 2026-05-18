@@ -85,3 +85,35 @@ func TestHTTPHandler(t *testing.T) {
 		t.Error("expected beta to be disabled in response")
 	}
 }
+
+func TestHTTPHandlerNonGET(t *testing.T) {
+	s := NewStore(map[string]bool{"alpha": true})
+
+	methods := []string{http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch}
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			req := httptest.NewRequest(method, "/api/v1/features", nil)
+		rr := httptest.NewRecorder()
+
+			handler := s.HTTPHandler()
+			handler.ServeHTTP(rr, req)
+
+			if rr.Code != http.StatusMethodNotAllowed {
+				t.Errorf("expected status 405 for %s, got %d", method, rr.Code)
+			}
+
+			var resp map[string]interface{}
+			if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("failed to decode error response: %v", err)
+			}
+
+			errorBody, ok := resp["error"].(map[string]interface{})
+			if !ok {
+				t.Fatal("expected 'error' key in response")
+			}
+			if errorBody["code"] != "METHOD_NOT_ALLOWED" {
+				t.Errorf("expected error code METHOD_NOT_ALLOWED, got %v", errorBody["code"])
+			}
+		})
+	}
+}

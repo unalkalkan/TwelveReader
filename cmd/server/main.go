@@ -214,8 +214,9 @@ func main() {
 		}
 	})
 
-	// Mount /api/v1 sub-mux behind request ID middleware
-	mux.Handle("/api/v1", reqCtx.Middleware(v1Mux))
+	// Mount /api/v1 sub-mux behind request ID + access log middleware
+	// Trailing slash ensures prefix matching for all /api/v1/... routes
+	mux.Handle("/api/v1/", api.AccessLogMiddleware(reqCtx.Middleware(v1Mux)))
 
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
