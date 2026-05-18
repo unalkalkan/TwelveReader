@@ -12,15 +12,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/unalkalkan/TwelveReader/internal/api"
+"github.com/unalkalkan/TwelveReader/internal/api"
 	"github.com/unalkalkan/TwelveReader/internal/book"
 	"github.com/unalkalkan/TwelveReader/internal/config"
 	"github.com/unalkalkan/TwelveReader/internal/features"
 	"github.com/unalkalkan/TwelveReader/internal/health"
+	"github.com/unalkalkan/TwelveReader/internal/identity"
 	"github.com/unalkalkan/TwelveReader/internal/parser"
 	"github.com/unalkalkan/TwelveReader/internal/provider"
 	"github.com/unalkalkan/TwelveReader/internal/storage"
 	"github.com/unalkalkan/TwelveReader/pkg/types"
+
+	_ "modernc.org/sqlite" // Register SQLite driver
 )
 
 const version = "0.1.0-milestone4"
@@ -114,6 +117,45 @@ func main() {
 		cfg.Environment,
 	)
 
+	// Initialize identity/auth (Milestone 1: Identity, Sessions, and Ownership)
+	identityDBPath := cfg.Auth.IdentityDBPath
+	if identityDBPath == "" {
+		identityDBPath = "data/identity.db"
+	}
+	identityPool, err := identity.NewDBPool(identityDBPath)
+	if err != nil {
+		log.Fatalf("Failed to initialize identity DB: %v", err)
+	}
+	defer identityPool.Close()
+	log.Printf("Identity DB initialized: %s", identityDBPath)
+
+	// Parse auth durations with defaults
+	sessionTTL, _ := time.ParseDuration(cfg.Auth.SessionTTL)
+	if sessionTTL == 0 {
+		sessionTTL = 24 * time.Hour
+	}
+	refreshTTL, _ := time.ParseDuration(cfg.Auth.RefreshTokenTTL)
+	if refreshTTL == 0 {
+		refreshTTL = 7 * 24 * time.Hour
+	}
+	linkExpiry, _ := time.ParseDuration(cfg.Auth.MagicLinkExpiry)
+	if linkExpiry == 0 {
+		linkExpiry = 15 * time.Minute
+	}
+
+	authService := identity.NewAuthService(
+		identityPool,
+		&identity.LogEmailSender{},
+		cfg.Auth.BaseURL,
+		cfg.Auth.SenderFrom,
+		sessionTTL,
+		refreshTTL,
+		linkExpiry,
+	)
+	log.Printf("Auth service initialized (session_ttl=%s, refresh_ttl=%s, link_expiry=%s)", sessionTTL, refreshTTL, linkExpiry)
+
+	authHandler := api.NewAuthHandler(authService)
+
 	// Request ID middleware (Milestone 0): applied to ALL /api/v1 routes via sub-mux
 	reqCtx := &api.RequestContext{}
 
@@ -132,6 +174,18 @@ func main() {
 	v1Mux.HandleFunc("/api/v1/health", v1System.HealthHandler())
 	v1Mux.HandleFunc("/api/v1/server-info", v1System.ServerInfoHandler())
 	v1Mux.HandleFunc("/api/v1/features", v1System.FeaturesHandler())
+
+	// Milestone 1: Auth endpoints (public - no auth required)
+	v1Mux.HandleFunc("/api/v1/auth/request", authHandler.RequestMagicLink)
+	v1Mux.HandleFunc("/api/v1/auth/verify", authHandler.VerifyMagicLink)
+
+	// Milestone 1: Auth endpoints requiring session authentication (wrapped in middleware)
+	wrapAuth := func(h http.HandlerFunc) http.Handler {
+		return api.SessionAuthMiddleware(authService)(h)
+	}
+	v1Mux.Handle("/api/v1/auth/refresh", wrapAuth(authHandler.RefreshSession))
+	v1Mux.Handle("/api/v1/auth/logout", wrapAuth(authHandler.Logout))
+	v1Mux.Handle("/api/v1/auth/me", wrapAuth(authHandler.Me))
 
 	// API endpoints (stubs for now)
 	v1Mux.HandleFunc("/api/v1/info", infoHandler(version, cfg))

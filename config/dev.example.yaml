@@ -13,7 +13,7 @@ environment: "dev"  # Options: local, dev, staging, production
 # Environment-specific defaults applied first, then YAML overrides, then TR_FEATURE_* env vars.
 # Omitted flags use the environment default; set to true/false to override.
 feature_flags:
-  saas_auth:      false   # Milestone N: SaaS authentication
+  saas_auth:      true    # Milestone 1: SaaS authentication (enabled)
   usage_metering: true     # Milestone 1: Usage metering (shadow mode)
   quota_engine:   false    # Milestone 2: Quota enforcement
   repository_pub: false    # Milestone 3: Repository publishing
@@ -103,3 +103,12 @@ pipeline:
   max_retries: 3
   retry_backoff_ms: 1000
   temp_dir: "/tmp/twelvereader"
+
+# Milestone 1: Identity, Sessions, and Ownership Foundation
+auth:
+  identity_db_path: "data/identity.db"       # SQLite DB path for identity data
+  magic_link_expiry: "15m"                   # How long magic links are valid
+  session_ttl: "24h"                         # Session (access token) lifetime
+  refresh_token_ttl: "168h"                  # Refresh token lifetime (7 days)
+  sender_from: "noreply@twelvereader.local"  # SMTP from address for emails
+  base_url: ""                               # Base URL for magic link construction (env: TR_AUTH_BASE_URL)

@@ -108,7 +108,29 @@ func Validate(cfg *types.Config) error {
 		return fmt.Errorf("invalid environment: %s (must be one of: local, dev, staging, production)", cfg.Environment)
 	}
 
+	// Apply auth config defaults
+	applyAuthDefaults(cfg)
+
 	return nil
+}
+
+// applyAuthDefaults sets default values for auth configuration.
+func applyAuthDefaults(cfg *types.Config) {
+	if cfg.Auth.IdentityDBPath == "" {
+		cfg.Auth.IdentityDBPath = "data/identity.db"
+	}
+	if cfg.Auth.MagicLinkExpiry == "" {
+		cfg.Auth.MagicLinkExpiry = "15m"
+	}
+	if cfg.Auth.SessionTTL == "" {
+		cfg.Auth.SessionTTL = "24h"
+	}
+	if cfg.Auth.RefreshTokenTTL == "" {
+		cfg.Auth.RefreshTokenTTL = "168h" // 7 days
+	}
+	if cfg.Auth.SenderFrom == "" {
+		cfg.Auth.SenderFrom = "noreply@twelvereader.local"
+	}
 }
 
 // applyEnvOverrides applies environment variable overrides
@@ -150,6 +172,9 @@ func applyEnvOverrides(cfg *types.Config) {
 
 	// Apply feature flag overrides: TR_FEATURE_<FLAG_NAME>
 	applyFeatureFlagEnvOverrides(cfg)
+
+	// Apply auth overrides: TR_AUTH_*
+	applyAuthEnvOverrides(cfg)
 }
 
 // applyProviderEnvOverrides applies provider-specific env vars
@@ -294,6 +319,28 @@ func applyFeatureFlagEnvOverrides(cfg *types.Config) {
 		val := e[idx+1:]
 		// Convert to lowercase bool parsing
 		cfg.FeatureFlags[key] = (val == "true" || val == "True" || val == "TRUE" || val == "1")
+	}
+}
+
+// applyAuthEnvOverrides applies TR_AUTH_* env vars to auth configuration.
+func applyAuthEnvOverrides(cfg *types.Config) {
+	if val := os.Getenv("TR_AUTH_IDENTITY_DB_PATH"); val != "" {
+		cfg.Auth.IdentityDBPath = val
+	}
+	if val := os.Getenv("TR_AUTH_MAGIC_LINK_EXPIRY"); val != "" {
+		cfg.Auth.MagicLinkExpiry = val
+	}
+	if val := os.Getenv("TR_AUTH_SESSION_TTL"); val != "" {
+		cfg.Auth.SessionTTL = val
+	}
+	if val := os.Getenv("TR_AUTH_REFRESH_TOKEN_TTL"); val != "" {
+		cfg.Auth.RefreshTokenTTL = val
+	}
+	if val := os.Getenv("TR_AUTH_SENDER_FROM"); val != "" {
+		cfg.Auth.SenderFrom = val
+	}
+	if val := os.Getenv("TR_AUTH_BASE_URL"); val != "" {
+		cfg.Auth.BaseURL = val
 	}
 }
 

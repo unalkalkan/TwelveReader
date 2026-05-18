@@ -6,6 +6,7 @@ type Config struct {
 	Storage     StorageConfig   `yaml:"storage" json:"storage"`
 	Providers   ProvidersConfig `yaml:"providers" json:"providers"`
 	Pipeline    PipelineConfig  `yaml:"pipeline" json:"pipeline"`
+	Auth        AuthConfig      `yaml:"auth" json:"auth"`
 	Environment string          `yaml:"environment" json:"environment"`          // local, dev, staging, production
 	FeatureFlags map[string]bool `yaml:"feature_flags" json:"feature_flags"`     // per-feature on/off toggles
 }
@@ -91,3 +92,29 @@ type PipelineConfig struct {
 	RetryBackoffMs int    `yaml:"retry_backoff_ms" json:"retry_backoff_ms"`
 	TempDir        string `yaml:"temp_dir" json:"temp_dir"`
 }
+
+// AuthConfig holds authentication settings
+type AuthConfig struct {
+	// IdentityDBPath is the path to the SQLite identity database.
+	IdentityDBPath string `yaml:"identity_db_path" json:"identity_db_path"`
+	// MagicLinkExpiry is how long a magic link token is valid (default 15m).
+	MagicLinkExpiry string `yaml:"magic_link_expiry" json:"magic_link_expiry"`
+	// SessionTTL is how long an access session lasts before expiration (default 24h).
+	SessionTTL string `yaml:"session_ttl" json:"session_ttl"`
+	// RefreshTokenTTL is how long a refresh token lives (default 7d).
+	RefreshTokenTTL string `yaml:"refresh_token_ttl" json:"refresh_token_ttl"`
+	// SenderFrom is the SMTP "from" address for magic link emails.
+	SenderFrom string `yaml:"sender_from" json:"sender_from"`
+	// BaseURL is used to construct the magic link URL (e.g., https://app.twelvereader.com).
+	BaseURL string `yaml:"base_url" json:"base_url"`
+}
+
+// SMTPConfig holds SMTP server settings for sending emails.
+type SMTPConfig struct {
+	Host     string `yaml:"host" json:"host"`
+	Port     int    `yaml:"port" json:"port"`
+	Username string `yaml:"username" json:"username"`
+	Password string `yaml:"password" json:"password"`
+	UseTLS   bool   `yaml:"use_tls" json:"use_tls"`
+}
+
