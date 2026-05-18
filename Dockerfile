@@ -2,6 +2,8 @@
 # Stage 1: Build Go backend
 FROM golang:1.24-alpine AS backend-builder
 
+ENV GOTOOLCHAIN=auto
+
 WORKDIR /app
 
 # Install build dependencies
