@@ -118,6 +118,11 @@ func RequireRole(pool *identity.DBPool, requiredRoleName string) func(http.Handl
 	}
 }
 
+// RequireAdminRole checks if the authenticated user has the "admin" role.
+func RequireAdminRole(pool *identity.DBPool) func(http.Handler) http.Handler {
+	return RequireRole(pool, "admin")
+}
+
 // GetSessionIDFromContext extracts the session ID from request context.
 func GetSessionIDFromContext(ctx context.Context) string {
 	if v, ok := ctx.Value(sessionIDKey{}).(string); ok {

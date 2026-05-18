@@ -154,7 +154,23 @@ func main() {
 	)
 	log.Printf("Auth service initialized (session_ttl=%s, refresh_ttl=%s, link_expiry=%s)", sessionTTL, refreshTTL, linkExpiry)
 
-	authHandler := api.NewAuthHandler(authService)
+	// Ensure bootstrap admin user exists at startup
+	adminEmail := cfg.Auth.BootstrapAdminEmail
+	if adminEmail == "" {
+		adminEmail = "admin@twelvereader.local"
+	}
+	go func() {
+		adminCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_, err := authService.EnsureBootstrapAdmin(adminCtx, adminEmail)
+		if err != nil {
+			log.Printf("Failed to ensure bootstrap admin: %v", err)
+		} else {
+			log.Printf("Bootstrap admin user ensured (%s)", adminEmail)
+		}
+	}()
+
+	authHandler := api.NewAuthHandler(authService, identityPool)
 
 	// Request ID middleware (Milestone 0): applied to ALL /api/v1 routes via sub-mux
 	reqCtx := &api.RequestContext{}
@@ -189,14 +205,14 @@ func main() {
 
 	// Milestone 1: Session management endpoints (list active sessions, revoke specific session)
 	v1Mux.Handle("/api/v1/auth/sessions", wrapAuth(authHandler.ListSessions))
-	// Sessions path with ID: /api/v1/auth/sessions/{id}
-	v1Mux.HandleFunc("/api/v1/auth/sessions/", func(w http.ResponseWriter, r *http.Request) {
+	// Sessions path with ID: /api/v1/auth/sessions/{id} - requires auth for session revocation
+	v1Mux.Handle("/api/v1/auth/sessions/", wrapAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {
 			authHandler.RevokeSession(w, r)
 			return
 		}
 		api.WriteMethodNotAllowedError(w, r)
-	})
+	})))
 
 	// Run startup cleanup of expired sessions/tokens/links (fire and forget)
 	go func() {
@@ -270,10 +286,15 @@ func main() {
 			bookHandler.GetBook(w, r)
 		}
 	})
-	v1Mux.HandleFunc("/api/v1/debug/events", debugHandler.Events)
-	v1Mux.HandleFunc("/api/v1/debug/stream", debugHandler.EventStream)
-	v1Mux.HandleFunc("/api/v1/debug/readiness/smoke", readinessHandler.Smoke)
-	v1Mux.HandleFunc("/api/v1/debug/books/", func(w http.ResponseWriter, r *http.Request) {
+	// Debug/Admin endpoints (require authentication + admin role)
+	// All /api/v1/debug/... routes are behind RequireAuth + RequireRole("admin")
+	wrapAdmin := func(h http.HandlerFunc) http.Handler {
+		return api.RequireAdminRole(identityPool)(api.RequireAuth(authService)(h))
+	}
+	v1Mux.Handle("/api/v1/debug/events", wrapAdmin(debugHandler.Events))
+	v1Mux.Handle("/api/v1/debug/stream", wrapAdmin(debugHandler.EventStream))
+	v1Mux.Handle("/api/v1/debug/readiness/smoke", wrapAdmin(readinessHandler.Smoke))
+	v1Mux.Handle("/api/v1/debug/books/", wrapAdmin(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.HasSuffix(path, "/synth-jobs") {
 			debugHandler.ListSynthJobs(w, r)
@@ -290,7 +311,7 @@ func main() {
 		} else {
 			respondDebugNotFoundStructured(w, r)
 		}
-	})
+	}))
 
 	// Mount /api/v1 sub-mux behind request ID + access log middleware
 	// Trailing slash ensures prefix matching for all /api/v1/... routes

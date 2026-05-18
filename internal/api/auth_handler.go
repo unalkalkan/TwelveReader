@@ -11,11 +11,12 @@ import (
 // AuthHandler handles authentication-related HTTP endpoints.
 type AuthHandler struct {
 	authService *identity.AuthService
+	pool        *identity.DBPool
 }
 
 // NewAuthHandler creates a new AuthHandler.
-func NewAuthHandler(authService *identity.AuthService) *AuthHandler {
-	return &AuthHandler{authService: authService}
+func NewAuthHandler(authService *identity.AuthService, pool *identity.DBPool) *AuthHandler {
+	return &AuthHandler{authService: authService, pool: pool}
 }
 
 // RequestBody for auth requests.
@@ -178,10 +179,20 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Resolve role name for the client
+	roleName := ""
+	if user.RoleID != "" && h.pool != nil {
+		role, err := h.pool.Roles.GetRoleByID(r.Context(), user.RoleID)
+		if err == nil && role != nil {
+			roleName = role.Name
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"user": user,
+		"user":     user,
+		"role_name": roleName,
 	})
 }
 

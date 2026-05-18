@@ -28,7 +28,7 @@ func newTestAuthHandler(t *testing.T) (*AuthHandler, *identity.AuthService, *ide
 	sender := &identity.LogEmailSender{DevMode: true}
 	svc := identity.NewAuthService(pool, sender, "http://localhost:3000", "noreply@example.com",
 		24*time.Hour, 7*24*time.Hour, 15*time.Minute)
-	handler := NewAuthHandler(svc)
+	handler := NewAuthHandler(svc, pool)
 	return handler, svc, pool
 }
 
@@ -306,6 +306,10 @@ func TestMe_WithAuthMiddleware(t *testing.T) {
 	user := resp["user"].(map[string]interface{})
 	if user["email"] != "frank@example.com" {
 		t.Fatalf("unexpected email: %v", user["email"])
+	}
+	// Verify role_name is present in response (client uses this to enforce UI access control)
+	if _, ok := resp["role_name"].(string); !ok {
+		t.Fatal("expected role_name field in /auth/me response")
 	}
 }
 
@@ -599,5 +603,144 @@ func TestMiddleware_RejectsDeletedUser(t *testing.T) {
 
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("deleted user should be rejected: status = %d, want 401", w.Code)
+	}
+}
+
+// TestListSessions_RequiresAuth verifies that /auth/sessions requires authentication.
+func TestListSessions_RequiresAuth(t *testing.T) {
+	handler, _, _ := newTestAuthHandler(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/sessions", nil)
+	w := httptest.NewRecorder()
+
+	handler.ListSessions(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401 (unauthenticated should be rejected)", w.Code)
+	}
+}
+
+// TestListSessions_WithAuthMiddleware verifies that /auth/sessions works with valid session.
+func TestListSessions_WithAuthMiddleware(t *testing.T) {
+	handler, svc, _ := newTestAuthHandler(t)
+
+	// Login first
+	rawToken, err := svc.RequestMagicLink(context.Background(), "sessions-list@example.com")
+	if err != nil {
+		t.Fatalf("RequestMagicLink: %v", err)
+	}
+	authResult, err := svc.VerifyMagicLink(context.Background(), rawToken, "127.0.0.1", "TestClient/1.0")
+	if err != nil {
+		t.Fatalf("VerifyMagicLink: %v", err)
+	}
+
+	middleware := SessionAuthMiddleware(svc)
+	wrapped := middleware(http.HandlerFunc(handler.ListSessions))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/sessions", nil)
+	req.Header.Set("Authorization", "Bearer "+authResult.SessionToken)
+	w := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	json.NewDecoder(w.Body).Decode(&resp)
+	if _, ok := resp["sessions"]; !ok {
+		t.Fatal("expected sessions in response")
+	}
+}
+
+// TestRevokeSession_RequiresAuth verifies that session revocation requires authentication.
+func TestRevokeSession_RequiresAuth(t *testing.T) {
+	handler, _, _ := newTestAuthHandler(t)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/auth/sessions/some-session-id", nil)
+	w := httptest.NewRecorder()
+
+	handler.RevokeSession(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401 (unauthenticated should be rejected)", w.Code)
+	}
+}
+
+// TestRevokeSession_WithAuthMiddleware verifies that session revocation works with valid auth.
+func TestRevokeSession_WithAuthMiddleware(t *testing.T) {
+	handler, svc, _ := newTestAuthHandler(t)
+
+	// Login first
+	rawToken, err := svc.RequestMagicLink(context.Background(), "sessions-revoke@example.com")
+	if err != nil {
+		t.Fatalf("RequestMagicLink: %v", err)
+	}
+	authResult, err := svc.VerifyMagicLink(context.Background(), rawToken, "127.0.0.1", "TestClient/1.0")
+	if err != nil {
+		t.Fatalf("VerifyMagicLink: %v", err)
+	}
+
+	middleware := SessionAuthMiddleware(svc)
+	wrapped := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler.RevokeSession(w, r)
+	}))
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/auth/sessions/"+authResult.Session.ID, nil)
+	req.Header.Set("Authorization", "Bearer "+authResult.SessionToken)
+	w := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]string
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp["message"] != "session revoked successfully" {
+		t.Fatalf("unexpected message: %s", resp["message"])
+	}
+}
+
+// TestRevokeSession_BadMethod returns 405 for non-DELETE.
+func TestRevokeSession_BadMethod(t *testing.T) {
+	handler, _, _ := newTestAuthHandler(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/sessions/some-id", nil)
+	w := httptest.NewRecorder()
+
+	handler.RevokeSession(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want 405", w.Code)
+	}
+}
+
+// TestRevokeSession_MissingID returns 400 for missing session ID.
+func TestRevokeSession_MissingID(t *testing.T) {
+	handler, svc, _ := newTestAuthHandler(t)
+
+	rawToken, err := svc.RequestMagicLink(context.Background(), "revoke-missing-id@example.com")
+	if err != nil {
+		t.Fatalf("RequestMagicLink: %v", err)
+	}
+	authResult, err := svc.VerifyMagicLink(context.Background(), rawToken, "127.0.0.1", "TestClient/1.0")
+	if err != nil {
+		t.Fatalf("VerifyMagicLink: %v", err)
+	}
+
+	middleware := SessionAuthMiddleware(svc)
+	wrapped := middleware(http.HandlerFunc(handler.RevokeSession))
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/auth/sessions/", nil)
+	req.Header.Set("Authorization", "Bearer "+authResult.SessionToken)
+	w := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (missing session ID)", w.Code)
 	}
 }

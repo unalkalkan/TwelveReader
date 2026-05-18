@@ -660,6 +660,93 @@ func (s *AuthService) ensureSystemRoles(ctx context.Context) {
 	}
 }
 
+// EnsureBootstrapAdmin ensures a default admin user exists.
+// The admin user is created with the given email address and assigned the "admin" role.
+// If an active admin user already exists, it returns that user without modification.
+// Concurrency-safe: handles duplicate key errors from concurrent callers.
+func (s *AuthService) EnsureBootstrapAdmin(ctx context.Context, email string) (*types.User, error) {
+	// Ensure bootstrap account and roles exist first
+	bootstrapAccount, err := s.ensureBootstrapAccount(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ensure bootstrap account: %w", err)
+	}
+
+	// Check if an active admin user already exists
+	existing, _ := s.pool.Users.GetUserByEmail(ctx, email)
+	if existing != nil && existing.Status == "active" {
+		role, _ := s.pool.Roles.GetRoleByID(ctx, existing.RoleID)
+		if role != nil && role.Name == "admin" {
+			return existing, nil
+		}
+	}
+
+	email = strings.ToLower(strings.TrimSpace(email))
+	_, err = mail.ParseAddress(email)
+	if err != nil {
+		return nil, fmt.Errorf("invalid admin email address: %w", err)
+	}
+
+	// Create admin user in a transaction to prevent duplicates under concurrency
+	user, err := func() (*types.User, error) {
+		tx, terr := s.pool.DB().BeginTx(ctx, nil)
+		if terr != nil {
+			return nil, fmt.Errorf("begin tx: %w", terr)
+		}
+		defer func() { _ = tx.Rollback() }()
+
+		var adminRoleID string
+		terr = tx.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = ?", "admin").Scan(&adminRoleID)
+		if terr != nil {
+			return nil, fmt.Errorf("get admin role: %w", terr)
+		}
+
+		now := time.Now().UTC()
+		adminUser := &types.User{
+			ID:        GenerateID(),
+			AccountID: bootstrapAccount.ID,
+			Email:     email,
+			Name:      "Admin",
+			RoleID:    adminRoleID,
+			Status:    "active",
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+
+		_, terr = tx.ExecContext(ctx,
+			"INSERT INTO users (id, account_id, email, name, role_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+			adminUser.ID, adminUser.AccountID, adminUser.Email, adminUser.Name, adminUser.RoleID, adminUser.Status, adminUser.CreatedAt.Format(time.RFC3339), adminUser.UpdatedAt.Format(time.RFC3339),
+		)
+		if terr != nil {
+			if isUniqueError(terr) {
+				// Concurrent caller may have created it — fetch existing.
+				rows, selErr := tx.QueryContext(ctx,
+					"SELECT id, account_id, email, name, role_id, status, created_at, updated_at, deleted_at FROM users WHERE email = ? AND deleted_at IS NULL", email)
+				if selErr == nil {
+					results, _ := scanUsers(rows)
+					if len(results) > 0 {
+						return results[0], nil
+					}
+				}
+			}
+			return nil, fmt.Errorf("create bootstrap admin: %w", terr)
+		}
+
+		if terr := tx.Commit(); terr != nil {
+			return nil, fmt.Errorf("commit tx: %w", terr)
+		}
+
+		return adminUser, nil
+	}()
+	if err != nil {
+		return nil, err
+	}
+
+	s.writeAudit(ctx, user.ID, bootstrapAccount.ID, types.AuditEventOwnership, "bootstrap_admin_created", nil)
+	log.Printf("[IDENTITY] Created bootstrap admin user %s (%s)", user.ID, email)
+
+	return user, nil
+}
+
 func (s *AuthService) writeAudit(ctx context.Context, userID, accountID string, eventType types.AuditEventType, description string, metadata map[string]string) {
 	entry := &types.AuditLogEntry{
 		ID:          GenerateID(),
