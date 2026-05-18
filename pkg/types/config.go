@@ -2,11 +2,12 @@ package types
 
 // Config represents the overall application configuration
 type Config struct {
-	Server    ServerConfig    `yaml:"server" json:"server"`
-	Storage   StorageConfig   `yaml:"storage" json:"storage"`
-	Providers ProvidersConfig `yaml:"providers" json:"providers"`
-	Pipeline  PipelineConfig  `yaml:"pipeline" json:"pipeline"`
-	Environment string        `yaml:"environment" json:"environment"` // local, dev, staging, production
+	Server      ServerConfig    `yaml:"server" json:"server"`
+	Storage     StorageConfig   `yaml:"storage" json:"storage"`
+	Providers   ProvidersConfig `yaml:"providers" json:"providers"`
+	Pipeline    PipelineConfig  `yaml:"pipeline" json:"pipeline"`
+	Environment string          `yaml:"environment" json:"environment"`          // local, dev, staging, production
+	FeatureFlags map[string]bool `yaml:"feature_flags" json:"feature_flags"`     // per-feature on/off toggles
 }
 
 // ServerConfig holds HTTP server settings

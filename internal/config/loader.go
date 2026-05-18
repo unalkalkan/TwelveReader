@@ -25,7 +25,34 @@ func Load(configPath string) (*types.Config, error) {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	// Apply environment variable overrides
+	// Ensure FeatureFlags map exists
+	if cfg.FeatureFlags == nil {
+		cfg.FeatureFlags = make(map[string]bool)
+	}
+
+	// Save YAML-specified flags so we can merge them on top of defaults later
+	yamlFlags := make(map[string]bool)
+	for k, v := range cfg.FeatureFlags {
+		yamlFlags[k] = v
+	}
+
+	// Resolve environment early (env var overrides YAML) so defaults pick the right profile
+	if val := os.Getenv("TR_ENVIRONMENT"); val != "" {
+		cfg.Environment = val
+	}
+	if cfg.Environment == "" {
+		cfg.Environment = "local"
+	}
+
+	// Apply environment-specific default feature flags (lowest priority)
+	applyDefaultFeatureFlags(&cfg)
+
+	// Merge YAML-specified flags on top of defaults (YAML overrides defaults)
+	for k, v := range yamlFlags {
+		cfg.FeatureFlags[k] = v
+	}
+
+	// Apply environment variable overrides (highest priority)
 	applyEnvOverrides(&cfg)
 
 	// Validate configuration
@@ -87,15 +114,6 @@ func Validate(cfg *types.Config) error {
 // applyEnvOverrides applies environment variable overrides
 // Environment variables should be prefixed with TR_ (TwelveReader)
 func applyEnvOverrides(cfg *types.Config) {
-	// Environment mode override
-	if val := os.Getenv("TR_ENVIRONMENT"); val != "" {
-		cfg.Environment = val
-	}
-	// Default to "local" if not set
-	if cfg.Environment == "" {
-		cfg.Environment = "local"
-	}
-
 	// Server overrides
 	if val := os.Getenv("TR_SERVER_HOST"); val != "" {
 		cfg.Server.Host = val
@@ -129,6 +147,9 @@ func applyEnvOverrides(cfg *types.Config) {
 
 	// Apply provider API key overrides
 	applyProviderEnvOverrides(cfg)
+
+	// Apply feature flag overrides: TR_FEATURE_<FLAG_NAME>
+	applyFeatureFlagEnvOverrides(cfg)
 }
 
 // applyProviderEnvOverrides applies provider-specific env vars
@@ -200,6 +221,82 @@ func envSafeProviderName(name string) string {
 	return b.String()
 }
 
+// applyDefaultFeatureFlags sets environment-specific default flags.
+// These are the lowest-priority values — YAML config and TR_FEATURE_* env vars override them.
+func applyDefaultFeatureFlags(cfg *types.Config) {
+	if cfg.FeatureFlags == nil {
+		cfg.FeatureFlags = make(map[string]bool)
+	}
+
+	// Known SaaS feature flags (milestone-driven)
+	defaults := map[string]map[string]bool{
+		"local": {
+			"saas_auth":      false,
+			"usage_metering": false,
+			"quota_engine":   false,
+			"repository_pub": false,
+			"user_accounts":  false,
+			"billing":        false,
+		},
+		"dev": {
+			"saas_auth":      false,
+			"usage_metering": true,
+			"quota_engine":   false,
+			"repository_pub": false,
+			"user_accounts":  false,
+			"billing":        false,
+		},
+		"staging": {
+			"saas_auth":      true,
+			"usage_metering": true,
+			"quota_engine":   true,
+			"repository_pub": false,
+			"user_accounts":  true,
+			"billing":        false,
+		},
+		"production": {
+			"saas_auth":      true,
+			"usage_metering": true,
+			"quota_engine":   true,
+			"repository_pub": false,
+			"user_accounts":  true,
+			"billing":        false,
+		},
+	}
+
+	envDefaults, ok := defaults[cfg.Environment]
+	if !ok {
+		// Fallback to "local" defaults for unknown environments
+		envDefaults = defaults["local"]
+	}
+
+	for name, enabled := range envDefaults {
+		cfg.FeatureFlags[name] = enabled
+	}
+
+	// Merge YAML-specified flags on top of defaults (YAML takes precedence)
+	// This is handled in Load() — we only set defaults here.
+}
+
+// applyFeatureFlagEnvOverrides applies TR_FEATURE_<FLAG_NAME> env vars to feature flags.
+func applyFeatureFlagEnvOverrides(cfg *types.Config) {
+	prefix := "TR_FEATURE_"
+	for _, e := range os.Environ() {
+		if !strings.HasPrefix(e, prefix) {
+			continue
+		}
+		// Extract KEY=VALUE
+		idx := strings.IndexByte(e, '=')
+		if idx < 0 {
+			continue
+		}
+		key := strings.ToLower(e[len(prefix):idx])
+		val := e[idx+1:]
+		// Convert to lowercase bool parsing
+		cfg.FeatureFlags[key] = (val == "true" || val == "True" || val == "TRUE" || val == "1")
+	}
+}
+
 // GetDefault returns a default configuration
 func GetDefault() *types.Config {
 	return &types.Config{
@@ -221,6 +318,7 @@ func GetDefault() *types.Config {
 			RetryBackoffMs: 1000,
 			TempDir:        "/tmp/twelvereader",
 		},
-		Environment: "local",
+		Environment:  "local",
+		FeatureFlags: nil,
 	}
 }

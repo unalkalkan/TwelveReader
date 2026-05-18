@@ -219,3 +219,20 @@ export interface LiveEvent {
   book_id?: string;
   segment_id?: string;
 }
+
+// Readiness smoke check types (Milestone 0, Work 0.5)
+export interface SmokeCheckResult {
+  name: string;
+  path: string;
+  status: 'ok' | 'warning' | 'error';
+  http_code: number;
+  latency_ms: number;
+  error?: string;
+  data?: Record<string, unknown>;
+}
+
+export interface SmokeVisibilityResponse {
+  timestamp: string;
+  checks: SmokeCheckResult[];
+  overall: 'all_ok' | 'degraded' | 'unhealthy';
+}

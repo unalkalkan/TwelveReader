@@ -7,6 +7,19 @@ server:
   read_timeout: 15    # seconds
   write_timeout: 15   # seconds
 
+environment: "dev"  # Options: local, dev, staging, production
+
+# Feature flags: override environment-specific defaults here.
+# Environment-specific defaults applied first, then YAML overrides, then TR_FEATURE_* env vars.
+# Omitted flags use the environment default; set to true/false to override.
+feature_flags:
+  saas_auth:      false   # Milestone N: SaaS authentication
+  usage_metering: true     # Milestone 1: Usage metering (shadow mode)
+  quota_engine:   false    # Milestone 2: Quota enforcement
+  repository_pub: false    # Milestone 3: Repository publishing
+  user_accounts:  false    # Milestone N: User account system
+  billing:        false    # Milestone 4: Billing integration
+
 storage:
   adapter: "local"    # Options: "local", "s3"
 

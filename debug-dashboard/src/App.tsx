@@ -7,15 +7,16 @@ import { BookDetailPage } from './pages/BookDetailPage';
 import { SynthJobsPage } from './pages/SynthJobsPage';
 import { UserActivityPage } from './pages/UserActivityPage';
 import { AudioArtifactsPage } from './pages/AudioArtifactsPage';
-import { getAudioValidation, getBookStatus, getBooks, getDebugEvents, getHealth, getPersonas, getPipelineStatus, getPlaybackEvents, getProviders, getSegments, getSynthJobs, getUserProgress } from './api';
+import { getAudioValidation, getBookStatus, getBooks, getDebugEvents, getHealth, getPersonas, getPipelineStatus, getPlaybackEvents, getProviders, getReadinessSmoke, getSegments, getSynthJobs, getUserProgress } from './api';
 import { deriveJourney } from './state';
-import type { BookJourney, HealthResponse, LiveEvent, ProvidersResponse } from './types';
+import type { BookJourney, HealthResponse, LiveEvent, ProvidersResponse, SmokeVisibilityResponse } from './types';
 
 function useLiveDashboard() {
   const [journeys, setJourneys] = useState<BookJourney[]>([]);
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [health, setHealth] = useState<HealthResponse | undefined>();
   const [providers, setProviders] = useState<ProvidersResponse | undefined>();
+  const [readiness, setReadiness] = useState<SmokeVisibilityResponse | undefined>();
   const [apiConnected, setApiConnected] = useState(false);
   const [sseConnected, setSseConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toISOString());
@@ -46,10 +47,11 @@ function useLiveDashboard() {
 
     async function load() {
       try {
-        const [healthResult, providersResult, books] = await Promise.all([
+        const [healthResult, providersResult, books, readinessResult] = await Promise.all([
           getHealth().catch((err) => { throw new Error(`health: ${err.message}`); }),
           getProviders().catch(() => undefined),
           getBooks(),
+          getReadinessSmoke().catch(() => undefined),
         ]);
 
         setApiConnected(true);
@@ -62,6 +64,7 @@ function useLiveDashboard() {
           setJourneys([]);
           setHealth(healthResult);
           setProviders(providersResult);
+          setReadiness(readinessResult);
           const apiEvents = await getDebugEvents().catch(() => []);
           setEvents(apiEvents);
           setLastUpdated(new Date().toISOString());
@@ -98,6 +101,7 @@ function useLiveDashboard() {
         setJourneys(loadedJourneys);
         setHealth(healthResult);
         setProviders(providersResult);
+        setReadiness(readinessResult);
 
         const apiEvents = await getDebugEvents().catch(() => []);
         setEvents(apiEvents);
@@ -118,7 +122,7 @@ function useLiveDashboard() {
     return () => { cancelled = true; window.clearInterval(id); };
   }, []);
 
-  return { journeys, events, health, providers, apiConnected, sseConnected, lastUpdated, error };
+  return { journeys, events, health, providers, readiness, apiConnected, sseConnected, lastUpdated, error };
 }
 
 function BookDetailRoute({ journeys, events }: { journeys: BookJourney[]; events: LiveEvent[] }) {
@@ -134,13 +138,13 @@ function BookDetailRoute({ journeys, events }: { journeys: BookJourney[]; events
 }
 
 export function App() {
-  const { journeys, events, health, providers, apiConnected, sseConnected, lastUpdated, error } = useLiveDashboard();
+  const { journeys, events, health, providers, readiness, apiConnected, sseConnected, lastUpdated, error } = useLiveDashboard();
 
   return (
     <BrowserRouter>
-      <Layout apiConnected={apiConnected} sseConnected={sseConnected} health={health ? { status: health.status } : undefined} providers={providers ?? undefined} lastUpdated={lastUpdated}>
+      <Layout apiConnected={apiConnected} sseConnected={sseConnected} health={health ? { status: health.status } : undefined} providers={providers ?? undefined} readiness={readiness ?? undefined} lastUpdated={lastUpdated}>
         <Routes>
-          <Route path="/" element={<OverviewPage journeys={journeys} events={events} health={health} providers={providers} error={error} />} />
+          <Route path="/" element={<OverviewPage journeys={journeys} events={events} health={health} providers={providers} readiness={readiness} error={error} />} />
           <Route path="/books" element={<BooksListPage journeys={journeys} />} />
           <Route path="/books/:bookId" element={<BookDetailRoute journeys={journeys} events={events} />} />
           <Route path="/segments" element={<SegmentsQuickView journeys={journeys} />} />

@@ -5,10 +5,11 @@ import {
   IconActivity,
   IconBook2,
   IconHeadphones,
+  IconShieldCheck,
   IconUserCheck,
   IconWaveSine,
 } from '@tabler/icons-react';
-import type { BookJourney, HealthResponse, LiveEvent, ProvidersResponse } from '../types';
+import type { BookJourney, HealthResponse, LiveEvent, ProvidersResponse, SmokeVisibilityResponse } from '../types';
 
 const activeStatuses = new Set(['uploaded', 'parsing', 'segmenting', 'voice_mapping', 'synthesizing']);
 
@@ -26,12 +27,14 @@ export function OverviewPage({
   events,
   health,
   providers,
+  readiness,
   error,
 }: {
   journeys: BookJourney[];
   events: LiveEvent[];
   health?: HealthResponse;
   providers?: ProvidersResponse;
+  readiness?: SmokeVisibilityResponse;
   error?: string;
 }) {
   const overview = useMemo(() => {
@@ -73,6 +76,43 @@ export function OverviewPage({
         <MetricCard title="Failed Synth" value={overview.failedSynths} icon={<IconWaveSine size={22} />} tone="red" detail="requires inspection" />
         <MetricCard title="Active Users" value={overview.activeUsers} icon={<IconUserCheck size={22} />} tone="green" detail="have progress" />
       </section>
+
+      {/* Readiness Smoke Visibility */}
+      {readiness && (
+        <div className="card mb-3">
+          <div className="card-header d-flex justify-content-between align-items-center">
+            <h3 className="card-title">Readiness Smoke Checks</h3>
+            <span className={`badge bg-${readyColor(readiness.overall)}-lt`}>
+              <IconShieldCheck size={14} /> Overall: {readiness.overall.replace('_', ' ')}
+            </span>
+          </div>
+          <div className="table-responsive">
+            <table className="table table-vcenter card-table table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>Endpoint</th>
+                  <th>Status</th>
+                  <th>HTTP Code</th>
+                  <th>Latency</th>
+                  <th>Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                {readiness.checks.map((check) => (
+                  <tr key={check.name}>
+                    <td><code className="text-small">{check.path}</code></td>
+                    <td><span className={`badge bg-${checkStatusColor(check.status)}-lt`}>{check.status}</span></td>
+                    <td className="text-secondary">{check.http_code}</td>
+                    <td className="text-secondary">{check.latency_ms.toFixed(2)} ms</td>
+                    <td>{check.error ? <span className="text-danger small">{check.error}</span> : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="card-footer text-secondary xsmall">Last checked: {readiness.timestamp}</div>
+        </div>
+      )}
 
       {/* Quick Book Status */}
       {journeys.length > 0 ? (
@@ -183,4 +223,22 @@ function fmtTime(value?: string) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function readyColor(overall: string) {
+  switch (overall) {
+    case 'all_ok': return 'success';
+    case 'degraded': return 'warning';
+    case 'unhealthy': return 'danger';
+    default: return 'secondary';
+  }
+}
+
+function checkStatusColor(status: string) {
+  switch (status) {
+    case 'ok': return 'success';
+    case 'warning': return 'warning';
+    case 'error': return 'danger';
+    default: return 'secondary';
+  }
 }

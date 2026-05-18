@@ -371,3 +371,260 @@ func TestGetDefault(t *testing.T) {
 		t.Error("Default config has empty storage adapter")
 	}
 }
+
+func TestEnvironmentSpecificDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+	baseConfig := `
+server:
+  host: "localhost"
+  port: 8080
+storage:
+  adapter: "local"
+  local:
+    base_path: "/tmp/test"
+pipeline:
+  worker_pool_size: 2
+`
+
+	tests := []struct {
+		name        string
+		environment string
+		expected    map[string]bool
+	}{
+		{
+			name:        "local defaults",
+			environment: "local",
+			expected: map[string]bool{
+				"saas_auth":      false,
+				"usage_metering": false,
+				"quota_engine":   false,
+				"repository_pub": false,
+				"user_accounts":  false,
+				"billing":        false,
+			},
+		},
+		{
+			name:        "dev defaults - usage_metering on",
+			environment: "dev",
+			expected: map[string]bool{
+				"saas_auth":      false,
+				"usage_metering": true,
+				"quota_engine":   false,
+				"repository_pub": false,
+				"user_accounts":  false,
+				"billing":        false,
+			},
+		},
+		{
+			name:        "staging defaults - auth + metering + quota on",
+			environment: "staging",
+			expected: map[string]bool{
+				"saas_auth":      true,
+				"usage_metering": true,
+				"quota_engine":   true,
+				"repository_pub": false,
+				"user_accounts":  true,
+				"billing":        false,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configPath := filepath.Join(tmpDir, "test_"+tt.environment+".yaml")
+			content := baseConfig + "\nenvironment: \"" + tt.environment + "\"\n"
+			if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+				t.Fatalf("Failed to write config: %v", err)
+			}
+
+			cfg, err := Load(configPath)
+			if err != nil {
+				t.Fatalf("Load() error: %v", err)
+			}
+
+			for flag, expectedVal := range tt.expected {
+				actual, ok := cfg.FeatureFlags[flag]
+				if !ok {
+					t.Errorf("Flag %q missing from FeatureFlags", flag)
+					continue
+				}
+				if actual != expectedVal {
+					t.Errorf("Flag %q: got %v, want %v (environment=%s)", flag, actual, expectedVal, tt.environment)
+				}
+			}
+		})
+	}
+}
+
+func TestYamlOverridesDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.yaml")
+
+	// Local defaults: all off. Override billing=true in YAML.
+	configContent := `
+server:
+  host: "localhost"
+  port: 8080
+storage:
+  adapter: "local"
+  local:
+    base_path: "/tmp/test"
+pipeline:
+  worker_pool_size: 2
+environment: "local"
+feature_flags:
+  billing: true
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	// Default for local environment should apply for saas_auth
+	if !ok(cfg.FeatureFlags, "saas_auth") || cfg.FeatureFlags["saas_auth"] != false {
+		t.Error("Expected saas_auth=false (local default)")
+	}
+	// YAML override should win
+	if cfg.FeatureFlags["billing"] != true {
+		t.Error("Expected billing=true (YAML override of local default)")
+	}
+}
+
+func ok(m map[string]bool, key string) bool {
+	_, exists := m[key]
+	return exists
+}
+
+func TestFeatureFlagEnvOverride(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.yaml")
+
+	configContent := `
+server:
+  host: "localhost"
+  port: 8080
+storage:
+  adapter: "local"
+  local:
+    base_path: "/tmp/test"
+pipeline:
+  worker_pool_size: 2
+environment: "local"
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	// Local default for billing is false; override via env var
+	os.Setenv("TR_FEATURE_BILLING", "true")
+	defer os.Unsetenv("TR_FEATURE_BILLING")
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.FeatureFlags["billing"] != true {
+		t.Errorf("Expected billing=true from TR_FEATURE_BILLING env var, got %v", cfg.FeatureFlags["billing"])
+	}
+	// Other local defaults should be intact
+	if cfg.FeatureFlags["saas_auth"] != false {
+		t.Errorf("Expected saas_auth=false (local default), got %v", cfg.FeatureFlags["saas_auth"])
+	}
+}
+
+func TestTrEnvironmentVarAffectsDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.yaml")
+
+	// Config specifies local, but env var says production → should get prod defaults
+	configContent := `
+server:
+  host: "localhost"
+  port: 8080
+storage:
+  adapter: "local"
+  local:
+    base_path: "/tmp/test"
+pipeline:
+  worker_pool_size: 2
+environment: "local"
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	os.Setenv("TR_ENVIRONMENT", "production")
+	defer os.Unsetenv("TR_ENVIRONMENT")
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	// TR_ENVIRONMENT=production should make env defaults production-based
+	if cfg.Environment != "production" {
+		t.Errorf("Expected environment='production', got '%s'", cfg.Environment)
+	}
+	// Production default for saas_auth is true
+	if cfg.FeatureFlags["saas_auth"] != true {
+		t.Errorf("Expected saas_auth=true (production default), got %v", cfg.FeatureFlags["saas_auth"])
+	}
+	// Usage metering should also be true in production defaults
+	if cfg.FeatureFlags["usage_metering"] != true {
+		t.Errorf("Expected usage_metering=true (production default), got %v", cfg.FeatureFlags["usage_metering"])
+	}
+}
+
+func TestFeatureFlagEnvVarBoolParsing(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.yaml")
+
+	configContent := `
+server:
+  host: "localhost"
+  port: 8080
+storage:
+  adapter: "local"
+  local:
+    base_path: "/tmp/test"
+pipeline:
+  worker_pool_size: 2
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	tests := []struct {
+		val    string
+		expect bool
+	}{
+		{"true", true},
+		{"True", true},
+		{"TRUE", true},
+		{"1", true},
+		{"false", false},
+		{"False", false},
+		{"0", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.val, func(t *testing.T) {
+			os.Setenv("TR_FEATURE_TEST_FLAG", tt.val)
+			defer os.Unsetenv("TR_FEATURE_TEST_FLAG")
+
+			cfg, err := Load(configPath)
+			if err != nil {
+				t.Fatalf("Load() error: %v", err)
+			}
+
+			if cfg.FeatureFlags["test_flag"] != tt.expect {
+				t.Errorf("TR_FEATURE_TEST_FLAG=%s → got %v, want %v", tt.val, cfg.FeatureFlags["test_flag"], tt.expect)
+			}
+		})
+	}
+}

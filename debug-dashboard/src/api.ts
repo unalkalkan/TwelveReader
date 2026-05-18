@@ -6,6 +6,7 @@ import type {
   ProcessingStatus,
   ProvidersResponse,
   Segment,
+  SmokeVisibilityResponse,
   SynthJob,
   AudioArtifactValidation,
   PlaybackEvent,
@@ -98,4 +99,8 @@ export async function getDebugEvents(bookId?: string): Promise<LiveEvent[]> {
     bookId: event.bookId || event.book_id,
     segmentId: event.segmentId || event.segment_id,
   }));
+}
+
+export async function getReadinessSmoke(): Promise<SmokeVisibilityResponse> {
+  return request<SmokeVisibilityResponse>(`${API_BASE}/debug/readiness/smoke`);
 }

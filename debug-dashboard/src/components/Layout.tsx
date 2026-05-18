@@ -8,11 +8,12 @@ import {
   IconPlayerPlay,
   IconRefresh,
   IconServer,
+  IconShieldCheck,
   IconUserCheck,
   IconWaveSine,
 } from '@tabler/icons-react';
 
-import type { ProvidersResponse } from '../types';
+import type { ProvidersResponse, SmokeVisibilityResponse } from '../types';
 
 type LayoutProps = {
   children: ReactNode;
@@ -20,6 +21,7 @@ type LayoutProps = {
   sseConnected?: boolean;
   health?: HealthStatus;
   providers?: ProvidersResponse;
+  readiness?: SmokeVisibilityResponse;
   lastUpdated: string;
 };
 
@@ -55,7 +57,7 @@ function HeadphonesIcon(props: React.SVGProps<SVGSVGElement>) {
   return <IconHeadphones {...props} />;
 }
 
-export function Layout({ children, apiConnected, sseConnected, health, providers, lastUpdated }: LayoutProps) {
+export function Layout({ children, apiConnected, sseConnected, health, providers, readiness, lastUpdated }: LayoutProps) {
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -117,6 +119,11 @@ export function Layout({ children, apiConnected, sseConnected, health, providers
                   <span className="badge bg-secondary-lt">LLM {providers?.llm?.length ?? 0}</span>
                 </>
               )}
+              {readiness && (
+                <span className={`badge bg-${readinessBadgeColor(readiness.overall)}-lt`}>
+                  <IconShieldCheck size={14} /> Readiness {readiness.overall.replace('_', ' ')}
+                </span>
+              )}
               <button className="btn btn-primary btn-sm" onClick={() => window.location.reload()}>
                 <IconRefresh size={15} /> Refresh
               </button>
@@ -139,4 +146,13 @@ function statusColor(status?: string) {
   if (['voice_mapping', 'queued', 'stale', 'warning'].includes(status)) return 'warning';
   if (['error', 'synthesis_error', 'failed', 'danger', 'unhealthy'].includes(status)) return 'danger';
   return 'secondary';
+}
+
+function readinessBadgeColor(overall: string) {
+  switch (overall) {
+    case 'all_ok': return 'success';
+    case 'degraded': return 'warning';
+    case 'unhealthy': return 'danger';
+    default: return 'secondary';
+  }
 }

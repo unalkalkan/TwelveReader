@@ -89,16 +89,10 @@ func main() {
 		return health.StatusHealthy, nil
 	})
 
-	// Initialize feature flags (Milestone 0)
-	featureStore := features.NewStore(map[string]bool{
-		"saas_auth":      false,
-		"usage_metering": false,
-		"quota_engine":   false,
-		"repository_pub": false,
-		"user_accounts":  false,
-		"billing":        false,
-	})
-	log.Printf("Feature flags initialized")
+	// Initialize feature flags from config (Milestone 0)
+	// Config loader applies: environment defaults -> YAML overrides -> env var overrides
+	featureStore := features.NewStore(cfg.FeatureFlags)
+	log.Printf("Feature flags initialized: %+v", cfg.FeatureFlags)
 
 	// Create V1 system handler (Milestone 0)
 	v1System := api.NewV1SystemHandler(
@@ -109,6 +103,15 @@ func main() {
 		cfg.Environment,
 		cfg.Storage.Adapter,
 		cfg.Pipeline.WorkerPoolSize,
+	)
+
+	// Create readiness smoke visibility handler (Milestone 0, Work 0.5)
+	readinessHandler := api.NewReadinessHandler(
+		v1System,
+		healthHandler,
+		featureStore,
+		version,
+		cfg.Environment,
 	)
 
 	// Request ID middleware (Milestone 0): applied to ALL /api/v1 routes via sub-mux
@@ -191,6 +194,7 @@ func main() {
 	})
 	v1Mux.HandleFunc("/api/v1/debug/events", debugHandler.Events)
 	v1Mux.HandleFunc("/api/v1/debug/stream", debugHandler.EventStream)
+	v1Mux.HandleFunc("/api/v1/debug/readiness/smoke", readinessHandler.Smoke)
 	v1Mux.HandleFunc("/api/v1/debug/books/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.HasSuffix(path, "/synth-jobs") {
