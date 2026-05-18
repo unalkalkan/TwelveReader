@@ -185,6 +185,65 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ListSessions handles GET /api/v1/auth/sessions - returns active sessions for current user.
+func (h *AuthHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		WriteMethodNotAllowedError(w, r)
+		return
+	}
+
+	user := GetUserFromContext(r.Context())
+	if user == nil {
+		WriteStructuredError(w, r, ErrCodeUnauthorized, "not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	sessions, err := h.authService.ListUserSessions(r.Context(), user.ID)
+	if err != nil {
+		WriteStructuredError(w, r, ErrCodeInternal, "failed to list sessions", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"sessions": sessions,
+	})
+}
+
+// RevokeSession handles DELETE /api/v1/auth/sessions/{id} - revokes a specific session.
+func (h *AuthHandler) RevokeSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		WriteMethodNotAllowedError(w, r)
+		return
+	}
+
+	user := GetUserFromContext(r.Context())
+	if user == nil {
+		WriteStructuredError(w, r, ErrCodeUnauthorized, "not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	// Extract session ID from path: /api/v1/auth/sessions/{id}
+	sessionID := extractSessionIDFromPath(r.URL.Path)
+	if sessionID == "" {
+		WriteStructuredError(w, r, ErrCodeBadRequest, "session ID is required in path", http.StatusBadRequest)
+		return
+	}
+
+	err := h.authService.RevokeSpecificSession(r.Context(), sessionID, user.ID)
+	if err != nil {
+		WriteStructuredError(w, r, ErrCodeUnauthorized, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "session revoked successfully",
+	})
+}
+
 func trimSpace(s string) string {
 	return strings.TrimSpace(strings.ToLower(s))
 }
@@ -198,4 +257,13 @@ func extractIP(r *http.Request) string {
 	}
 	// Fall back to RemoteAddr
 	return r.RemoteAddr
+}
+
+func extractSessionIDFromPath(path string) string {
+	// Path format: /api/v1/auth/sessions/{id}
+	prefix := "/api/v1/auth/sessions/"
+	if len(path) > len(prefix) && strings.HasPrefix(path, prefix) {
+		return strings.TrimPrefix(path, prefix)
+	}
+	return ""
 }

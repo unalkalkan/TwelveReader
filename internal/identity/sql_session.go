@@ -35,6 +35,22 @@ func (r *sqlSessionRepo) CreateSession(ctx context.Context, s *types.Session) er
 	return nil
 }
 
+func (r *sqlSessionRepo) GetSessionByRefreshTokenID(ctx context.Context, refreshTokenID string) (*types.Session, error) {
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT id, user_id, token_hash, ip_address, user_agent, expires_at, created_at, last_used_at, revoked, refresh_token_id FROM sessions WHERE refresh_token_id = ?",
+		refreshTokenID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get session by refresh token id: %w", err)
+	}
+	defer rows.Close()
+	results, _ := scanSessions(rows)
+	if len(results) == 0 {
+		return nil, fmt.Errorf("session not found for refresh token")
+	}
+	return results[0], nil
+}
+
 func (r *sqlSessionRepo) GetSessionByID(ctx context.Context, id string) (*types.Session, error) {
 	s, err := r.getSession(ctx, "id = ?", id)
 	if err != nil {

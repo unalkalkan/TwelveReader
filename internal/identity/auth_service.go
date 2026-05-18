@@ -295,6 +295,8 @@ func (s *AuthService) VerifyMagicLink(ctx context.Context, rawToken, ipAddress, 
 }
 
 // RefreshSession takes a refresh token and issues new session + refresh tokens.
+// Implements proper lifecycle: revokes the previous session (paired with the consumed refresh token)
+// before creating a new session+refresh pair. This prevents accumulation of stale sessions.
 func (s *AuthService) RefreshSession(ctx context.Context, rawRefreshToken, ipAddress, userAgent string) (*AuthResult, error) {
 	tokenHash := HashToken(rawRefreshToken)
 
@@ -313,6 +315,18 @@ func (s *AuthService) RefreshSession(ctx context.Context, rawRefreshToken, ipAdd
 
 	if user.Status != "active" {
 		return nil, fmt.Errorf("user account is not active")
+	}
+
+	// Revoke the previous session paired with this consumed refresh token.
+	// This ensures that on each refresh, the old session is cleaned up.
+	prevSession, prevErr := s.pool.Sessions.GetSessionByRefreshTokenID(ctx, rt.ID)
+	if prevErr == nil && prevSession != nil {
+		_ = s.pool.Sessions.RevokeSession(ctx, prevSession.ID)
+		s.writeAudit(ctx, user.ID, user.AccountID, types.AuditEventSessionRevoke, "previous_session_revoked_on_refresh", map[string]string{
+			"revoked_session_id": prevSession.ID,
+			"new_refresh_reason": "token_rotation",
+		})
+		log.Printf("[IDENTITY] Revoked previous session %s during refresh for user %s", prevSession.ID, user.ID)
 	}
 
 	// Create new session
@@ -352,10 +366,11 @@ func (s *AuthService) RefreshSession(ctx context.Context, rawRefreshToken, ipAdd
 	}
 
 	s.writeAudit(ctx, user.ID, user.AccountID, types.AuditEventTokenRefresh, "session_refreshed", map[string]string{
-		"new_session_id": session.ID,
+		"new_session_id":   session.ID,
+		"revoked_session":  rt.ID, // the refresh token whose paired session was revoked
 	})
 
-	log.Printf("[IDENTITY] User %s refreshed session", user.ID)
+	log.Printf("[IDENTITY] User %s refreshed session (old RT %s consumed, new session %s)", user.ID, rt.ID, session.ID)
 
 	return &AuthResult{
 		User:         user,
@@ -459,21 +474,22 @@ func (s *AuthService) RevokeAllUserSessions(ctx context.Context, userID string) 
 }
 
 // GetSessionByTokenHash looks up a session by its token hash.
+// Returns specific error types: ErrSessionExpired (session expired), ErrSessionRevoked (session revoked).
 func (s *AuthService) GetSessionByTokenHash(ctx context.Context, rawSessionToken string) (*types.Session, error) {
 	tokenHash := HashToken(rawSessionToken)
 	session, err := s.pool.Sessions.GetSessionByTokenHash(ctx, tokenHash)
 	if err != nil {
-		return nil, err
+		return nil, newSessionError("invalid", "invalid session token")
 	}
 
 	// Check revoked
 	if session.Revoked {
-		return nil, fmt.Errorf("session revoked")
+		return nil, ErrSessionRevoked
 	}
 
 	// Check expiry
 	if time.Now().UTC().After(session.ExpiresAt) {
-		return nil, fmt.Errorf("session expired")
+		return nil, ErrSessionExpired
 	}
 
 	// Update last used
@@ -483,6 +499,79 @@ func (s *AuthService) GetSessionByTokenHash(ctx context.Context, rawSessionToken
 	}
 
 	return session, nil
+}
+
+// ListUserSessions returns all active sessions for the given user.
+func (s *AuthService) ListUserSessions(ctx context.Context, userID string) ([]*types.Session, error) {
+	return s.pool.Sessions.ListActiveSessionsByUser(ctx, userID)
+}
+
+// RevokeSpecificSession revokes a specific session by ID for the given user.
+// Only revokes if the session belongs to the user (prevents cross-user revocation).
+func (s *AuthService) RevokeSpecificSession(ctx context.Context, sessionID, userID string) error {
+	session, err := s.pool.Sessions.GetSessionByID(ctx, sessionID)
+	if err != nil {
+		return newSessionError("invalid", "session not found")
+	}
+
+	// Ensure the session belongs to this user
+	if session.UserID != userID {
+		return newSessionError("invalid", "session does not belong to this user")
+	}
+
+	if session.Revoked {
+		// Already revoked — not an error, just a no-op
+		return nil
+	}
+
+	if err := s.pool.Sessions.RevokeSession(ctx, sessionID); err != nil {
+		return fmt.Errorf("revoke session: %w", err)
+	}
+
+	// Also revoke paired refresh token if present
+	if session.RefreshTokenID != "" {
+		_ = s.pool.RefreshTokens.RevokeRefreshToken(ctx, session.RefreshTokenID)
+	}
+
+	s.writeAudit(ctx, userID, "", types.AuditEventSessionRevoke, "specific_session_revoked", map[string]string{
+		"session_id":       sessionID,
+		"refresh_token_id": session.RefreshTokenID,
+	})
+
+	log.Printf("[IDENTITY] User %s revoked specific session %s", userID, sessionID)
+	return nil
+}
+
+// CleanupExpiredSessionsAndTokens removes expired and revoked sessions, refresh tokens, and magic links.
+// Returns counts of deleted records for each type. Call this periodically (e.g., on startup or via cron).
+type CleanupResult struct {
+	SessionsDeleted     int64
+	RefreshTokensDeleted int64
+	MagicLinksDeleted   int64
+}
+
+func (s *AuthService) CleanupExpiredSessionsAndTokens(ctx context.Context) (*CleanupResult, error) {
+	result := &CleanupResult{}
+
+	var err error
+	result.SessionsDeleted, err = s.pool.Sessions.DeleteExpiredSessions(ctx)
+	if err != nil {
+		return result, fmt.Errorf("cleanup sessions: %w", err)
+	}
+
+	result.RefreshTokensDeleted, err = s.pool.RefreshTokens.DeleteExpiredTokens(ctx)
+	if err != nil {
+		return result, fmt.Errorf("cleanup refresh tokens: %w", err)
+	}
+
+	result.MagicLinksDeleted, err = s.pool.MagicLinks.DeleteExpiredLinks(ctx)
+	if err != nil {
+		return result, fmt.Errorf("cleanup magic links: %w", err)
+	}
+
+	log.Printf("[IDENTITY] Cleanup complete: sessions=%d, refresh_tokens=%d, magic_links=%d",
+		result.SessionsDeleted, result.RefreshTokensDeleted, result.MagicLinksDeleted)
+	return result, nil
 }
 
 // GetUserByID returns a user by ID.

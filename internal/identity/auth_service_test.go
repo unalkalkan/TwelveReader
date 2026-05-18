@@ -316,7 +316,7 @@ func TestGetSessionByTokenHash_ExpiredSession(t *testing.T) {
 
 func TestAuthService_FullFlow(t *testing.T) {
 	/*
-		Request -> Verify -> Me (session valid) -> Refresh -> Logout -> Session invalid
+		Request -> Verify -> Me (session valid) -> Refresh -> Old session revoked -> New session valid -> Logout
 	*/
 	svc, _ := newTestAuthService(t)
 	ctx := context.Background()
@@ -335,7 +335,6 @@ func TestAuthService_FullFlow(t *testing.T) {
 
 	sessionToken1 := authResult.SessionToken
 	refreshToken1 := authResult.RefreshToken
-	sessionID := authResult.Session.ID
 
 	// 3. Session is valid
 	session, err := svc.GetSessionByTokenHash(ctx, sessionToken1)
@@ -356,20 +355,29 @@ func TestAuthService_FullFlow(t *testing.T) {
 		t.Fatal("session token should rotate on refresh")
 	}
 
-	// 5. Old session token is still valid (we didn't revoke it, just issued a new one)
+	// 5. Old session token is REVOKED after refresh (proper lifecycle)
 	_, err = svc.GetSessionByTokenHash(ctx, sessionToken1)
-	if err != nil {
-		t.Fatalf("old session should still be valid: %v", err)
+	if err == nil {
+		t.Fatal("old session should be revoked after refresh")
 	}
 
-	// 6. Logout revokes everything
-	err = svc.Logout(ctx, sessionID)
+	// 6. New session token is valid
+	newSession, err := svc.GetSessionByTokenHash(ctx, sessionToken2)
+	if err != nil {
+		t.Fatalf("new session should be valid: %v", err)
+	}
+	if newSession.UserID != authResult.User.ID {
+		t.Fatal("new session user mismatch")
+	}
+
+	// 7. Logout on the new session
+	err = svc.Logout(ctx, newAuth.Session.ID)
 	if err != nil {
 		t.Fatalf("Logout: %v", err)
 	}
 
-	// 7. Session no longer valid
-	_, err = svc.GetSessionByTokenHash(ctx, sessionToken1)
+	// 8. New session no longer valid after logout
+	_, err = svc.GetSessionByTokenHash(ctx, sessionToken2)
 	if err == nil {
 		t.Fatal("session should be invalid after logout")
 	}

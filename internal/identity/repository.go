@@ -41,6 +41,7 @@ type SessionRepository interface {
 	CreateSession(ctx context.Context, session *types.Session) error
 	GetSessionByID(ctx context.Context, id string) (*types.Session, error)
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (*types.Session, error)
+	GetSessionByRefreshTokenID(ctx context.Context, refreshTokenID string) (*types.Session, error)
 	ListActiveSessionsByUser(ctx context.Context, userID string) ([]*types.Session, error)
 	RevokeSession(ctx context.Context, id string) error
 	DeleteExpiredSessions(ctx context.Context) (int64, error)

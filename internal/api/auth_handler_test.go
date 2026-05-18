@@ -361,9 +361,11 @@ func TestFullAuthFlow_HTTP(t *testing.T) {
 		1. POST /auth/request -> magic link sent
 		2. GET /auth/verify?token=X -> session + refresh tokens
 		3. GET /auth/me (with Bearer token) -> user info
-		4. POST /auth/refresh -> new tokens
-		5. POST /auth/logout -> logged out
-		6. GET /auth/me (old token) -> 401
+		4. POST /auth/refresh -> new tokens, old session revoked
+		5. Old session invalid after refresh
+		6. New session valid
+		7. POST /auth/logout (new session) -> logged out
+		8. New session invalid after logout
 	*/
 	handler, svc, _ := newTestAuthHandler(t)
 
@@ -437,31 +439,40 @@ func TestFullAuthFlow_HTTP(t *testing.T) {
 		t.Fatal("step 4: session token should change on refresh")
 	}
 
-	// Step 5: Logout
-	req5 := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+	// Step 5: Old session is revoked after refresh (proper lifecycle)
+	req5 := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
 	req5.Header.Set("Authorization", "Bearer "+sessionToken)
 	w5 := httptest.NewRecorder()
-	logoutHandler.ServeHTTP(w5, req5)
-	if w5.Code != http.StatusOK {
-		t.Fatalf("step 5: status = %d", w5.Code)
+	meHandler.ServeHTTP(w5, req5)
+	if w5.Code != http.StatusUnauthorized {
+		t.Fatalf("step 5: status = %d, want 401 (old session revoked by refresh)", w5.Code)
 	}
 
-	// Step 6: Try to access /me with old (logged-out) token -> should fail
+	// Step 6: New session is valid
 	req6 := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
-	req6.Header.Set("Authorization", "Bearer "+sessionToken)
+	req6.Header.Set("Authorization", "Bearer "+newSessionToken)
 	w6 := httptest.NewRecorder()
 	meHandler.ServeHTTP(w6, req6)
-	if w6.Code != http.StatusUnauthorized {
-		t.Fatalf("step 6: status = %d, want 401", w6.Code)
+	if w6.Code != http.StatusOK {
+		t.Fatalf("step 6: status = %d, want 200 (new session should be valid)", w6.Code)
 	}
 
-	// Step 7: New session token (from refresh) is still valid - logout only revokes the specific session passed
-	req7 := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	// Step 7: Logout using new session token
+	req7 := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
 	req7.Header.Set("Authorization", "Bearer "+newSessionToken)
 	w7 := httptest.NewRecorder()
-	meHandler.ServeHTTP(w7, req7)
+	logoutHandler.ServeHTTP(w7, req7)
 	if w7.Code != http.StatusOK {
-		t.Fatalf("step 7: status = %d, want 200 (refreshed session should still be valid)", w7.Code)
+		t.Fatalf("step 7: status = %d, want 200", w7.Code)
+	}
+
+	// Step 8: New session is invalid after logout
+	req8 := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	req8.Header.Set("Authorization", "Bearer "+newSessionToken)
+	w8 := httptest.NewRecorder()
+	meHandler.ServeHTTP(w8, req8)
+	if w8.Code != http.StatusUnauthorized {
+		t.Fatalf("step 8: status = %d, want 401 (session revoked by logout)", w8.Code)
 	}
 }
 

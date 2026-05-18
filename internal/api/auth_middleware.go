@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -51,6 +52,7 @@ func SessionAuthMiddleware(authService *identity.AuthService) func(http.Handler)
 }
 
 // RequireAuth is a middleware that enforces authentication. Returns 401 if no valid session.
+// Distinguishes between expired, revoked, and invalid session errors for the client.
 func RequireAuth(authService *identity.AuthService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +64,16 @@ func RequireAuth(authService *identity.AuthService) func(http.Handler) http.Hand
 
 			session, err := authService.GetSessionByTokenHash(r.Context(), token)
 			if err != nil {
-				WriteStructuredError(w, r, ErrCodeUnauthorized, "invalid or expired session", http.StatusUnauthorized)
+				// Return specific error code based on session state
+				if errors.Is(err, identity.ErrSessionExpired) {
+					WriteStructuredError(w, r, ErrCodeUnauthorized, "session expired", http.StatusUnauthorized)
+					return
+				}
+				if errors.Is(err, identity.ErrSessionRevoked) {
+					WriteStructuredError(w, r, ErrCodeUnauthorized, "session revoked", http.StatusUnauthorized)
+					return
+				}
+				WriteStructuredError(w, r, ErrCodeUnauthorized, "invalid session token", http.StatusUnauthorized)
 				return
 			}
 

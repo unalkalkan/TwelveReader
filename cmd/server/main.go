@@ -187,6 +187,30 @@ func main() {
 	v1Mux.Handle("/api/v1/auth/logout", wrapAuth(authHandler.Logout))
 	v1Mux.Handle("/api/v1/auth/me", wrapAuth(authHandler.Me))
 
+	// Milestone 1: Session management endpoints (list active sessions, revoke specific session)
+	v1Mux.Handle("/api/v1/auth/sessions", wrapAuth(authHandler.ListSessions))
+	// Sessions path with ID: /api/v1/auth/sessions/{id}
+	v1Mux.HandleFunc("/api/v1/auth/sessions/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			authHandler.RevokeSession(w, r)
+			return
+		}
+		api.WriteMethodNotAllowedError(w, r)
+	})
+
+	// Run startup cleanup of expired sessions/tokens/links (fire and forget)
+	go func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		result, err := authService.CleanupExpiredSessionsAndTokens(cleanupCtx)
+		if err != nil {
+			log.Printf("Startup cleanup error: %v", err)
+		} else if result.SessionsDeleted > 0 || result.RefreshTokensDeleted > 0 || result.MagicLinksDeleted > 0 {
+			log.Printf("Startup cleanup removed stale data (sessions=%d, refresh_tokens=%d, magic_links=%d)",
+				result.SessionsDeleted, result.RefreshTokensDeleted, result.MagicLinksDeleted)
+		}
+	}()
+
 	// API endpoints (stubs for now)
 	v1Mux.HandleFunc("/api/v1/info", infoHandler(version, cfg))
 	v1Mux.HandleFunc("/api/v1/providers", providersHandler(providerRegistry))
