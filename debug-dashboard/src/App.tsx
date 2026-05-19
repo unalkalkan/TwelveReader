@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BrowserRouter, Routes, Route, useParams } from 'react-router-dom';
+import { HashRouter, Routes, Route, useParams, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { OverviewPage } from './pages/OverviewPage';
 import { BooksListPage } from './pages/BooksListPage';
@@ -7,11 +7,57 @@ import { BookDetailPage } from './pages/BookDetailPage';
 import { SynthJobsPage } from './pages/SynthJobsPage';
 import { UserActivityPage } from './pages/UserActivityPage';
 import { AudioArtifactsPage } from './pages/AudioArtifactsPage';
-import { getAudioValidation, getBookStatus, getBooks, getDebugEvents, getHealth, getPersonas, getPipelineStatus, getPlaybackEvents, getProviders, getReadinessSmoke, getSegments, getSynthJobs, getUserProgress } from './api';
+import { LoginPage } from './pages/LoginPage';
+import { CallbackPage } from './pages/CallbackPage';
+import { ForbiddenPage } from './pages/ForbiddenPage';
+import {
+  fetchBookStream,
+  getAudioValidation,
+  getBookStatus,
+  getBooks,
+  getDebugEvents,
+  getHealth,
+  getPersonas,
+  getPipelineStatus,
+  getPlaybackEvents,
+  getProviders,
+  getReadinessSmoke,
+  getSegments,
+  getSynthJobs,
+  getUserProgress,
+} from './api';
 import { deriveJourney } from './state';
 import type { BookJourney, HealthResponse, LiveEvent, ProvidersResponse, SmokeVisibilityResponse } from './types';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
+/* ── Auth gate wrapper ── */
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { sessionToken, isAdmin, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="page">
+        <div className="container-center container py-4" style={{ textAlign: 'center', marginTop: '4rem' }}>
+          <div className="text-secondary">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!sessionToken) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/forbidden" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+/* ── Dashboard data hook (with auth token) ── */
 function useLiveDashboard() {
+  const { sessionToken } = useAuth();
   const [journeys, setJourneys] = useState<BookJourney[]>([]);
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [health, setHealth] = useState<HealthResponse | undefined>();
@@ -22,13 +68,21 @@ function useLiveDashboard() {
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toISOString());
   const [error, setError] = useState<string | undefined>();
 
-  // SSE connection for live event push
+  // SSE connection for live event push (only when authenticated)
   useEffect(() => {
+    if (!sessionToken) return;
+
     let es: EventSource | null = null;
     try {
+      // Note: EventSource does not support custom Authorization headers.
+      // The nginx proxy forwards the token via query param or we fall back to polling.
+      // For now, attempt SSE and gracefully degrade on failure.
       es = new EventSource(`${window.location.origin}/api/v1/debug/stream`);
       es.onopen = () => setSseConnected(true);
-      es.onerror = () => setSseConnected(false);
+      es.onerror = () => {
+        setSseConnected(false);
+        // SSE fails without auth headers — fall back to REST polling (which does send tokens)
+      };
       es.addEventListener('debug-state', (e) => {
         try {
           const data = JSON.parse(e.data) as LiveEvent[];
@@ -39,7 +93,7 @@ function useLiveDashboard() {
     } catch { /* SSE unavailable — falls back to polling */ }
 
     return () => { es?.close(); };
-  }, []);
+  }, [sessionToken]);
 
   // REST polling for journeys (complex multi-endpoint aggregation)
   useEffect(() => {
@@ -49,9 +103,9 @@ function useLiveDashboard() {
       try {
         const [healthResult, providersResult, books, readinessResult] = await Promise.all([
           getHealth().catch((err) => { throw new Error(`health: ${err.message}`); }),
-          getProviders().catch(() => undefined),
-          getBooks(),
-          getReadinessSmoke().catch(() => undefined),
+          getProviders(sessionToken).catch(() => undefined),
+          getBooks(sessionToken),
+          getReadinessSmoke(sessionToken).catch(() => undefined),
         ]);
 
         setApiConnected(true);
@@ -65,7 +119,7 @@ function useLiveDashboard() {
           setHealth(healthResult);
           setProviders(providersResult);
           setReadiness(readinessResult);
-          const apiEvents = await getDebugEvents().catch(() => []);
+          const apiEvents = await getDebugEvents(undefined, sessionToken).catch(() => []);
           setEvents(apiEvents);
           setLastUpdated(new Date().toISOString());
           setError(undefined);
@@ -75,21 +129,18 @@ function useLiveDashboard() {
         const loadedJourneys = await Promise.all(
           selectedBooks.map(async (book) => {
             const [status, pipeline, personas, synthJobs, audioValidations, playbackEvents, userProgress] = await Promise.all([
-              getBookStatus(book.id).catch(() => undefined),
-              getPipelineStatus(book.id).catch(() => undefined),
-              getPersonas(book.id).catch(() => undefined),
-              getSynthJobs(book.id).catch(() => []),
-              getAudioValidation(book.id).catch(() => []),
-              getPlaybackEvents(book.id).catch(() => []),
-              getUserProgress(book.id).catch(() => undefined),
+              getBookStatus(book.id, sessionToken).catch(() => undefined),
+              getPipelineStatus(book.id, sessionToken).catch(() => undefined),
+              getPersonas(book.id, sessionToken).catch(() => undefined),
+              getSynthJobs(book.id, sessionToken).catch(() => []),
+              getAudioValidation(book.id, sessionToken).catch(() => []),
+              getPlaybackEvents(book.id, sessionToken).catch(() => []),
+              getUserProgress(book.id, sessionToken).catch(() => undefined),
             ]);
 
             const [segments, streamSegments] = await Promise.all([
-              getSegments(book.id).catch(() => []),
-              fetch(`${(import.meta.env.VITE_TWELVEREADER_API_URL || window.location.origin)}/api/v1/books/${book.id}/stream`)
-                .then((r) => { if (!r.ok) throw new Error('stream'); return r.text(); })
-                .then((t) => t.split('\n').filter(Boolean).map((l) => JSON.parse(l)))
-                .catch(() => []),
+              getSegments(book.id, sessionToken).catch(() => []),
+              fetchBookStream(book.id, sessionToken).catch(() => []),
             ]);
 
             const mergedSegments = streamSegments.length ? streamSegments : segments;
@@ -103,7 +154,7 @@ function useLiveDashboard() {
         setProviders(providersResult);
         setReadiness(readinessResult);
 
-        const apiEvents = await getDebugEvents().catch(() => []);
+        const apiEvents = await getDebugEvents(undefined, sessionToken).catch(() => []);
         setEvents(apiEvents);
         setLastUpdated(new Date().toISOString());
         setError(undefined);
@@ -120,11 +171,12 @@ function useLiveDashboard() {
     load();
     const id = window.setInterval(load, 5000);
     return () => { cancelled = true; window.clearInterval(id); };
-  }, []);
+  }, [sessionToken]); // Reload when session changes
 
   return { journeys, events, health, providers, readiness, apiConnected, sseConnected, lastUpdated, error };
 }
 
+/* ── Book detail route ── */
 function BookDetailRoute({ journeys, events }: { journeys: BookJourney[]; events: LiveEvent[] }) {
   const { bookId } = useParams<{ bookId: string }>();
   const journey = useMemo(() => journeys.find((j) => j.book.id === bookId) || journeys[0], [journeys, bookId]);
@@ -137,27 +189,7 @@ function BookDetailRoute({ journeys, events }: { journeys: BookJourney[]; events
   return <BookDetailPage journey={journey} events={events} />;
 }
 
-export function App() {
-  const { journeys, events, health, providers, readiness, apiConnected, sseConnected, lastUpdated, error } = useLiveDashboard();
-
-  return (
-    <BrowserRouter>
-      <Layout apiConnected={apiConnected} sseConnected={sseConnected} health={health ? { status: health.status } : undefined} providers={providers ?? undefined} readiness={readiness ?? undefined} lastUpdated={lastUpdated}>
-        <Routes>
-          <Route path="/" element={<OverviewPage journeys={journeys} events={events} health={health} providers={providers} readiness={readiness} error={error} />} />
-          <Route path="/books" element={<BooksListPage journeys={journeys} />} />
-          <Route path="/books/:bookId" element={<BookDetailRoute journeys={journeys} events={events} />} />
-          <Route path="/segments" element={<SegmentsQuickView journeys={journeys} />} />
-          <Route path="/synth-jobs" element={<SynthJobsPage journeys={journeys} />} />
-          <Route path="/user-activity" element={<UserActivityPage journeys={journeys} events={events} />} />
-          <Route path="/audio-artifacts" element={<AudioArtifactsPage journeys={journeys} />} />
-        </Routes>
-      </Layout>
-    </BrowserRouter>
-  );
-}
-
-/* Segments quick view page - aggregates segments across all books */
+/* ── Segments quick view ── */
 function SegmentsQuickView({ journeys }: { journeys: BookJourney[] }) {
   const [query, setQuery] = useState('');
 
@@ -226,5 +258,59 @@ function SegmentsQuickView({ journeys }: { journeys: BookJourney[] }) {
         </div>
       )}
     </>
+  );
+}
+
+/* ── Dashboard content (authenticated + admin only) ── */
+function DashboardContent() {
+  const { journeys, events, health, providers, readiness, apiConnected, sseConnected, lastUpdated, error } = useLiveDashboard();
+  const { user, logout } = useAuth();
+
+  return (
+    <Layout
+      apiConnected={apiConnected}
+      sseConnected={sseConnected}
+      health={health ? { status: health.status } : undefined}
+      providers={providers ?? undefined}
+      readiness={readiness ?? undefined}
+      lastUpdated={lastUpdated}
+      user={user ?? undefined}
+      onLogout={logout}
+    >
+      <Routes>
+        <Route path="/" element={<OverviewPage journeys={journeys} events={events} health={health} providers={providers} readiness={readiness} error={error} />} />
+        <Route path="/books" element={<BooksListPage journeys={journeys} />} />
+        <Route path="/books/:bookId" element={<BookDetailRoute journeys={journeys} events={events} />} />
+        <Route path="/segments" element={<SegmentsQuickView journeys={journeys} />} />
+        <Route path="/synth-jobs" element={<SynthJobsPage journeys={journeys} />} />
+        <Route path="/user-activity" element={<UserActivityPage journeys={journeys} events={events} />} />
+        <Route path="/audio-artifacts" element={<AudioArtifactsPage journeys={journeys} />} />
+      </Routes>
+    </Layout>
+  );
+}
+
+/* ── App root ── */
+export function App() {
+  return (
+    <AuthProvider>
+      <HashRouter>
+        <Routes>
+          {/* Public routes (no auth required) */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/callback" element={<CallbackPage />} />
+
+          {/* Forbidden page (authenticated but not admin) */}
+          <Route path="/forbidden" element={<ForbiddenPage />} />
+
+          {/* Protected dashboard routes */}
+          <Route path="/*" element={
+            <AuthGate>
+              <DashboardContent />
+            </AuthGate>
+          } />
+        </Routes>
+      </HashRouter>
+    </AuthProvider>
   );
 }

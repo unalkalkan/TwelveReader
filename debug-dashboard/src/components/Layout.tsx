@@ -5,6 +5,7 @@ import {
   IconBook2,
   IconDatabase,
   IconHeadphones,
+  IconLogout,
   IconPlayerPlay,
   IconRefresh,
   IconServer,
@@ -23,12 +24,15 @@ type LayoutProps = {
   providers?: ProvidersResponse;
   readiness?: SmokeVisibilityResponse;
   lastUpdated: string;
+  user?: AuthUser;
+  onLogout?: () => void;
 };
 
 interface HealthStatus { status: string }
+interface AuthUser { id: string; email: string; name?: string; role_name: string }
 
 function fmtTime(value?: string) {
-  if (!value) return '—';
+  if (!value) return '\u2014';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -57,9 +61,16 @@ function HeadphonesIcon(props: React.SVGProps<SVGSVGElement>) {
   return <IconHeadphones {...props} />;
 }
 
-export function Layout({ children, apiConnected, sseConnected, health, providers, readiness, lastUpdated }: LayoutProps) {
+export function Layout({ children, apiConnected, sseConnected, health, providers, readiness, lastUpdated, user, onLogout }: LayoutProps) {
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // With HashRouter, pathname is relative to the hash root (e.g., "/" not "/#/")
+  function isActive(to: string): boolean {
+    const path = location.pathname || '/';
+    if (to === '/') return path === '/' || path === '';
+    return path === to || path.startsWith(to + '/');
+  }
 
   return (
     <div className="page debug-shell">
@@ -78,9 +89,9 @@ export function Layout({ children, apiConnected, sseConnected, health, providers
               <div className="nav-section-label">{section.label}</div>
               <div className="navbar-nav">
                 {section.items.map((item) => {
-                  const isActive = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to));
+                  const active = isActive(item.to);
                   return (
-                    <Link key={item.to} to={item.to} className={`nav-link ${isActive ? 'active' : ''}`}>
+                    <Link key={item.to} to={item.to} className={`nav-link ${active ? 'active' : ''}`}>
                       <span className="nav-link-icon d-md-none d-lg-inline-block">
                         <item.icon size={17} />
                       </span>
@@ -93,6 +104,21 @@ export function Layout({ children, apiConnected, sseConnected, health, providers
           ))}
 
           <div className="mt-auto p-3 sidebar-status">
+            {/* User info */}
+            {user && (
+              <div className="mb-2 px-1">
+                <div className="small fw-semibold text-truncate" title={user.email}>
+                  {user.name || user.email}
+                </div>
+                <div className="text-secondary xsmall">{user.role_name}</div>
+                {onLogout && (
+                  <button className="btn btn-link btn-sm text-secondary p-0 mt-1" onClick={onLogout} title="Sign out">
+                    <IconLogout size={12} className="me-1" /> Sign out
+                  </button>
+                )}
+              </div>
+            )}
+
             <span className={`status status-dot ${apiConnected ? 'status-green' : 'status-red'}`} />
             <div>
               <div className="small fw-semibold">{apiConnected ? 'API connected' : 'API disconnected'}</div>
@@ -108,6 +134,11 @@ export function Layout({ children, apiConnected, sseConnected, health, providers
           <div className="container-xl">
             <div className="text-secondary small d-none d-xl-inline">Live State Inspector</div>
             <div className="ms-auto d-flex align-items-center gap-2 flex-wrap">
+              {user && (
+                <span className="badge bg-blue-lt" title={user.email}>
+                  {user.name || user.email} ({user.role_name})
+                </span>
+              )}
               {health && (
                 <span className={`badge bg-${statusColor(health.status)}-lt`}>
                   <IconServer size={14} /> API {health.status}
