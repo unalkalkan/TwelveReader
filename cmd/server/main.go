@@ -209,6 +209,10 @@ func main() {
 	// Request ID middleware (Milestone 0): applied to ALL /api/v1 routes via sub-mux
 	reqCtx := &api.RequestContext{}
 
+	// CORS middleware: allow cross-origin access for /api/v1 endpoints.
+	// Required for custom server validation from arbitrary client origins.
+	corsMiddleware := api.NewCORS()
+
 	// Set up HTTP server and routes
 	mux := http.NewServeMux()
 
@@ -347,9 +351,9 @@ func main() {
 		}
 	}))
 
-	// Mount /api/v1 sub-mux behind request ID + access log middleware
+	// Mount /api/v1 sub-mux behind request ID + access log + CORS middleware
 	// Trailing slash ensures prefix matching for all /api/v1/... routes
-	mux.Handle("/api/v1/", api.AccessLogMiddleware(reqCtx.Middleware(v1Mux)))
+	mux.Handle("/api/v1/", corsMiddleware.Middleware(api.AccessLogMiddleware(reqCtx.Middleware(v1Mux))))
 
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)

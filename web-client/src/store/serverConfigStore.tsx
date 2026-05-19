@@ -68,18 +68,11 @@ export function ServerConfigProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const validateServer = useCallback(async (): Promise<Record<string, unknown>> => {
-    const infoUrl = `${serverUrl}/api/v1/server-info`;
-    const response = await fetch(infoUrl, { method: 'GET' });
-
-    if (!response.ok) {
-      throw new Error(
-        `Server validation failed: HTTP ${response.status} from ${infoUrl}`,
-      );
-    }
-
-    const data = await response.json();
+    // Use client.validateServerUrl which validates response via V1ServerInfoSchema
+    const { validateServerUrl } = await import('../api/client');
+    const info = await validateServerUrl(serverUrl);
     setValidated(true);
-    return data;
+    return info as Record<string, unknown>;
   }, [serverUrl]);
 
   const resetServerUrl = useCallback(() => {
