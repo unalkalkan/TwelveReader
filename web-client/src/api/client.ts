@@ -11,6 +11,7 @@ import {
   ProvidersSchema,
   PersonaDiscoverySchema,
   PipelineStatusSchema,
+  UserProfileResponseSchema,
   type BookMetadata,
   type ProcessingStatus,
   type Segment,
@@ -23,6 +24,7 @@ import {
   type Providers,
   type PersonaDiscovery,
   type PipelineStatus,
+  type UserProfileResponse,
 } from '../types/api';
 
 /**
@@ -524,4 +526,14 @@ export function uploadBookWithProgress(
       })
       .catch(reject);
   });
+}
+
+// ── User Profile (Milestone 2) ────────────────────────────────────────
+
+export async function getUserProfile(): Promise<UserProfileResponse> {
+  return apiRequest<UserProfileResponse>(
+    `${resolveApiBase()}/user/profile`,
+    {},
+    UserProfileResponseSchema,
+  );
 }

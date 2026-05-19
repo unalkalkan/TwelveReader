@@ -232,3 +232,35 @@ export const AuthMeResponseSchema = z.object({
   role_name: z.string().optional(),
 });
 export type AuthMeResponse = z.infer<typeof AuthMeResponseSchema>;
+
+// ── Usage Summary (Milestone 2/3) ──────────────────────────────────────
+export const UsageSummarySchema = z.object({
+  books_uploaded: z.number(),
+  tts_minutes: z.number(),
+  storage_bytes: z.number(),
+  total_segments: z.number(),
+});
+export type UsageSummary = z.infer<typeof UsageSummarySchema>;
+
+// ── Quota Info (Milestone 2/3) ─────────────────────────────────────────
+export const QuotaInfoSchema = z.object({
+  plan: z.string(),
+  tts_minutes_limit: z.number(),     // -1 means unlimited/not set
+  tts_minutes_used: z.number(),
+  storage_gb_limit: z.number(),      // -1 means unlimited/not set
+  storage_gb_used: z.number(),
+  books_limit: z.number(),           // -1 means unlimited/not set
+  books_used: z.number(),
+});
+export type QuotaInfo = z.infer<typeof QuotaInfoSchema>;
+
+// ── User Profile Response (Milestone 2) ────────────────────────────────
+export const UserProfileResponseSchema = z.object({
+  user: AuthUserSchema.extend({
+    role_name: z.string().optional(),
+  }),
+  usage: UsageSummarySchema,
+  quota: QuotaInfoSchema,
+  metering_active: z.boolean(),
+});
+export type UserProfileResponse = z.infer<typeof UserProfileResponseSchema>;

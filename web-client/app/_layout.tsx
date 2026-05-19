@@ -133,6 +133,15 @@ function AppContent() {
         />
         {/* Generic modal */}
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+        {/* User profile (Milestone 2) */}
+        <Stack.Screen
+          name="profile"
+          options={{
+            headerShown: false,
+            presentation: 'fullScreenModal',
+            animation: 'slide_from_bottom',
+          }}
+        />
       </Stack>
     </ThemeProvider>
   );

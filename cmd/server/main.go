@@ -241,6 +241,10 @@ func main() {
 	v1Mux.Handle("/api/v1/auth/logout", wrapAuth(authHandler.Logout))
 	v1Mux.Handle("/api/v1/auth/me", wrapAuth(authHandler.Me))
 
+	// Milestone 2: User profile endpoint (requires auth)
+	userHandler := api.NewUserHandler(authService, identityPool)
+	v1Mux.Handle("/api/v1/user/profile", wrapAuth(userHandler.Profile))
+
 	// Milestone 1: Session management endpoints (list active sessions, revoke specific session)
 	v1Mux.Handle("/api/v1/auth/sessions", wrapAuth(authHandler.ListSessions))
 	// Sessions path with ID: /api/v1/auth/sessions/{id} - requires auth for session revocation

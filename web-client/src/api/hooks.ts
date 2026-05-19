@@ -17,6 +17,7 @@ import {
   getPipelineStatus,
   getPersonas,
   deleteBook,
+  getUserProfile,
 } from './client';
 import type { FileSource } from './client';
 import type { VoiceMap } from '../types/api';
@@ -303,5 +304,15 @@ export function useBooksWithFastPolling() {
       );
       return hasActiveProcessing ? 3_000 : 30_000;
     },
+  });
+}
+
+// ── User Profile (Milestone 2) ───────────────────────────────────────────
+
+export function useUserProfile() {
+  return useQuery({
+    queryKey: ['userProfile'],
+    queryFn: getUserProfile,
+    staleTime: 60_000,
   });
 }

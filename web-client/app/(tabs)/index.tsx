@@ -147,7 +147,7 @@ export default function HomeScreen() {
             <MaterialIcons name="search" size={20} color={colors.text} />
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => router.push('/modal')}
+            onPress={() => router.push('/profile')}
             style={[styles.iconBtn, { backgroundColor: colors.card }]}
           >
             <MaterialIcons name="person" size={20} color={colors.text} />
