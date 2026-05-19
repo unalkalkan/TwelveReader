@@ -131,12 +131,26 @@ export const VoicePreviewResponseSchema = z.object({
 });
 export type VoicePreviewResponse = z.infer<typeof VoicePreviewResponseSchema>;
 
-// ── Server Info ────────────────────────────────────────────────────────
+// ── Server Info (legacy /api/v1/info) ────────────────────────────────
 export const ServerInfoSchema = z.object({
   version: z.string(),
   storage_adapter: z.string(),
 });
 export type ServerInfo = z.infer<typeof ServerInfoSchema>;
+
+// ── V1 Server Info (GET /api/v1/server-info) ─────────────────────────
+export const V1ServerInfoSchema = z.object({
+  version: z.string(),
+  environment: z.string(),
+  uptime_seconds: z.number(),
+  storage_adapter: z.string(),
+  llm_providers: z.array(z.string()),
+  tts_providers: z.array(z.string()),
+  ocr_providers: z.array(z.string()),
+  pipeline_workers: z.number(),
+  feature_flags: z.record(z.string(), z.boolean()),
+});
+export type V1ServerInfo = z.infer<typeof V1ServerInfoSchema>;
 
 // ── Default Voice ──────────────────────────────────────────────────────
 export const DefaultVoiceSchema = z.object({

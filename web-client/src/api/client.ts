@@ -7,6 +7,7 @@ import {
   VoicePreviewResponseSchema,
   DefaultVoiceSchema,
   ServerInfoSchema,
+  V1ServerInfoSchema,
   ProvidersSchema,
   PersonaDiscoverySchema,
   PipelineStatusSchema,
@@ -18,22 +19,53 @@ import {
   type VoicePreviewResponse,
   type DefaultVoice,
   type ServerInfo,
+  type V1ServerInfo,
   type Providers,
   type PersonaDiscovery,
   type PipelineStatus,
 } from '../types/api';
 
-/** Configured via EXPO_PUBLIC_API_URL env var; falls back to localhost for dev. */
-const configuredApiUrl =
-  (globalThis as { process?: { env?: Record<string, string | undefined> } }).process
-    ?.env?.EXPO_PUBLIC_API_URL;
-const inferredApiUrl =
-  typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080';
-const normalizedApiBase = (configuredApiUrl && configuredApiUrl.trim().length > 0
-  ? configuredApiUrl
-  : inferredApiUrl
-).replace(/\/$/, '');
-const API_BASE = `${normalizedApiBase}/api/v1`;
+/**
+ * Mutable API base reference. Updated by ServerConfigProvider on mount / server change.
+ * Falls back to env var or inferred origin if not set externally.
+ */
+let _apiBaseOverride: string | null = null;
+
+function resolveApiBase(): string {
+  if (_apiBaseOverride) return _apiBaseOverride;
+
+  const configuredApiUrl =
+    (globalThis as { process?: { env?: Record<string, string | undefined> } }).process
+      ?.env?.EXPO_PUBLIC_API_URL;
+  const inferredApiUrl =
+    typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080';
+  return (configuredApiUrl && configuredApiUrl.trim().length > 0
+    ? configuredApiUrl
+    : inferredApiUrl
+  ).replace(/\/+$/, '') + '/api/v1';
+}
+
+/** Override the API base URL. Called by ServerConfigProvider when user selects a server. */
+export function setApiBase(base: string): void {
+  _apiBaseOverride = base.replace(/\/+$/, '');
+}
+
+/** Validate a candidate server URL by calling /api/v1/server-info directly. */
+export async function validateServerUrl(
+  baseUrl: string,
+): Promise<V1ServerInfo> {
+  const url = `${baseUrl.replace(/\/+$/, '')}/api/v1/server-info`;
+  const response = await fetch(url, { method: 'GET' });
+
+  if (!response.ok) {
+    throw new Error(
+      `Server validation failed: HTTP ${response.status} from ${url}`,
+    );
+  }
+
+  const data = await response.json();
+  return V1ServerInfoSchema.parse(data);
+}
 
 // ── helpers ─────────────────────────────────────────────────────────────
 
@@ -65,13 +97,13 @@ async function apiRequest<T>(
 // ── Server Info ─────────────────────────────────────────────────────────
 
 export async function getServerInfo(): Promise<ServerInfo> {
-  return apiRequest<ServerInfo>(`${API_BASE}/info`, {}, ServerInfoSchema);
+  return apiRequest<ServerInfo>(`${resolveApiBase()}/info`, {}, ServerInfoSchema);
 }
 
 // ── Providers ───────────────────────────────────────────────────────────
 
 export async function getProviders(): Promise<Providers> {
-  return apiRequest<Providers>(`${API_BASE}/providers`, {}, ProvidersSchema);
+  return apiRequest<Providers>(`${resolveApiBase()}/providers`, {}, ProvidersSchema);
 }
 
 // ── Voices ──────────────────────────────────────────────────────────────
@@ -81,7 +113,7 @@ export async function getVoices(provider?: string): Promise<VoicesResponse> {
   if (provider) params.append('provider', provider);
   const qs = params.toString();
   return apiRequest<VoicesResponse>(
-    `${API_BASE}/voices${qs ? `?${qs}` : ''}`,
+    `${resolveApiBase()}/voices${qs ? `?${qs}` : ''}`,
     {},
     VoicesResponseSchema,
   );
@@ -95,7 +127,7 @@ export async function previewVoice(params: {
   voice_description?: string;
 }): Promise<VoicePreviewResponse> {
   return apiRequest<VoicePreviewResponse>(
-    `${API_BASE}/voices/preview`,
+    `${resolveApiBase()}/voices/preview`,
     {
       method: 'POST',
       body: JSON.stringify(params),
@@ -108,7 +140,7 @@ export async function previewVoice(params: {
 
 export async function getDefaultVoice(): Promise<DefaultVoice> {
   return apiRequest<DefaultVoice>(
-    `${API_BASE}/voices/default`,
+    `${resolveApiBase()}/voices/default`,
     {},
     DefaultVoiceSchema,
   );
@@ -121,7 +153,7 @@ export async function setDefaultVoice(payload: {
   voice_description?: string;
 }): Promise<DefaultVoice> {
   return apiRequest<DefaultVoice>(
-    `${API_BASE}/voices/default`,
+    `${resolveApiBase()}/voices/default`,
     {
       method: 'PUT',
       body: JSON.stringify(payload),
@@ -177,7 +209,7 @@ export async function uploadBook(
   await appendFileToFormData(formData, fileSource);
   appendMetadata(formData, metadata);
 
-  const response = await fetch(`${API_BASE}/books`, {
+  const response = await fetch(`${resolveApiBase()}/books`, {
     method: 'POST',
     body: formData,
     // Let fetch set the multipart content-type header automatically
@@ -197,7 +229,7 @@ export async function uploadBook(
 
 export async function getBooks(): Promise<BookMetadata[]> {
   return apiRequest<BookMetadata[]>(
-    `${API_BASE}/books`,
+    `${resolveApiBase()}/books`,
     {},
     BookMetadataSchema.array() as any,
   );
@@ -205,7 +237,7 @@ export async function getBooks(): Promise<BookMetadata[]> {
 
 export async function getBook(bookId: string): Promise<BookMetadata> {
   return apiRequest<BookMetadata>(
-    `${API_BASE}/books/${bookId}`,
+    `${resolveApiBase()}/books/${bookId}`,
     {},
     BookMetadataSchema,
   );
@@ -215,19 +247,19 @@ export async function getBookStatus(
   bookId: string,
 ): Promise<ProcessingStatus> {
   return apiRequest<ProcessingStatus>(
-    `${API_BASE}/books/${bookId}/status`,
+    `${resolveApiBase()}/books/${bookId}/status`,
     {},
     ProcessingStatusSchema,
   );
 }
 
 export async function getBookSegments(bookId: string): Promise<Segment[]> {
-  const data = await apiRequest<any[]>(`${API_BASE}/books/${bookId}/segments`);
+  const data = await apiRequest<any[]>(`${resolveApiBase()}/books/${bookId}/segments`);
   return data.map((item) => SegmentSchema.parse(item));
 }
 
 export async function deleteBook(bookId: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/books/${bookId}`, {
+  const response = await fetch(`${resolveApiBase()}/books/${bookId}`, {
     method: 'DELETE',
   });
 
@@ -243,7 +275,7 @@ export async function deleteBook(bookId: string): Promise<void> {
 
 export async function getVoiceMap(bookId: string): Promise<VoiceMap> {
   return apiRequest<VoiceMap>(
-    `${API_BASE}/books/${bookId}/voice-map`,
+    `${resolveApiBase()}/books/${bookId}/voice-map`,
     {},
     VoiceMapSchema,
   );
@@ -260,7 +292,7 @@ export async function setVoiceMap(
   const qs = params.toString();
 
   return apiRequest<VoiceMap>(
-    `${API_BASE}/books/${bookId}/voice-map${qs ? `?${qs}` : ''}`,
+    `${resolveApiBase()}/books/${bookId}/voice-map${qs ? `?${qs}` : ''}`,
     {
       method: 'POST',
       body: JSON.stringify(voiceMap),
@@ -275,7 +307,7 @@ export async function getPipelineStatus(
   bookId: string,
 ): Promise<PipelineStatus> {
   return apiRequest<PipelineStatus>(
-    `${API_BASE}/books/${bookId}/pipeline/status`,
+    `${resolveApiBase()}/books/${bookId}/pipeline/status`,
     {},
     PipelineStatusSchema,
   );
@@ -283,7 +315,7 @@ export async function getPipelineStatus(
 
 export async function getPersonas(bookId: string): Promise<PersonaDiscovery> {
   return apiRequest<PersonaDiscovery>(
-    `${API_BASE}/books/${bookId}/personas`,
+    `${resolveApiBase()}/books/${bookId}/personas`,
     {},
     PersonaDiscoverySchema,
   );
@@ -294,15 +326,15 @@ export async function getPersonas(bookId: string): Promise<PersonaDiscovery> {
 export function getStreamUrl(bookId: string, after?: string): string {
   const params = new URLSearchParams();
   if (after) params.append('after', after);
-  return `${API_BASE}/books/${bookId}/stream${params.toString() ? `?${params}` : ''}`;
+  return `${resolveApiBase()}/books/${bookId}/stream${params.toString() ? `?${params}` : ''}`;
 }
 
 export function getDownloadUrl(bookId: string): string {
-  return `${API_BASE}/books/${bookId}/download`;
+  return `${resolveApiBase()}/books/${bookId}/download`;
 }
 
 export function getAudioUrl(bookId: string, segmentId: string): string {
-  return `${API_BASE}/books/${bookId}/audio/${segmentId}`;
+  return `${resolveApiBase()}/books/${bookId}/audio/${segmentId}`;
 }
 
 // ── Stream (NDJSON) ─────────────────────────────────────────────────────
@@ -372,7 +404,7 @@ export function uploadBookWithProgress(
         appendMetadata(formData, metadata);
 
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${API_BASE}/books`);
+        xhr.open('POST', `${resolveApiBase()}/books`);
 
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable && onProgress) {
