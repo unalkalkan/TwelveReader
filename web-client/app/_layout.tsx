@@ -17,6 +17,7 @@ import { useColorScheme } from '../src/hooks/useColorScheme';
 import { PlaybackProvider } from '../src/store/playbackStore';
 import { FavoritesProvider } from '../src/store/favoritesStore';
 import { ServerConfigProvider, useServerConfig } from '../src/store/serverConfigStore';
+import { AuthProvider, useAuth } from '../src/store/authStore';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -36,21 +37,47 @@ function AppContent() {
   const colors = Colors[colorScheme];
   const pathname = usePathname();
   const router = useRouter();
+  const { isAuthenticated, initialized: authInitialized } = useAuth();
 
-  // Redirect from server-select to tabs if already validated (AsyncStorage fallback)
+  // Redirect logic:
+  // 1. If on server-select and already validated → go to login or tabs
+  // 2. If on login and already authenticated → go to tabs
+  // 3. If on tabs and NOT authenticated → go to login
   useEffect(() => {
     (async () => {
       try {
         const storedUrl = await AsyncStorage.getItem('twelvereader_server_url');
         const validatedFlag = await AsyncStorage.getItem('twelvereader_server_validated');
-        if (storedUrl && validatedFlag && pathname === '/server-select') {
+
+        // On server-select: if validated, go to login (or tabs if authenticated)
+        if (pathname === '/server-select' && storedUrl && validatedFlag) {
+          if (authInitialized && isAuthenticated) {
+            router.replace('/(tabs)');
+          } else {
+            router.replace('/login');
+          }
+          return;
+        }
+
+        // On login: if already authenticated, go to tabs
+        if (pathname === '/login' && authInitialized && isAuthenticated) {
           router.replace('/(tabs)');
+          return;
+        }
+
+        // On main tabs: if NOT authenticated and auth has initialized, go to login
+        if (
+          pathname?.startsWith('/(tabs)') &&
+          authInitialized &&
+          !isAuthenticated
+        ) {
+          router.replace('/login');
         }
       } catch {
         // ignore
       }
     })();
-  }, [pathname, router]);
+  }, [pathname, router, isAuthenticated, authInitialized]);
 
   const navTheme = colorScheme === 'dark' ? {
     ...DarkTheme,
@@ -80,6 +107,14 @@ function AppContent() {
         {/* Server selection — shown first on fresh install or after logout */}
         <Stack.Screen
           name="server-select"
+          options={{
+            headerShown: false,
+            presentation: 'fullScreenModal',
+          }}
+        />
+        {/* Login — magic link authentication */}
+        <Stack.Screen
+          name="login"
           options={{
             headerShown: false,
             presentation: 'fullScreenModal',
@@ -123,11 +158,13 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <ServerConfigProvider>
         <ApiBaseSyncer />
-        <PlaybackProvider>
-          <FavoritesProvider>
-            <AppContent />
-          </FavoritesProvider>
-        </PlaybackProvider>
+        <AuthProvider>
+          <PlaybackProvider>
+            <FavoritesProvider>
+              <AppContent />
+            </FavoritesProvider>
+          </PlaybackProvider>
+        </AuthProvider>
       </ServerConfigProvider>
     </QueryClientProvider>
   );

@@ -71,8 +71,8 @@ export default function ServerSelectScreen() {
       // Mark server as validated
       await AsyncStorage.setItem('twelvereader_server_validated', 'true');
 
-      // Navigate to main app
-      router.replace('/(tabs)');
+      // Navigate to login screen
+      router.replace('/login');
     } catch (err: any) {
       setError(err.message || 'Failed to connect to server.');
     } finally {

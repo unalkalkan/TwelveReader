@@ -192,10 +192,43 @@ export const StageProgressSchema = z.object({
 });
 export type StageProgress = z.infer<typeof StageProgressSchema>;
 
-// ── Pipeline Status ────────────────────────────────────────────────────
+// ── Pipeline Status ──────────────────────────────────────────────────
 export const PipelineStatusSchema = z.object({
   book_id: z.string(),
   stages: z.array(StageProgressSchema),
   updated_at: z.string(),
 });
 export type PipelineStatus = z.infer<typeof PipelineStatusSchema>;
+
+// ── Auth ───────────────────────────────────────────────────────────────
+export const AuthUserSchema = z.object({
+  id: z.string(),
+  account_id: z.string(),
+  email: z.string(),
+  name: z.string().optional(),
+  role_id: z.string(),
+  status: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  deleted_at: z.string().nullable().optional(),
+});
+export type AuthUser = z.infer<typeof AuthUserSchema>;
+
+export const AuthLoginResponseSchema = z.object({
+  user: AuthUserSchema,
+  session_token: z.string(),
+  refresh_token: z.string(),
+});
+export type AuthLoginResponse = z.infer<typeof AuthLoginResponseSchema>;
+
+export const AuthRefreshResponseSchema = z.object({
+  session_token: z.string(),
+  refresh_token: z.string(),
+});
+export type AuthRefreshResponse = z.infer<typeof AuthRefreshResponseSchema>;
+
+export const AuthMeResponseSchema = z.object({
+  user: AuthUserSchema,
+  role_name: z.string().optional(),
+});
+export type AuthMeResponse = z.infer<typeof AuthMeResponseSchema>;

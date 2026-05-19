@@ -6,6 +6,7 @@ import {
   StyleSheet,
   FlatList,
   TextInput,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +16,7 @@ import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../src/hooks/useColorScheme';
 import { useBooksWithFastPolling } from '../../src/api/hooks';
 import type { BookMetadata } from '../../src/types/api';
+import { useAuth } from '../../src/store/authStore';
 
 const STATUS_LABELS: Record<string, string> = {
   uploaded: 'Processing...',
@@ -44,6 +46,7 @@ export default function LibraryScreen() {
   const theme = useColorScheme();
   const colors = Colors[theme];
   const router = useRouter();
+  const auth = useAuth();
   const { data: books, isLoading, refetch } = useBooksWithFastPolling();
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -134,19 +137,42 @@ export default function LibraryScreen() {
     >
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Library</Text>
-        <TouchableOpacity
-          onPress={() => {
-            setSearchVisible(!searchVisible);
-            if (searchVisible) setSearchQuery('');
-          }}
-          style={[styles.iconBtn, { backgroundColor: colors.card }]}
-        >
-          <MaterialIcons
-            name={searchVisible ? 'close' : 'search'}
-            size={20}
-            color={colors.text}
-          />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          {/* User email + logout */}
+          <TouchableOpacity
+            onPress={() => Alert.alert(
+              'Sign out',
+              'Are you sure you want to sign out?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Sign out',
+                  style: 'destructive',
+                  onPress: async () => {
+                    await auth.logout();
+                    router.replace('/server-select');
+                  },
+                },
+              ],
+            )}
+            style={[styles.iconBtn, { backgroundColor: colors.card }]}
+          >
+            <MaterialIcons name="logout" size={20} color="#EF4444" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              setSearchVisible(!searchVisible);
+              if (searchVisible) setSearchQuery('');
+            }}
+            style={[styles.iconBtn, { backgroundColor: colors.card }]}
+          >
+            <MaterialIcons
+              name={searchVisible ? 'close' : 'search'}
+              size={20}
+              color={colors.text}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ─── Search bar ─── */}
@@ -254,6 +280,11 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   title: { fontSize: 30, fontWeight: '700', letterSpacing: -0.5 },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   iconBtn: {
     width: 40,
     height: 40,

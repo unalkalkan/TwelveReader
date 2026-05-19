@@ -50,6 +50,11 @@ export function setApiBase(base: string): void {
   _apiBaseOverride = base.replace(/\/+$/, '');
 }
 
+/** Synchronously read the current API base. Used by auth module to stay in sync. */
+export function resolveApiBaseSync(): string {
+  return resolveApiBase();
+}
+
 /** Validate a candidate server URL by calling /api/v1/server-info directly. */
 export async function validateServerUrl(
   baseUrl: string,
@@ -69,17 +74,74 @@ export async function validateServerUrl(
 
 // ── helpers ─────────────────────────────────────────────────────────────
 
+/**
+ * Flag to prevent infinite retry loops when a 401 triggers refresh which itself gets a 401.
+ */
+let _refreshing = false;
+
+/**
+ * Fetch with Bearer token attachment and auto-refresh on 401.
+ * Used by both apiRequest and direct fetch calls (upload, delete).
+ */
+async function authenticatedFetch(
+  url: string,
+  options?: RequestInit,
+): Promise<Response> {
+  // Attach Bearer token if available
+  const auth = await import('./auth');
+  let token: string | null = null;
+  try {
+    token = await auth.getSessionToken();
+  } catch {
+    // ignore — proceed without auth
+  }
+
+  const headers: Record<string, string> = {
+    ...options?.headers as Record<string, string>,
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  let response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  // Auto-refresh on 401 (but only once per request chain)
+  if (response.status === 401 && !_refreshing) {
+    _refreshing = true;
+    try {
+      const newToken = await auth.attemptRefresh();
+      if (newToken) {
+        headers['Authorization'] = `Bearer ${newToken}`;
+        response = await fetch(url, {
+          ...options,
+          headers,
+        });
+      }
+    } finally {
+      _refreshing = false;
+    }
+  }
+
+  return response;
+}
+
 async function apiRequest<T>(
   url: string,
   options?: RequestInit,
   schema?: { parse: (d: unknown) => T },
 ): Promise<T> {
-  const response = await fetch(url, {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...options?.headers as Record<string, string>,
+  };
+
+  let response = await authenticatedFetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -209,10 +271,22 @@ export async function uploadBook(
   await appendFileToFormData(formData, fileSource);
   appendMetadata(formData, metadata);
 
+  // Use authenticatedFetch but DON'T set Content-Type (multipart boundary is auto-set)
+  const authHeaders: Record<string, string> = {};
+  try {
+    const auth = await import('./auth');
+    const token = await auth.getSessionToken();
+    if (token) {
+      authHeaders['Authorization'] = `Bearer ${token}`;
+    }
+  } catch {
+    // ignore
+  }
+
   const response = await fetch(`${resolveApiBase()}/books`, {
     method: 'POST',
     body: formData,
-    // Let fetch set the multipart content-type header automatically
+    headers: authHeaders,
   });
 
   if (!response.ok) {
@@ -259,9 +333,10 @@ export async function getBookSegments(bookId: string): Promise<Segment[]> {
 }
 
 export async function deleteBook(bookId: string): Promise<void> {
-  const response = await fetch(`${resolveApiBase()}/books/${bookId}`, {
-    method: 'DELETE',
-  });
+  const response = await authenticatedFetch(
+    `${resolveApiBase()}/books/${bookId}`,
+    { method: 'DELETE' },
+  );
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({
@@ -374,7 +449,7 @@ export async function fetchBookStream(
   after?: string,
 ): Promise<StreamSegment[]> {
   const url = getStreamUrl(bookId, after);
-  const response = await fetch(url);
+  const response = await authenticatedFetch(url);
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({
@@ -396,8 +471,17 @@ export function uploadBookWithProgress(
   metadata?: { title?: string; author?: string; language?: string },
   onProgress?: (percent: number) => void,
 ): Promise<BookMetadata> {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const formData = new FormData();
+
+    // Get auth token before starting upload
+    let authToken: string | null = null;
+    try {
+      const auth = await import('./auth');
+      authToken = await auth.getSessionToken();
+    } catch {
+      // ignore
+    }
 
     appendFileToFormData(formData, fileSource)
       .then(() => {
@@ -405,6 +489,11 @@ export function uploadBookWithProgress(
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', `${resolveApiBase()}/books`);
+
+        // Attach auth token if available
+        if (authToken) {
+          xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+        }
 
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable && onProgress) {
