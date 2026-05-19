@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -225,5 +226,110 @@ func TestAccessLogMultipleMethods(t *testing.T) {
 		if !strings.Contains(logLine, expectedMethod) {
 			t.Errorf("expected %s in log for %s request, got: %s", expectedMethod, method, logLine)
 		}
+	}
+}
+
+// TestResponseWriterPreservesFlusher is the regression test for the Debug Dashboard SSE issue.
+// The access-log wrapper MUST preserve http.Flusher so that EventStream can assert it.
+func TestResponseWriterPreservesFlusher(t *testing.T) {
+	recorder := httptest.NewRecorder() // implements http.Flusher
+	rw := NewResponseWriter(recorder)
+
+	// Assign to interface{} so we can do the type assertion (same pattern as handler code).
+	var wr http.ResponseWriter = rw
+	flusher, ok := wr.(http.Flusher)
+	if !ok {
+		t.Fatal("responseWriter should implement http.Flusher (SSE streaming broken)")
+	}
+	// Calling Flush() should not panic.
+	func() {
+		defer func() {
+			if recover() != nil {
+				t.Fatal("Flush() panicked")
+			}
+		}()
+		flusher.Flush()
+	}()
+	// Verify status capture still works alongside Flush.
+	rw.WriteHeader(http.StatusAccepted)
+	if rw.StatusCode() != http.StatusAccepted {
+		t.Errorf("expected status 202, got %d", rw.StatusCode())
+	}
+}
+
+// TestResponseWriterFlusherPassthrough verifies that responseWriter wrapping an underlying
+// Flusher is itself a Flusher and still captures status codes.
+func TestResponseWriterFlusherPassthrough(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	rw := NewResponseWriter(recorder)
+
+	var wr http.ResponseWriter = rw
+	if _, ok := wr.(http.Flusher); !ok {
+		t.Fatal("responseWriter wrapping ResponseRecorder (which is Flusher) should itself be a Flusher")
+	}
+	// Verify it also still captures status.
+	rw.WriteHeader(http.StatusNoContent)
+	if rw.StatusCode() != http.StatusNoContent {
+		t.Errorf("expected 204, got %d", rw.StatusCode())
+	}
+}
+
+// TestResponseWriterNonFlusherUnderlying ensures Flush does not panic when the underlying
+// ResponseWriter does NOT implement http.Flusher (graceful no-op).
+func TestResponseWriterNonFlusherUnderlying(t *testing.T) {
+	// An anonymous struct embedding http.ResponseWriter interface does NOT promote Flush()
+	// from the concrete type, so it's a non-Flusher even though ResponseRecorder is one.
+	wrapped := struct{ http.ResponseWriter }{httptest.NewRecorder()}
+
+	rw := NewResponseWriter(wrapped)
+	var wr http.ResponseWriter = rw
+	flusher, ok := wr.(http.Flusher)
+	if !ok {
+		t.Fatal("responseWriter should always implement http.Flusher (even when underlying does not)")
+	}
+	// Flush should not panic — it no-ops when underlying is not a Flusher.
+	func() {
+		defer func() {
+			if recover() != nil {
+				t.Fatal("Flush() panicked on non-flusher underlying writer")
+			}
+		}()
+		flusher.Flush()
+	}()
+}
+
+// TestAccessLogMiddlewareSSEPassthrough verifies the full middleware chain preserves Flusher
+// so a handler asserting http.Flusher succeeds.
+func TestAccessLogMiddlewareSSEPassthrough(t *testing.T) {
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer log.SetOutput(os.Stderr)
+
+	handler := AccessLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// This is the exact check from DebugHandler.EventStream line 145.
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprintln(w, "event: ping\ndata: ok")
+		flusher.Flush()
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/debug/stream", nil)
+	rw := httptest.NewRecorder()
+	handler.ServeHTTP(rw, req)
+
+	if rw.Code == http.StatusInternalServerError {
+		t.Errorf("expected SSE stream (200), got 500: %s", rw.Body.String())
+	}
+	if !strings.Contains(rw.Header().Get("Content-Type"), "text/event-stream") {
+		t.Errorf("expected text/event-stream content type, got: %s", rw.Header().Get("Content-Type"))
+	}
+	logLine := strings.TrimSpace(buf.String())
+	if !strings.Contains(logLine, "status=200") {
+		t.Errorf("expected status=200 in access log, got: %s", logLine)
 	}
 }
